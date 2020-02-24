@@ -409,6 +409,8 @@ void Adafruit_Protomatter::row_handler(void) {
             // Optimization opportunity: if device has a toggle register,
             // and if all address lines are on same PORT, can do in a single
             // operation and not need delays for each address bit.
+            // Also consider even in non-same-PORT case, each delay is
+            // probably only required if address line value has changed.
         }
 
         // Advance bitplane index and/or row as necessary

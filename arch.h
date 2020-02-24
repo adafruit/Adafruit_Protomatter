@@ -160,7 +160,7 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
     inline uint32_t _PM_timerStop(void) {
         _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 0;
         while(_PM_TIMER->COUNT16.SYNCBUSY.bit.STATUS);
-        return timerGetCount();
+        return _PM_timerGetCount();
     }
 
   #else
