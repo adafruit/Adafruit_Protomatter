@@ -74,7 +74,6 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
       return _PM_TIMER->COUNT16.COUNT.reg;
   }
 
-
   // Timer interrupt service routine
   void _PM_IRQ_HANDLER(void) {
       extern void _PM_row_handler(void); // In .cpp

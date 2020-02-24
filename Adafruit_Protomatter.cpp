@@ -83,10 +83,10 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
     }
 
     // Start planning for screen data allocation (happens later)
-    uint8_t  chunks   = (WIDTH + (_PM_chunkSize - 1)) / _PM_chunkSize;
-    uint16_t columns  = chunks * _PM_chunkSize; // Padded matrix width
-    uint8_t  rowPairs = 1 << numAddressLines;   // 2 rows per byte/word/etc.
-    uint32_t bytes    = columns * rowPairs * numPlanes;
+    uint8_t  chunks      = (WIDTH + (_PM_chunkSize - 1)) / _PM_chunkSize;
+    uint16_t columns     = chunks * _PM_chunkSize; // Padded matrix width
+    uint8_t  rowPairs    = 1 << numAddressLines;   // 2 rows per byte/word/etc.
+    uint32_t screenBytes = columns * rowPairs * numPlanes;
 
     // Determine data type for internal representation. If all the data
     // bitmasks (and possibly clock bitmask, depending whether toggle-bits
@@ -116,70 +116,76 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
         break;
     }
 
-    bytes *= bytesPerElement;
-
-    bufferSize = bytes;          // Bytes per matrix buffer (1 or 2)
-    if(doubleBuffer) bytes *= 2; // Bytes total for matrix buffer(s)
-    bytes += parallel * 6 * bytesPerElement; // Add'l space for rgbMasks
+    screenBytes *= bytesPerElement;
+    bufferSize   = screenBytes;        // Bytes per matrix buffer (1 or 2)
+    if(doubleBuffer) screenBytes *= 2; // Bytes total for matrix buffer(s)
+    uint32_t rgbMaskBytes = parallel * 6 * bytesPerElement;
 
     // Allocate matrix buffer(s). Don't worry about the return type...
     // though we might be using words or longs for certain pin configs,
     // malloc() by definition always aligns to the longest type.
-    if((screenData = (uint8_t *)malloc(bytes)) == NULL) {
+    if((screenData = (uint8_t *)malloc(screenBytes + rgbMaskBytes)) == NULL) {
         return PROTOMATTER_ERR_MALLOC;
     }
 
     // rgbMask data follows the matrix buffer(s)
-    rgbMask = screenData + bufferSize;
-    if(doubleBuffer) rgbMask += bufferSize;
+    rgbMask = screenData + screenBytes;
 
 #if !defined(_PM_portToggleRegister)
     // Clear entire screenData buffer so there's no cruft in any pad bytes
     // (if using toggle register, each is set to clockMask below instead).
-    memset(screenData, 0, bytes);
+    memset(screenData, 0, screenBytes);
 #endif
 
     if(bytesPerElement == 1) {
         portOffset      = _PM_byteOffset(rgbPins[0]);
+#if defined(_PM_portToggleRegister)
+        // Clock and rgbAndClockMask are 8-bit values
         clockMask       = _PM_portBitMask(clockPin) >> (portOffset * 8);
         rgbAndClockMask = (bitMask >> (portOffset * 8)) | clockMask;
+        memset(screenData, clockMask, screenBytes);
+#else
+        // Clock and rgbAndClockMask are 32-bit values
+        clockMask       = _PM_portBitMask(clockPin);
+        rgbAndClockMask = bitMask | clockMask;
+#endif
         for(uint8_t i=0; i<parallel * 6; i++) {
             ((uint8_t *)rgbMask)[i] =  // Pin bitmasks are stored 8-bit
               _PM_portBitMask(rgbPins[i]) >> (portOffset * 8);
         }
-#if defined(_PM_portToggleRegister)
-        memset(screenData, clockMask, bytes);
-#endif
     } else if(bytesPerElement == 2) {
         portOffset      = _PM_wordOffset(rgbPins[0]);
+#if defined(_PM_portToggleRegister)
+        // Clock and rgbAndClockMask are 16-bit values
         clockMask       = _PM_portBitMask(clockPin) >> (portOffset * 16);
         rgbAndClockMask = (bitMask >> (portOffset * 16)) | clockMask;
+        uint32_t elements = screenBytes / 2;
+        for(uint32_t i=0; i<elements; i++) {
+            ((uint16_t *)screenData)[i] = clockMask;
+        }
+#else
+        // Clock and rgbAndClockMask are 32-bit values
+        clockMask       = _PM_portBitMask(clockPin);
+        rgbAndClockMask = bitMask | clockMask;
+#endif
         for(uint8_t i=0; i<parallel * 6; i++) {
             ((uint16_t *)rgbMask)[i] =  // Pin bitmasks are stored 16-bit
               _PM_portBitMask(rgbPins[i]) >> (portOffset * 16);
         }
-#if defined(_PM_portToggleRegister)
-        uint32_t elements = bufferSize / 2;
-        if(doubleBuffer) elements *= 2;
-        for(uint32_t i=0; i<elements; i++) {
-            ((uint16_t *)screenData)[i] = clockMask;
-        }
-#endif
     } else {
         portOffset      = 0;
         clockMask       = _PM_portBitMask(clockPin);
         rgbAndClockMask = bitMask | clockMask;
-        for(uint8_t i=0; i<parallel * 6; i++) {
-            ((uint32_t *)rgbMask)[i] = // Pin bitmasks are stored 32-bit
-              _PM_portBitMask(rgbPins[i]);
-        }
 #if defined(_PM_portToggleRegister)
-        uint32_t elements = bufferSize / 4;
-        if(doubleBuffer) elements *= 2;
+        uint32_t elements = screenBytes / 4;
         for(uint32_t i=0; i<elements; i++) {
             ((uint32_t *)screenData)[i] = clockMask;
         }
 #endif
+        for(uint8_t i=0; i<parallel * 6; i++) {
+            ((uint32_t *)rgbMask)[i] = // Pin bitmasks are stored 32-bit
+              _PM_portBitMask(rgbPins[i]);
+        }
     }
 
     activeBuffer = 0;
@@ -334,13 +340,13 @@ void Adafruit_Protomatter::convert_byte(uint8_t *dest) {
                 blueBit = 0b0000000000000001;
             }
 #if defined(_PM_portToggleRegister)
-            // If using bit-toggle register, back up and erase the toggle bit
-            // on the first element of each bitplane & row pair. The matrix-
-            // driving interrupt functions correspondingly set the clock low
-            // before finishing. This is all done for legibility on
-            // oscilloscope -- so idle clock appears LOW -- but really the
-            // matrix samples on a rising edge and we could leave it high,
-            // but at this development stage want the scope "readable."
+            // If using bit-toggle register, erase the toggle bit on the
+            // first element of each bitplane & row pair. The matrix-driving
+            // interrupt functions correspondingly set the clock low before
+            // finishing. This is all done for legibility on oscilloscope --
+            // so idle clock appears LOW -- but really the matrix samples on
+            // a rising edge and we could leave it high, but at this stage
+            // in development just want the scope "readable."
             dest[-pad] &= ~clockMask; // Negative index is legal & intentional
 #endif
             dest += bitplaneSize; // Advance one scanline in dest buffer
@@ -348,50 +354,6 @@ void Adafruit_Protomatter::convert_byte(uint8_t *dest) {
         upperSrc += WIDTH; // Advance one scanline in source buffer
         lowerSrc += WIDTH;
     } // end row
-
-
-
-#if SLARTIBARTFAST
-// Other approach works nonsequentially though the destination,
-// but sequentially through source.
-        for(uint16_t x=0; x<WIDTH; x++) {
-            uint32_t hiRGB = *upperSrc++;
-            uint32_t loRGB = *lowerSrc++;
-            // Mask out 5 bits red & blue (6 bit gap), expand to 10 bits
-            // (1 bit gap), mask out 6 bits green and move to top:
-            // RRRRRGGGGGGBBBBB -> GGGGGGRRRRRRRRRR0BBBBBBBBBB
-            hiRGB = ((hiRGB & 0b1111100000011111) * 0b100001) |
-                    ((hiRGB & 0b11111100000) << 21);
-            loRGB = ((loRGB & 0b1111100000011111) * 0b100001) |
-                    ((loRGB & 0b11111100000) << 21);
-            // Conversion works from MSB toward LSB and stops at 6 bits max,
-            // no need to shift down or mask out 6 bits, just start at MSB.
-            for(int8_t plane=numPlanes-1; plane >=0; plane--) {
-#if defined(_PM_portToggleRegister)
-                uint8_t result = clockMask;
-#else
-                uint8_t result = 0;
-#endif
-                if(hiRGB & 0b000000100000000000000000000) result |= pinMask[0];
-                if(hiRGB & 0b100000000000000000000000000) result |= pinMask[1];
-                if(hiRGB & 0b000000000000000001000000000) result |= pinMask[2];
-                if(loRGB & 0b000000100000000000000000000) result |= pinMask[3];
-                if(loRGB & 0b100000000000000000000000000) result |= pinMask[4];
-                if(loRGB & 0b000000000000000001000000000) result |= pinMask[5];
-                *dest = result;
-                dest += bitPlaneBytes;
-                hiRGB <<= 1;
-                loRGB <<= 1;
-            }
-        }
-#if defined(_PM_portToggleRegister)
-        // Then back up and erase the toggle bit on the first element
-        // dest[something] &= ~clockMask;
-        // If predecrementing, could just:
-        // *dest &= ~clockMask;
-#endif
-
-#endif // SLARTIBARTFAST
 }
 
 void Adafruit_Protomatter::convert_word(uint16_t *dest) {
@@ -438,6 +400,17 @@ void Adafruit_Protomatter::row_handler(void) {
             }
         }
 
+        if(timePlane == 0) {
+            // Configure row address lines:
+            for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
+                digitalWrite(addrPins[line], row & bit);
+                delayMicroseconds(10);
+            }
+            // Optimization opportunity: if device has a toggle register,
+            // and if all address lines are on same PORT, can do in a single
+            // operation and not need delays for each address bit.
+        }
+
         // Advance bitplane index and/or row as necessary
         if(++plane >= numPlanes) {     // Next data bitplane, or
             plane = 0;                 // roll over bitplane to start
@@ -450,14 +423,6 @@ void Adafruit_Protomatter::row_handler(void) {
                 }
                 frameCount++;
             }
-            // Configure row address lines:
-            for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
-                digitalWrite(addrPins[line], row & bit);
-                delayMicroseconds(10);
-            }
-            // Optimization opportunity: if device has a toggle register,
-            // and if all address lines are on same PORT, can do in a single
-            // operation and not need delays for each address bit.
         }
 
         // 'plane' now is index of data to load, NOT data to display.
@@ -567,8 +532,9 @@ void Adafruit_Protomatter::blast_byte(uint8_t *data) {
     // Want the PORT left with RGB data and clock LOW on function exit
     // (so it's easier to see on 'scope, and to prime it for the next call).
     // This is implicit in the no-toggle case (due to how the PEW macro
-    // works), but toggle case requires explicitly clearing those bits...
-    *(volatile uint32_t *)clearReg = rgbAndClockMask;
+    // works), but toggle case requires explicitly clearing those bits.
+    // rgbAndClockMask is an 8-bit value when toggling, hence offset here.
+    *((volatile uint8_t *)clearReg + portOffset) = rgbAndClockMask;
 #endif
 }
 
@@ -591,7 +557,8 @@ void Adafruit_Protomatter::blast_word(uint16_t *data) {
         PEW_UNROLL // _PM_chunkSize RGB+clock writes
     }
 #if defined(_PM_portToggleRegister)
-    *(volatile uint32_t *)clearReg = rgbAndClockMask;
+    // rgbAndClockMask is a 16-bit value when toggling, hence offset here.
+    *((volatile uint16_t *)clearReg + portOffset) = rgbAndClockMask;
 #endif
 }
 
