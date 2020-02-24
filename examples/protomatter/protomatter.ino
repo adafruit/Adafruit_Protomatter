@@ -26,10 +26,15 @@ void setup(void) {
   ProtomatterStatus status = matter.begin();
   Serial.print("Protomatter begin() status: ");
   Serial.println((int)status);
+
+  matter.fillRect( 1, 1, 8, 8, 0b1111100000000000); // Red
+  matter.fillRect( 7, 4, 8, 8, 0b0000011111100000); // Green
+  matter.fillRect(13, 7, 8, 8, 0b0000000000011111); // Blue
+  matter.show(); // Push data to matrix
 }
 
 void loop(void) {
-  Serial.print("Alive! Elapsed time (ms) = ");
-  Serial.println(millis());
-  delay(500);
+  Serial.print("Refresh FPS = ~");
+  Serial.println(matter.getFrameCount());
+  delay(1000);
 }

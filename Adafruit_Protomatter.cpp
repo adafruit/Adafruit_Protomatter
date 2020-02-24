@@ -26,7 +26,7 @@ Adafruit_Protomatter::Adafruit_Protomatter(
   GFXcanvas16(bitWidth, (2 << addrCount) * rgbCount), parallel(rgbCount),
   numAddressLines(addrCount), clockPin(clockPin), latchPin(latchPin),
   oePin(oePin), doubleBuffer(doubleBuffer), swapBuffers(0), screenData(NULL),
-  rgbPins(NULL), bitZeroPeriod(bitWidth * 5) {
+  rgbPins(NULL), bitZeroPeriod(bitWidth * 5), frameCount(0) {
 
     if(bitDepth > 6) bitDepth = 6;
     numPlanes   = bitDepth;
@@ -98,40 +98,29 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
     if(bitMask & 0x0000FF00) byteMask |= 0b0010;
     if(bitMask & 0x000000FF) byteMask |= 0b0001;
     switch(byteMask) {
-      case 0b0001: // If all PORT bits are in the same byte...
+      case 0b0001:           // If all PORT bits are in the same byte...
       case 0b0010:
       case 0b0100:
       case 0b1000:
-        // Use 8-bit PORT accesses.
-        portWidth       = PROTOMATTER_BYTE;
-        portOffset      = _PM_byteOffset(rgbPins[0]);
-        clockMask       = _PM_portBitMask(clockPin) >> (portOffset * 8);
-        rgbAndClockMask = (bitMask >> (portOffset * 8)) | clockMask;
+        bytesPerElement = 1; // Use 8-bit PORT accesses.
         break;
-      case 0b0011: // If all PORT bits are in upper or lower word...
+      case 0b0011:           // If all PORT bits are in upper or lower word...
       case 0b1100:
-        // Use 16-bit PORT accesses.
+        bytesPerElement = 2; // Use 16-bit PORT accesses.
         // Although some devices might tolerate unaligned 16-bit accesses
         // ('middle' word of 32-bit PORT), that is NOT handled here.
         // It's a portability liability.
-        portWidth       = PROTOMATTER_WORD;
-        portOffset      = _PM_wordOffset(rgbPins[0]);
-        bytes          *= 2;
-        clockMask       = _PM_portBitMask(clockPin) >> (portOffset * 16);
-        rgbAndClockMask = (bitMask >> (portOffset * 16)) | clockMask;
         break;
-      default:     // Any other situation...
-        // Use 32-bit PORT accesses.
-        portWidth       = PROTOMATTER_LONG;
-        portOffset      = 0;
-        bytes          *= 4;
-        clockMask       = _PM_portBitMask(clockPin);
-        rgbAndClockMask = bitMask | clockMask;
+      default:               // Any other situation...
+        bytesPerElement = 4; // Use 32-bit PORT accesses.
         break;
     }
 
+    bytes *= bytesPerElement;
+
     bufferSize = bytes;          // Bytes per matrix buffer (1 or 2)
     if(doubleBuffer) bytes *= 2; // Bytes total for matrix buffer(s)
+    bytes += parallel * 6 * bytesPerElement; // Add'l space for rgbMasks
 
     // Allocate matrix buffer(s). Don't worry about the return type...
     // though we might be using words or longs for certain pin configs,
@@ -140,13 +129,59 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
         return PROTOMATTER_ERR_MALLOC;
     }
 
-    // Clear the entire screenData buffer. In theory the first bufferSize
-    // bytes are enough, but if the screen width involves _PM_chunkSize
-    // padding, there could be residual sensitive data (WiFi credentials,
-    // web API tokens, etc.) still in that RAM, and which could be partially
-    // sniffed shifting out the other end of the matrix. Astoundingly
-    // unlikely but not physically impossible scenario, so here we are.
+    // rgbMask data follows the matrix buffer(s)
+    rgbMask = screenData + bufferSize;
+    if(doubleBuffer) rgbMask += bufferSize;
+
+#if !defined(_PM_portToggleRegister)
+    // Clear entire screenData buffer so there's no cruft in any pad bytes
+    // (if using toggle register, each is set to clockMask below instead).
     memset(screenData, 0, bytes);
+#endif
+
+    if(bytesPerElement == 1) {
+        portOffset      = _PM_byteOffset(rgbPins[0]);
+        clockMask       = _PM_portBitMask(clockPin) >> (portOffset * 8);
+        rgbAndClockMask = (bitMask >> (portOffset * 8)) | clockMask;
+        for(uint8_t i=0; i<parallel * 6; i++) {
+            ((uint8_t *)rgbMask)[i] =  // Pin bitmasks are stored 8-bit
+              _PM_portBitMask(rgbPins[i]) >> (portOffset * 8);
+        }
+#if defined(_PM_portToggleRegister)
+        memset(screenData, clockMask, bytes);
+#endif
+    } else if(bytesPerElement == 2) {
+        portOffset      = _PM_wordOffset(rgbPins[0]);
+        clockMask       = _PM_portBitMask(clockPin) >> (portOffset * 16);
+        rgbAndClockMask = (bitMask >> (portOffset * 16)) | clockMask;
+        for(uint8_t i=0; i<parallel * 6; i++) {
+            ((uint16_t *)rgbMask)[i] =  // Pin bitmasks are stored 16-bit
+              _PM_portBitMask(rgbPins[i]) >> (portOffset * 16);
+        }
+#if defined(_PM_portToggleRegister)
+        uint32_t elements = bufferSize / 2;
+        if(doubleBuffer) elements *= 2;
+        for(uint32_t i=0; i<elements; i++) {
+            ((uint16_t *)screenData)[i] = clockMask;
+        }
+#endif
+    } else {
+        portOffset      = 0;
+        clockMask       = _PM_portBitMask(clockPin);
+        rgbAndClockMask = bitMask | clockMask;
+        for(uint8_t i=0; i<parallel * 6; i++) {
+            ((uint32_t *)rgbMask)[i] = // Pin bitmasks are stored 32-bit
+              _PM_portBitMask(rgbPins[i]);
+        }
+#if defined(_PM_portToggleRegister)
+        uint32_t elements = bufferSize / 4;
+        if(doubleBuffer) elements *= 2;
+        for(uint32_t i=0; i<elements; i++) {
+            ((uint32_t *)screenData)[i] = clockMask;
+        }
+#endif
+    }
+
     activeBuffer = 0;
 
     // Estimate minimum bitplane #0 period for _PM_MAX_REFRESH_HZ rate.
@@ -187,24 +222,15 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
 // Convert GFXcanvas16 framebuffer representation to weird internal format
 // used by the matrix-driving loop.
 void Adafruit_Protomatter::show(void) {
-// canvas height/width, _PM_chunkSize
-// numRowPairs, numPlanes, doubleBuffer
-// Have conversion tables for red, green, blue.
-// It'll always be 32,64,32 bytes, words or longs
-
-// Wait -- will need separate RGB tables for the top and bottom half of
-// the display (because on separate pins), and for each parallel display
-// (so 2 * parallel * R,G,B * size type)
-// How to unroll this -- row by row, then columns? Probably.
 
     uint8_t *dest = screenData;
     if(doubleBuffer) {
         dest += bufferSize * (1 - activeBuffer);
     }
 
-    if(portWidth == PROTOMATTER_BYTE) {
+    if(bytesPerElement == 1) {
         convert_byte((uint8_t *)dest);
-    } else if(portWidth == PROTOMATTER_WORD) {
+    } else if(bytesPerElement == 2) {
         convert_word((uint16_t *)dest);
     } else {
         convert_long((uint32_t *)dest);
@@ -219,49 +245,161 @@ void Adafruit_Protomatter::show(void) {
 }
 
 // Process data from GFXcanvas16 into screenData buffer
+
+// There are THREE COPIES of the following function -- one each for byte,
+// word and long. If changes are made in any one of them, the others MUST
+// be updated to match! Note that they are not simple duplicates of each
+// other. The byte case, for example, doesn't need to handle parallel
+// matrix chains (matrix data can only be byte-sized if one chain).
+
 void Adafruit_Protomatter::convert_byte(uint8_t *dest) {
-    uint16_t *src = getBuffer(); // GFXcanvas16 raster data
+    uint16_t *upperSrc = getBuffer();                    // Canvas top half
+    uint16_t *lowerSrc = upperSrc + WIDTH * numRowPairs; // " bottom half
+    uint8_t  *pinMask  = (uint8_t *)rgbMask;             // Pin bitmasks
 
-    // Clear matrix display buffer...bits are then just OR'd into place
-    memset(dest, 0, bufferSize);
+    // No need to clear matrix buffer, loops below do a full overwrite
+    // (except for any scanline pad, which was already initialized in the
+    // begin() function and won't be touched here).
 
-    // Counters for keeping track of rows and such. These are initialized
-    // to values that will roll over at the top of the per-row loop...
-    int8_t chain = -1;          // Current parallel chain number
-    int8_t half  = 1;           // Top (0) or bottom (1) half of chain?
-    int8_t row   = numRowPairs; // Current row within top or botom half
-    for(uint16_t y=0; y<HEIGHT; y++) {
-        if(++row >= numRowPairs) { // If crossing half-matrix...
-            row = 0;               // Reset row counter
-            if(++half >= 2) {      // + half counter. If crossing chain...
-                half = 0;          // Reset half counter
-                chain++;           // + chain counter
-            }
-        }
-        // Set up pointers here
-// Start of dest data may need to skip chunk padding
+    // Determine matrix bytes per bitplane & row (row pair really):
+    uint32_t bitplaneSize = _PM_chunkSize *
+        ((WIDTH + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
+    uint32_t rowSize      = bitplaneSize * numPlanes; // All planes of row pair
+    uint8_t  pad          = bitplaneSize - WIDTH;     // Start-of-plane pad
 
-        // The good news is that the source pointer from the GFXcanvas16
-        // just proceeds linearly through the whole image, there's no
-        // scanline padding or weird data sequence.
+    // Skip initial scanline padding if present (HUB75 matrices shift data
+    // in from right-to-left, so if we need scanline padding it occurs at
+    // the start of a line, rather than the usual end). Destination pointer
+    // passed in already handles double-buffer math, so we don't need to
+    // handle that here, just the pad...
+    dest += pad;
 
-        for(uint16_t x=0; x<WIDTH; x++) {
-            uint16_t rgb   = *src++;
-            uint8_t  red   =  rgb >> 11;            // High 5 bits
-            uint8_t  green = (rgb >> 5) & 0b111111; // Mid 6 bits
-            uint8_t  blue  =  rgb * 0b11111;        // Low 5 bits
-            for(uint8_t plane=0; plane<numPlanes; plane++) {
-            }
-        }
+    uint32_t initialRedBit, initialGreenBit, initialBlueBit;
+    if(numPlanes == 6) {
+        // If numPlanes is 6, red and blue are expanded from 5 to 6 bits.
+        // This involves duplicating the MSB of the 5-bit value to the LSB
+        // of its corresponding 6-bit value...or in this case, bitmasks for
+        // red and blue are initially assigned to canvas MSBs, while green
+        // starts at LSB (because it's already 6-bit). Inner loop below then
+        // wraps red & blue after the first bitplane.
+        initialRedBit   = 0b1000000000000000; // MSB red
+        initialGreenBit = 0b0000000000100000; // LSB green
+        initialBlueBit  = 0b0000000000010000; // MSB blue
+    } else {
+        // If numPlanes is 1 to 5, no expansion is needed, and one or all
+        // three color components might be decimated by some number of bits.
+        // The initial bitmasks are set to the components' numPlanesth bit
+        // (e.g. for 5 planes, start at red & blue bit #0, green bit #1,
+        // for 4 planes, everything starts at the next bit up, etc.).
+        uint8_t shiftLeft = 5 - numPlanes;
+        initialRedBit   = 0b0000100000000000 << shiftLeft;
+        initialGreenBit = 0b0000000001000000 << shiftLeft;
+        initialBlueBit  = 0b0000000000000001 << shiftLeft;
     }
+
+    // This works sequentially-ish through the destination buffer,
+    // reading from the canvas source pixels in repeated passes,
+    // beginning from the least bit.
+    for(uint8_t row=0; row<numRowPairs; row++) {
+        for(uint8_t plane=0; plane<numPlanes; plane++) {
+            uint32_t redBit   = initialRedBit;
+            uint32_t greenBit = initialGreenBit;
+            uint32_t blueBit  = initialBlueBit;
+            for(uint16_t x=0; x<WIDTH; x++) {
+                uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
+                uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
+#if defined(_PM_portToggleRegister)
+                uint8_t result = clockMask;
+#else
+                uint8_t result = 0;
+#endif
+                if(upperRGB & redBit)   result |= pinMask[0];
+                if(upperRGB & greenBit) result |= pinMask[1];
+                if(upperRGB & blueBit)  result |= pinMask[2];
+                if(lowerRGB & redBit)   result |= pinMask[3];
+                if(lowerRGB & greenBit) result |= pinMask[4];
+                if(lowerRGB & blueBit)  result |= pinMask[5];
+                dest[x] = result;
+            } // end x
+            greenBit <<= 1;
+            if(plane || (numPlanes < 6)) {
+                // In mose cases red & blue bit scoot 1 left...
+                redBit  <<= 1;
+                blueBit <<= 1;
+            } else {
+                // Exception being after bit 0 with 6-plane display,
+                // in which case they're reset to red & blue LSBs
+                // (so 5-bit colors are expanded to 6 bits).
+                redBit  = 0b0000100000000000;
+                blueBit = 0b0000000000000001;
+            }
+#if defined(_PM_portToggleRegister)
+            // If using bit-toggle register, back up and erase the toggle bit
+            // on the first element of each bitplane & row pair. The matrix-
+            // driving interrupt functions correspondingly set the clock low
+            // before finishing. This is all done for legibility on
+            // oscilloscope -- so idle clock appears LOW -- but really the
+            // matrix samples on a rising edge and we could leave it high,
+            // but at this development stage want the scope "readable."
+            dest[-pad] &= ~clockMask; // Negative index is legal & intentional
+#endif
+            dest += bitplaneSize; // Advance one scanline in dest buffer
+        } // end plane
+        upperSrc += WIDTH; // Advance one scanline in source buffer
+        lowerSrc += WIDTH;
+    } // end row
+
+
+
+#if SLARTIBARTFAST
+// Other approach works nonsequentially though the destination,
+// but sequentially through source.
+        for(uint16_t x=0; x<WIDTH; x++) {
+            uint32_t hiRGB = *upperSrc++;
+            uint32_t loRGB = *lowerSrc++;
+            // Mask out 5 bits red & blue (6 bit gap), expand to 10 bits
+            // (1 bit gap), mask out 6 bits green and move to top:
+            // RRRRRGGGGGGBBBBB -> GGGGGGRRRRRRRRRR0BBBBBBBBBB
+            hiRGB = ((hiRGB & 0b1111100000011111) * 0b100001) |
+                    ((hiRGB & 0b11111100000) << 21);
+            loRGB = ((loRGB & 0b1111100000011111) * 0b100001) |
+                    ((loRGB & 0b11111100000) << 21);
+            // Conversion works from MSB toward LSB and stops at 6 bits max,
+            // no need to shift down or mask out 6 bits, just start at MSB.
+            for(int8_t plane=numPlanes-1; plane >=0; plane--) {
+#if defined(_PM_portToggleRegister)
+                uint8_t result = clockMask;
+#else
+                uint8_t result = 0;
+#endif
+                if(hiRGB & 0b000000100000000000000000000) result |= pinMask[0];
+                if(hiRGB & 0b100000000000000000000000000) result |= pinMask[1];
+                if(hiRGB & 0b000000000000000001000000000) result |= pinMask[2];
+                if(loRGB & 0b000000100000000000000000000) result |= pinMask[3];
+                if(loRGB & 0b100000000000000000000000000) result |= pinMask[4];
+                if(loRGB & 0b000000000000000001000000000) result |= pinMask[5];
+                *dest = result;
+                dest += bitPlaneBytes;
+                hiRGB <<= 1;
+                loRGB <<= 1;
+            }
+        }
+#if defined(_PM_portToggleRegister)
+        // Then back up and erase the toggle bit on the first element
+        // dest[something] &= ~clockMask;
+        // If predecrementing, could just:
+        // *dest &= ~clockMask;
+#endif
+
+#endif // SLARTIBARTFAST
 }
 
 void Adafruit_Protomatter::convert_word(uint16_t *dest) {
-    uint16_t *src = getBuffer();
+    // TO DO
 }
 
 void Adafruit_Protomatter::convert_long(uint32_t *dest) {
-    uint16_t *src = getBuffer();
+    // TO DO
 }
 
 // ISR function (in arch.h) calls this function which it's extern'd.
@@ -310,6 +448,7 @@ void Adafruit_Protomatter::row_handler(void) {
                     activeBuffer = 1 - activeBuffer;
                     swapBuffers  = 0; // Swapped!
                 }
+                frameCount++;
             }
             // Configure row address lines:
             for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
@@ -329,12 +468,16 @@ void Adafruit_Protomatter::row_handler(void) {
         _PM_timerStart(bitZeroPeriod << timePlane);
         digitalWrite(oePin, LOW);
 
-        if(portWidth == PROTOMATTER_BYTE) {
-            blast_byte((uint8_t *)screenData);
-        } else if(portWidth == PROTOMATTER_WORD) {
-            blast_word((uint16_t *)screenData);
+        uint32_t elementsPerLine = _PM_chunkSize *
+            ((WIDTH + (_PM_chunkSize - 1)) / _PM_chunkSize);
+        uint32_t srcOffset = elementsPerLine * (numPlanes * row + plane);
+
+        if(bytesPerElement == 1) {
+            blast_byte((uint8_t *)screenData + srcOffset);
+        } else if(bytesPerElement == 2) {
+            blast_word((uint16_t *)screenData + srcOffset * 2);
         } else {
-            blast_long((uint32_t *)screenData);
+            blast_long((uint32_t *)screenData + srcOffset * 4);
         }
 
         // 'plane' data is now loaded, will be shown on NEXT pass
@@ -478,3 +621,12 @@ void Adafruit_Protomatter::blast_long(uint32_t *data) {
 #endif
 }
 
+// Returns current value of frame counter and resets its value to zero.
+// Two calls to this, timed one second apart (or use math with other
+// intervals), can be used to get a rough frames-per-second value for
+// the matrix (since this is difficult to estimate beforehand).
+uint32_t Adafruit_Protomatter::getFrameCount(void) {
+    uint32_t count = frameCount;
+    frameCount = 0;
+    return count;
+}

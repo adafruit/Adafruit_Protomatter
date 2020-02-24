@@ -9,12 +9,6 @@ enum ProtomatterStatus {
     PROTOMATTER_ERR_MALLOC, // Couldn't allocate memory for display
 };
 
-enum ProtomatterWidth {
-    PROTOMATTER_BYTE, // Inner display-writing loop uses 8-bit PORT accesses
-    PROTOMATTER_WORD, // " 16-bit
-    PROTOMATTER_LONG, // " 32-bit
-};
-
 class Adafruit_Protomatter : public GFXcanvas16 {
   public:
     Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
@@ -24,6 +18,7 @@ class Adafruit_Protomatter : public GFXcanvas16 {
     ~Adafruit_Protomatter(void);
     ProtomatterStatus begin(void);
     void              show(void);
+    uint32_t          getFrameCount(void);
     // This function needs to be declared public for protoPtr (in .cpp)
     // to access it, but should NOT be invoked by user code:
     void              row_handler(void);
@@ -49,12 +44,14 @@ class Adafruit_Protomatter : public GFXcanvas16 {
     uint8_t          *screenData;       // Processed from GFXcanvas16
     uint8_t          *rgbPins;          // Array of RGB data pins (mult of 6)
     uint8_t          *addrPins;         // Array of matrix address line pins
+    uint8_t          *rgbMask;          // PORT bit mask for each RGB pin
     uint32_t          clockMask;        // PORT bit mask for data clock
     uint32_t          rgbAndClockMask;  // PORT bit mask for RGB data + clock
     uint32_t          bufferSize;       // Bytes per matrix buffer (1 or 2)
     uint32_t          bitZeroPeriod;    // Bitplane 0 timer period
     uint32_t          minPeriod;        // Plane 0 timer period for ~400Hz
-    ProtomatterWidth  portWidth;        // Using 8, 16 or 32 bits of PORT?
+    volatile uint32_t frameCount;       // For estimating refresh rate
+    uint8_t           bytesPerElement;  // Using 8, 16 or 32 bits of PORT?
     uint8_t           clockPin;         // Data clock pin (Arduino pin #)
     uint8_t           latchPin;         // Data latch pin (Arduino pin #)
     uint8_t           oePin;            // !OE (LOW out enable) (Arduino pin #)
@@ -63,8 +60,8 @@ class Adafruit_Protomatter : public GFXcanvas16 {
     uint8_t           portOffset;       // Active 8- or 16-bit pos. in PORT
     uint8_t           numPlanes;        // Display bitplanes (1 to 6)
     uint8_t           numRowPairs;      // Addressable row pairs
-    uint8_t           activeBuffer;     // Index of currently-displayed buf
     bool              doubleBuffer;     // 2X buffers for clean switchover
+    volatile uint8_t  activeBuffer;     // Index of currently-displayed buf
     volatile uint8_t  plane;            // Current bitplane (changes in ISR)
     volatile uint8_t  row;              // Current scanline (changes in ISR)
     volatile bool     swapBuffers;      // If 1, awaiting double-buf switch
