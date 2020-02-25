@@ -270,7 +270,6 @@ void Adafruit_Protomatter::convert_byte(uint8_t *dest) {
     // Determine matrix bytes per bitplane & row (row pair really):
     uint32_t bitplaneSize = _PM_chunkSize *
         ((WIDTH + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
-    uint32_t rowSize      = bitplaneSize * numPlanes; // All planes of row pair
     uint8_t  pad          = bitplaneSize - WIDTH;     // Start-of-plane pad
 
     // Skip initial scanline padding if present (HUB75 matrices shift data
@@ -311,25 +310,29 @@ void Adafruit_Protomatter::convert_byte(uint8_t *dest) {
             uint32_t redBit   = initialRedBit;
             uint32_t greenBit = initialGreenBit;
             uint32_t blueBit  = initialBlueBit;
+#if defined(_PM_portToggleRegister)
+            uint8_t  prior    = clockMask; // Set clock bit on 1st out
+#endif
             for(uint16_t x=0; x<WIDTH; x++) {
                 uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
                 uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
-#if defined(_PM_portToggleRegister)
-                uint8_t result = clockMask;
-#else
-                uint8_t result = 0;
-#endif
+                uint8_t  result   = 0;
                 if(upperRGB & redBit)   result |= pinMask[0];
                 if(upperRGB & greenBit) result |= pinMask[1];
                 if(upperRGB & blueBit)  result |= pinMask[2];
                 if(lowerRGB & redBit)   result |= pinMask[3];
                 if(lowerRGB & greenBit) result |= pinMask[4];
                 if(lowerRGB & blueBit)  result |= pinMask[5];
+#if defined(_PM_portToggleRegister)
+                dest[x] = result ^ prior;
+                prior   = result | clockMask; // Set clock bit on next out
+#else
                 dest[x] = result;
+#endif
             } // end x
             greenBit <<= 1;
             if(plane || (numPlanes < 6)) {
-                // In mose cases red & blue bit scoot 1 left...
+                // In most cases red & blue bit scoot 1 left...
                 redBit  <<= 1;
                 blueBit <<= 1;
             } else {
@@ -464,14 +467,26 @@ void Adafruit_Protomatter::row_handler(void) {
 
 // Innermost data-stuffing loop functions
 
+// The presence of a bit-toggle register can make the data-stuffing loop a
+// fair bit faster (2 PORT accesses per column vs 3). But ironically, some
+// devices (e.g. SAMD51) can outpace the matrix max CLK speed, so we slow
+// them down with a few NOPs. These are defined in arch.h as needed.
+// _PM_clockHoldLow is whatever code necessary to delay the clock rise
+// after data is placed on the PORT. _PM_clockHoldHigh is code for delay
+// before setting the clock back low. If undefined, nothing goes there.
+
 #if defined(_PM_portToggleRegister)
   #define PEW \
     *toggle  = *data++; /* Toggle in new data + toggle clock low */ \
-    *toggle  =  clock;  /* Toggle clock high */
+    _PM_clockHoldLow; \
+    *toggle  =  clock;  /* Toggle clock high */ \
+    _PM_clockHoldHigh;
 #else
   #define PEW \
     *set     = *data++;   /* Set RGB data high */ \
+    _PM_clockHoldLow; \
     *set32   =  clock;    /* Set clock high */ \
+    _PM_clockHoldHigh; \
     *clear32 =  rgbclock; /* Clear RGB data + clock */
 #endif
 

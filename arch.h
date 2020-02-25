@@ -69,11 +69,6 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
   #define _PM_portBitMask(pin) digitalPinToBitMask(pin)
   #define _PM_timerFreq        48000000
 
-  // Return current count value (timer enabled or not)
-  inline uint32_t _PM_timerGetCount(void) {
-      return _PM_TIMER->COUNT16.COUNT.reg;
-  }
-
   // Timer interrupt service routine
   void _PM_IRQ_HANDLER(void) {
       extern void _PM_row_handler(void); // In .cpp
@@ -156,12 +151,27 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
         while(_PM_TIMER->COUNT16.SYNCBUSY.bit.STATUS);
     }
 
+    // Return current count value (timer enabled or not)
+    inline uint32_t _PM_timerGetCount(void) {
+        _PM_TIMER->COUNT16.CTRLBSET.bit.CMD = 0x4;  // Sync COUNT
+        while(_PM_TIMER->COUNT16.CTRLBSET.bit.CMD); // Wait for command
+        return _PM_TIMER->COUNT16.COUNT.reg;
+    }
+
     // Disable timer and return current count value
     inline uint32_t _PM_timerStop(void) {
+        uint32_t count = _PM_timerGetCount();
         _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 0;
         while(_PM_TIMER->COUNT16.SYNCBUSY.bit.STATUS);
-        return _PM_timerGetCount();
+        return count;
     }
+
+    // See notes in .cpp before the "blast" functions
+    #if F_CPU > 150000000
+      #define _PM_clockHoldHigh asm("nop; nop; nop; nop");
+    #else
+      #define _PM_clockHoldHigh asm("nop; nop; nop");
+    #endif
 
   #else
 
@@ -221,11 +231,20 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
         while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
     }
 
+    // Return current count value (timer enabled or not)
+    inline uint32_t _PM_timerGetCount(void) {
+        _PM_TIMER->COUNT16.READREQ.reg =
+            TC_READREQ_RCONT | TC_READREQ_ADDR(0x10);
+        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
+        return _PM_TIMER->COUNT16.COUNT.reg;
+    }
+
     // Disable timer and return current count value
     inline uint32_t _PM_timerStop(void) {
+        uint32_t count = _PM_timerGetCount();
         _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 0;
         while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
-        return _PM_timerGetCount();
+        return count;
     }
 
   #endif // !__SAMD51__
@@ -265,6 +284,14 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
 
 #if !defined(_PM_chunkSize)
   #define _PM_chunkSize 8
+#endif
+
+#if !defined(_PM_clockHoldLow)
+  #define _PM_clockHoldLow
+#endif
+
+#if !defined(_PM_clockHoldHigh)
+  #define _PM_clockHoldHigh
 #endif
 
 #endif // _PM_ARCH_H_
