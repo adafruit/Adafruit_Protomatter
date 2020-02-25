@@ -380,93 +380,79 @@ void _PM_row_handler(void) {
 // should NOT call this function directly, even though it's declared public.
 void Adafruit_Protomatter::row_handler(void) {
 
-    for(;;) { // Function MIGHT make multiple passes in certain situations...
+    digitalWrite(oePin, HIGH); // Disable LED output
 
-        digitalWrite(oePin, HIGH); // Disable LED output
+    // Stop timer, save count value at stop
+    uint32_t elapsed = _PM_timerStop();
 
-        // Stop timer, save count value at stop
-        uint32_t elapsed = _PM_timerStop();
+    digitalWrite(latchPin, HIGH); // Latch data loaded on PRIOR pass
+    digitalWrite(latchPin, LOW);
+    uint8_t prevPlane = plane;    // Save that plane # for later timing
 
-        digitalWrite(latchPin, HIGH); // Latch data loaded on PRIOR pass
-        digitalWrite(latchPin, LOW);
-        uint8_t prevPlane = plane;    // Save that plane # for later timing
-
-        // If plane 0 just finished being displayed (plane 1 was loaded on
-        // prior pass, or there's only one plane...I know, it's confusing),
-        // take note of the elapsed timer value, for subsequent bitplane
-        // timing (each plane period is double the previous). Value is
-        // filtered slightly to avoid jitter.
-        if((prevPlane == 1) || (numPlanes == 1)) {
-            bitZeroPeriod = ((bitZeroPeriod * 7) + elapsed) / 8;
-            if(bitZeroPeriod < minPeriod) {
-                bitZeroPeriod = minPeriod;
-            }
+    // If plane 0 just finished being displayed (plane 1 was loaded on prior
+    // pass, or there's only one plane...I know, it's confusing), take note
+    // of the elapsed timer value, for subsequent bitplane timing (each
+    // plane period is double the previous). Value is filtered slightly to
+    // avoid jitter.
+    if((prevPlane == 1) || (numPlanes == 1)) {
+        bitZeroPeriod = ((bitZeroPeriod * 7) + elapsed) / 8;
+        if(bitZeroPeriod < minPeriod) {
+            bitZeroPeriod = minPeriod;
         }
-
-        if(prevPlane == 0) { // Plane 0 just finished loading
-            // Configure row address lines:
-            for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
-                digitalWrite(addrPins[line], row & bit);
-                delayMicroseconds(10);
-            }
-            // Optimization opportunity: if device has a toggle register,
-            // and if all address lines are on same PORT, can do in a single
-            // operation and not need delays for each address bit.
-            // Also consider even in non-same-PORT case, each delay is
-            // probably only required if address line value has changed.
-        }
-
-        // Advance bitplane index and/or row as necessary
-        if(++plane >= numPlanes) {     // Next data bitplane, or
-            plane = 0;                 // roll over bitplane to start
-            if(++row >= numRowPairs) { // Next row, or
-                row = 0;               // roll over row to start
-                // Switch matrix buffers if due (only if double-buffered)
-                if(swapBuffers) {
-                    activeBuffer = 1 - activeBuffer;
-                    swapBuffers  = 0; // Swapped!
-                }
-                frameCount++;
-            }
-        }
-
-        // 'plane' now is index of data to issue, NOT data to display.
-        // 'prevPlane' is the previously-loaded data, which gets displayed
-        // now while the next plane data is loaded.
-
-        // Set timer and enable LED output for data loaded on PRIOR pass:
-        _PM_timerStart(bitZeroPeriod << prevPlane);
-        digitalWrite(oePin, LOW);
-
-        uint32_t elementsPerLine = _PM_chunkSize *
-            ((WIDTH + (_PM_chunkSize - 1)) / _PM_chunkSize);
-        uint32_t srcOffset = elementsPerLine * (numPlanes * row + plane);
-
-        if(bytesPerElement == 1) {
-            blast_byte((uint8_t *)screenData + srcOffset);
-        } else if(bytesPerElement == 2) {
-            blast_word((uint16_t *)screenData + srcOffset * 2);
-        } else {
-            blast_long((uint32_t *)screenData + srcOffset * 4);
-        }
-
-        // 'plane' data is now loaded, will be shown on NEXT pass
-
-        // If bitplane 1 data took more than 7/8 minPeriod timer cycles to
-        // issue, don't return, make a second pass through the function right
-        // now. This is to make the bitplane zero display interval as short
-        // as possible (for a more stable image), as there's some overhead
-        // in the interrupt and function calls (that it might be around 1/8
-        // is just a quick guess and not based on science). In all other
-        // cases, return now, don't make a second pass. Await next timer ISR.
-        if((plane != 1) || (_PM_timerGetCount() < (minPeriod * 7 / 8))) {
-            return;
-        }
-        // This is rickety and I don't entirely trust it. Won't crash or
-        // anything, just wonder if most or least bit time might get thrown
-        // off and look bad. If so, just put a "return" before the condition
-        // above and figure it out later.
     }
+
+    if(prevPlane == 0) { // Plane 0 just finished loading
+        // Configure row address lines:
+        for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
+            digitalWrite(addrPins[line], row & bit);
+            delayMicroseconds(10);
+        }
+        // Optimization opportunity: if device has a toggle register, and if
+        // all address lines are on same PORT, can do in a single operation
+        // and not need delays for each address bit. Also consider even in
+        // non-same-PORT case, each delay is probably only required if
+        // address line value has changed.
+    }
+
+    // Advance bitplane index and/or row as necessary
+    if(++plane >= numPlanes) {     // Next data bitplane, or
+        plane = 0;                 // roll over bitplane to start
+        if(++row >= numRowPairs) { // Next row, or
+            row = 0;               // roll over row to start
+            // Switch matrix buffers if due (only if double-buffered)
+            if(swapBuffers) {
+                activeBuffer = 1 - activeBuffer;
+                swapBuffers  = 0; // Swapped!
+            }
+            frameCount++;
+        }
+    }
+
+    // 'plane' now is index of data to issue, NOT data to display.
+    // 'prevPlane' is the previously-loaded data, which gets displayed
+    // now while the next plane data is loaded.
+
+    // Set timer and enable LED output for data loaded on PRIOR pass:
+    _PM_timerStart(bitZeroPeriod << prevPlane);
+    digitalWrite(oePin, LOW);
+
+    uint32_t elementsPerLine = _PM_chunkSize *
+        ((WIDTH + (_PM_chunkSize - 1)) / _PM_chunkSize);
+    uint32_t srcOffset = elementsPerLine * (numPlanes * row + plane) *
+                         bytesPerElement;
+    if(doubleBuffer) {
+        srcOffset += bufferSize * activeBuffer;
+    }
+
+    if(bytesPerElement == 1) {
+        blast_byte((uint8_t *)(screenData + srcOffset));
+    } else if(bytesPerElement == 2) {
+        blast_word((uint16_t *)(screenData + srcOffset));
+    } else {
+        blast_long((uint32_t *)(screenData + srcOffset));
+    }
+
+    // 'plane' data is now loaded, will be shown on NEXT pass
 }
 
 // Innermost data-stuffing loop functions

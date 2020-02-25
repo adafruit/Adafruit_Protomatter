@@ -293,12 +293,12 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
   #define _PM_chunkSize 8
 #endif
 
-#if !defined(_PM_clockHoldLow)
-  #define _PM_clockHoldLow
-#endif
-
 #if !defined(_PM_clockHoldHigh)
   #define _PM_clockHoldHigh
+#endif
+
+#if !defined(_PM_clockHoldLow)
+  #define _PM_clockHoldLow
 #endif
 
 #endif // _PM_ARCH_H_
