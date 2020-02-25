@@ -306,17 +306,17 @@ void Adafruit_Protomatter::convert_byte(uint8_t *dest) {
     // reading from the canvas source pixels in repeated passes,
     // beginning from the least bit.
     for(uint8_t row=0; row<numRowPairs; row++) {
+        uint32_t redBit   = initialRedBit;
+        uint32_t greenBit = initialGreenBit;
+        uint32_t blueBit  = initialBlueBit;
         for(uint8_t plane=0; plane<numPlanes; plane++) {
-            uint32_t redBit   = initialRedBit;
-            uint32_t greenBit = initialGreenBit;
-            uint32_t blueBit  = initialBlueBit;
 #if defined(_PM_portToggleRegister)
-            uint8_t  prior    = clockMask; // Set clock bit on 1st out
+            uint8_t prior = clockMask; // Set clock bit on 1st out
 #endif
             for(uint16_t x=0; x<WIDTH; x++) {
                 uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
                 uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
-                uint8_t  result   = 0;
+                uint8_t result = 0;
                 if(upperRGB & redBit)   result |= pinMask[0];
                 if(upperRGB & greenBit) result |= pinMask[1];
                 if(upperRGB & blueBit)  result |= pinMask[2];
@@ -389,21 +389,21 @@ void Adafruit_Protomatter::row_handler(void) {
 
         digitalWrite(latchPin, HIGH); // Latch data loaded on PRIOR pass
         digitalWrite(latchPin, LOW);
-        uint8_t timePlane = plane;    // Save that plane # for later timing
+        uint8_t prevPlane = plane;    // Save that plane # for later timing
 
         // If plane 0 just finished being displayed (plane 1 was loaded on
         // prior pass, or there's only one plane...I know, it's confusing),
         // take note of the elapsed timer value, for subsequent bitplane
         // timing (each plane period is double the previous). Value is
         // filtered slightly to avoid jitter.
-        if((plane == 1) || (numPlanes == 1)) {
+        if((prevPlane == 1) || (numPlanes == 1)) {
             bitZeroPeriod = ((bitZeroPeriod * 7) + elapsed) / 8;
             if(bitZeroPeriod < minPeriod) {
                 bitZeroPeriod = minPeriod;
             }
         }
 
-        if(timePlane == 0) {
+        if(prevPlane == 0) { // Plane 0 just finished loading
             // Configure row address lines:
             for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
                 digitalWrite(addrPins[line], row & bit);
@@ -430,12 +430,12 @@ void Adafruit_Protomatter::row_handler(void) {
             }
         }
 
-        // 'plane' now is index of data to load, NOT data to display.
-        // 'timePlane' is the data to display (and configure timer for)
-        // concurrent with the plane data being loaded.
+        // 'plane' now is index of data to issue, NOT data to display.
+        // 'prevPlane' is the previously-loaded data, which gets displayed
+        // now while the next plane data is loaded.
 
         // Set timer and enable LED output for data loaded on PRIOR pass:
-        _PM_timerStart(bitZeroPeriod << timePlane);
+        _PM_timerStart(bitZeroPeriod << prevPlane);
         digitalWrite(oePin, LOW);
 
         uint32_t elementsPerLine = _PM_chunkSize *
@@ -452,16 +452,20 @@ void Adafruit_Protomatter::row_handler(void) {
 
         // 'plane' data is now loaded, will be shown on NEXT pass
 
-        // If bitplane 0 data took more than 7/8 minPeriod timer cycles to
+        // If bitplane 1 data took more than 7/8 minPeriod timer cycles to
         // issue, don't return, make a second pass through the function right
-        // now. This is to make the plane-zero interval as short as possible
-        // (for a more stable image), as there's some overhead in the
-        // interrupt and function calls (that it might be around 1/8 is just
-        // a quick guess and not based on science). In all other cases,
-        // return now, don't make the second pass. Await next timer ISR.
-        if((plane > 0) || (_PM_timerGetCount() < (minPeriod * 7 / 8))) {
+        // now. This is to make the bitplane zero display interval as short
+        // as possible (for a more stable image), as there's some overhead
+        // in the interrupt and function calls (that it might be around 1/8
+        // is just a quick guess and not based on science). In all other
+        // cases, return now, don't make a second pass. Await next timer ISR.
+        if((plane != 1) || (_PM_timerGetCount() < (minPeriod * 7 / 8))) {
             return;
         }
+        // This is rickety and I don't entirely trust it. Won't crash or
+        // anything, just wonder if most or least bit time might get thrown
+        // off and look bad. If so, just put a "return" before the condition
+        // above and figure it out later.
     }
 }
 

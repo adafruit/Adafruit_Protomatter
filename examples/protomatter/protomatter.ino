@@ -91,10 +91,10 @@ void setup(void) {
     matrix.drawPixel(x, matrix.height() - 1, (rb << 11) | (g << 5) | rb);
   }
 
-  matrix.println("ADAFRUIT");
   matrix.drawCircle(12, 10, 9, 0b1111100000000000); // Red
-  matrix.drawCircle(22, 15, 9, 0b0000011111100000); // Green
-  matrix.drawCircle(32, 20, 9, 0b0000000000011111); // Blue
+  matrix.drawCircle(22, 14, 9, 0b0000011111100000); // Green
+  matrix.drawCircle(32, 18, 9, 0b0000000000011111); // Blue
+  matrix.println("ADAFRUIT");
   matrix.show(); // Copy data to matrix buffers
 }
 

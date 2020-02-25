@@ -72,8 +72,8 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
   // Timer interrupt service routine
   void _PM_IRQ_HANDLER(void) {
       extern void _PM_row_handler(void); // In .cpp
-      _PM_row_handler();
       _PM_TIMER->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF; // Clear overflow flag
+      _PM_row_handler();
   }
 
   // Code below diverges for SAMD51 vs SAMD21, but is still very similar...
@@ -143,10 +143,10 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
     // Set timer period, initialize count value to zero, enable timer.
     // Timer must be inactive before calling this.
     inline void _PM_timerStart(uint32_t period) {
-        _PM_TIMER->COUNT16.CC[0].reg = period;
-        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.CC0);
         _PM_TIMER->COUNT16.COUNT.reg = 0;
         while(_PM_TIMER->COUNT16.SYNCBUSY.bit.COUNT);
+        _PM_TIMER->COUNT16.CC[0].reg = period;
+        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.CC0);
         _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 1;
         while(_PM_TIMER->COUNT16.SYNCBUSY.bit.STATUS);
     }
@@ -167,8 +167,15 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
     }
 
     // See notes in .cpp before the "blast" functions
-    #if F_CPU > 150000000
+    #if F_CPU >= 200000000
+      #define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop");
+      #define _PM_clockHoldLow  asm("nop; nop");
+    #elif F_CPU >= 180000000
       #define _PM_clockHoldHigh asm("nop; nop; nop; nop");
+      #define _PM_clockHoldLow  asm("nop");
+    #elif F_CPU >= 150000000
+      #define _PM_clockHoldHigh asm("nop; nop; nop");
+      #define _PM_clockHoldLow  asm("nop");
     #else
       #define _PM_clockHoldHigh asm("nop; nop; nop");
     #endif
@@ -223,9 +230,9 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
     // Set timer period, initialize count value to zero, enable timer
     // Timer must be inactive before calling this.
     inline void _PM_timerStart(uint32_t period) {
-        _PM_TIMER->COUNT16.CC[0].reg = period;
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
         _PM_TIMER->COUNT16.COUNT.reg = 0;
+        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
+        _PM_TIMER->COUNT16.CC[0].reg = period;
         while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
         _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 1;
         while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
