@@ -10,7 +10,13 @@ This might supersede the RGBmatrixPanel library on non-AVR devices, as the
 older library has painted itself into a few corners. The newer library uses
 a single constructor for all matrix setups, handling parallel chains,
 various matrix sizes and chain lengths, and variable bit depths from 1 to 6
-(refresh rate is a function of all of these).
+(refresh rate is a function of all of these). Note however that it is
+NOT A DROP-IN REPLACEMENT for RGBmatrixPanel. The constructor is entirely
+different, and there are several changes in the available functions. Also,
+all colors in the new library are specified as 5/6/5-bit RGB (as this is
+what the GFX library GFXcanvas16 type uses, aimed at low-cost color LCD
+displays), even if the matrix is configured for a lower bit depth (colors
+will be decimated/quantized in this case).
 
 It does have some new limitations, mostly significant RAM overhead (hence
 no plans for AVR port) and that all RGB data pins and the clock pin MUST be
