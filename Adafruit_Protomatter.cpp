@@ -18,6 +18,12 @@ static Adafruit_Protomatter *protoPtr = NULL;
 // for a single constant, thank you for coming to my TED talk!
 #define _PM_MAX_REFRESH_HZ 250
 
+// Time (in milliseconds) to pause following any change in address lines
+// (individually or collectively). Some matrices respond slowly there...
+// must pause on change for matrix to catch up. Defined here (rather than
+// arch.h) because it's not architecture-specific.
+#define _PM_ROW_DELAY 8
+
 Adafruit_Protomatter::Adafruit_Protomatter(
   uint16_t bitWidth, uint8_t bitDepth,
   uint8_t rgbCount, uint8_t *rgbList, uint8_t addrCount,
@@ -194,19 +200,38 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
     uint32_t minPeriodPerFrame = _PM_timerFreq / _PM_MAX_REFRESH_HZ;
     uint32_t minPeriodPerLine  = minPeriodPerFrame / rowPairs;
     minPeriod = minPeriodPerLine / ((1 << numPlanes) - 1);
-    // Actual frame rate may be lower than this. That's OK, just
-    // don't want to exceed this, as it'll eat all the CPU cycles.
+    if(minPeriod < _PM_minMinPeriod) {
+        minPeriod = _PM_minMinPeriod;
+    }
+    // Actual frame rate may be lower than this...it's only an estimate
+    // and does not factor in things like address line selection delays
+    // or interrupt overhead. That's OK, just don't want to exceed this
+    // rate, as it'll eat all the CPU cycles.
 
-    // Once allocation is set up, configure all the
-    // pins as outputs and initialize their states.
+    plane    = numPlanes   - 1; // Initialize plane & row to their max values
+    row      = numRowPairs - 1; // so they roll over to start on 1st interrupt.
+    prevRow  = (numRowPairs > 1) ? (row - 1) : 1;
+
+    // Configure pins as outputs and initialize their states.
     pinMode(clockPin, OUTPUT); digitalWrite(clockPin, LOW);
     pinMode(latchPin, OUTPUT); digitalWrite(latchPin, LOW);
     pinMode(oePin   , OUTPUT); digitalWrite(oePin   , HIGH); // Disable output
     for(uint8_t i=0; i<parallel * 6; i++) {
         pinMode(rgbPins[i], OUTPUT); digitalWrite(rgbPins[i], LOW);
     }
-    for(uint8_t i=0; i<numAddressLines; i++) {
-        pinMode(addrPins[i], OUTPUT); digitalWrite(addrPins[i], LOW);
+#if defined(_PM_portToggleRegister)
+    addrPortToggle = _PM_portToggleRegister(addrPins[0]);
+    singleAddrPort = 1;
+#endif
+    for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
+        pinMode(addrPins[line], OUTPUT); digitalWrite(addrPins[line], LOW);
+        digitalWrite(addrPins[line], prevRow & bit);
+#if defined(_PM_portToggleRegister)
+        // If address pin on different port than addr 0, no singleAddrPort.
+        if(_PM_portToggleRegister(addrPins[line]) != addrPortToggle) {
+            singleAddrPort = 0;
+        }
+#endif
     }
 
     // Get pointers to bit set and clear registers (and toggle, if present)
@@ -217,8 +242,6 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
 #endif
 
     protoPtr = this;            // Only one active Adafruit_Protomatter object!
-    plane    = numPlanes   - 1; // Initialize plane & row to their max values
-    row      = numRowPairs - 1; // so they roll over to start on 1st interrupt.
     _PM_timerInit();            // Configure timer
     _PM_timerStart(1000);       // Start timer
 
@@ -402,11 +425,35 @@ void Adafruit_Protomatter::row_handler(void) {
     }
 
     if(prevPlane == 0) { // Plane 0 just finished loading
-        // Configure row address lines:
-        for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
-            digitalWrite(addrPins[line], row & bit);
-            delayMicroseconds(10);
+#if defined(_PM_portToggleRegister)
+        // If all address lines are on a single PORT (and bit toggle is
+        // available), do address line change all at once. Even doing all
+        // this math takes MUCH less time than the delays required when
+        // doing line-by-line changes.
+        if(singleAddrPort) {
+            // Make bitmasks of prior and new row bits
+            uint32_t priorBits = 0, newBits = 0;
+            for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
+                if(row     & bit) newBits   |= _PM_portBitMask(addrPins[line]);
+                if(prevRow & bit) priorBits |= _PM_portBitMask(addrPins[line]);
+            }
+            *addrPortToggle = newBits ^ priorBits;
+            delayMicroseconds(_PM_ROW_DELAY);
+        } else {
+#endif
+            // Configure row address lines individually, making changes
+            // (with delays) only where necessary.
+            for(uint8_t line=0,bit=1; line<numAddressLines; line++, bit<<=1) {
+                if((row & bit) != (prevRow & bit)) {
+                    digitalWrite(addrPins[line], row & bit);
+                    delayMicroseconds(_PM_ROW_DELAY);
+                }
+            }
+#if defined(_PM_portToggleRegister)
         }
+#endif
+        prevRow = row;
+
         // Optimization opportunity: if device has a toggle register, and if
         // all address lines are on same PORT, can do in a single operation
         // and not need delays for each address bit. Also consider even in

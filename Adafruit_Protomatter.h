@@ -22,7 +22,7 @@ class Adafruit_Protomatter : public GFXcanvas16 {
     // This function needs to be declared public for protoPtr (in .cpp)
     // to access it, but should NOT be invoked by user code:
     void              row_handler(void);
-//  private:
+  private:
     void              blast_byte(uint8_t  *data); // Data-writing functions
     void              blast_word(uint16_t *data); // for 8/16/32 bit output
     void              blast_long(uint32_t *data); // pin arrangements.
@@ -50,6 +50,7 @@ class Adafruit_Protomatter : public GFXcanvas16 {
     uint32_t          bufferSize;       // Bytes per matrix buffer (1 or 2)
     uint32_t          bitZeroPeriod;    // Bitplane 0 timer period
     uint32_t          minPeriod;        // Plane 0 timer period for ~400Hz
+    volatile uint32_t *addrPortToggle;  // See singleAddrPort below
     volatile uint32_t frameCount;       // For estimating refresh rate
     uint8_t           bytesPerElement;  // Using 8, 16 or 32 bits of PORT?
     uint8_t           clockPin;         // Data clock pin (Arduino pin #)
@@ -61,9 +62,11 @@ class Adafruit_Protomatter : public GFXcanvas16 {
     uint8_t           numPlanes;        // Display bitplanes (1 to 6)
     uint8_t           numRowPairs;      // Addressable row pairs
     bool              doubleBuffer;     // 2X buffers for clean switchover
+    bool              singleAddrPort;   // If 1, all addr lines on same PORT
     volatile uint8_t  activeBuffer;     // Index of currently-displayed buf
     volatile uint8_t  plane;            // Current bitplane (changes in ISR)
     volatile uint8_t  row;              // Current scanline (changes in ISR)
+    volatile uint8_t  prevRow;          // Scanline from prior ISR
     volatile bool     swapBuffers;      // If 1, awaiting double-buf switch
 };
 

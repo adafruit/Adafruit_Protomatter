@@ -51,6 +51,16 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
                              certain chunkSizes are actually implemented,
                              see .cpp code (avoiding GCC-specific tricks
                              that would handle arbitrary chunk sizes).
+_PM_clockHoldHigh:           Additional code (typically some number of NOPs)
+                             needed to delay the clock fall after RGB data is
+                             written to PORT. Only required on fast devices.
+                             If left undefined, no delay happens.
+_PM_clockHoldLow:            Additional code (e.g. NOPs) needed to delay
+                             clock rise after writing RGB data to PORT.
+                             No delay if left undefined.
+_PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
+                             so bit-angle-modulation time always doubles with
+                             each bitplane (else lower bits may be the same).
 */
 
 
@@ -180,6 +190,8 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
       #define _PM_clockHoldHigh asm("nop; nop; nop");
     #endif
 
+    #define _PM_minMinPeriod 160
+
   #else
 
     // SAMD21 (presumably) -------------------------------------------------
@@ -299,6 +311,10 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
 
 #if !defined(_PM_clockHoldLow)
   #define _PM_clockHoldLow
+#endif
+
+#if !defined(_PM_minMinPeriod)
+  #define _PM_minMinPeriod 100
 #endif
 
 #endif // _PM_ARCH_H_
