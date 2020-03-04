@@ -154,6 +154,9 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_TIMER_DEFAULT TC4
     #define _PM_IRQ_HANDLER   TC4_Handler
     #define _PM_timerFreq     48000000
+    // Partly because IRQs must be declared at compile-time, and partly
+    // because we know Arduino's already set up one of the GCLK sources
+    // for 48 MHz.
 
     // Because it's tied to a specific timer right now, there can be only
     // one instance of the Protomatter_core struct. The Arduino library
@@ -336,6 +339,7 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_clockHoldLow  asm("nop");
   #else
     #define _PM_clockHoldHigh asm("nop; nop; nop");
+    #define _PM_clockHoldLow  asm("nop");
   #endif
 
   #define _PM_minMinPeriod 160
