@@ -1,15 +1,39 @@
-// Strictly for library use. User code should NOT include this header.
+// Establishes some very low-level things specific to each supported device.
+// This should ONLY be included by core.c, nowhere else. Ever.
 
-#if !defined(_PM_ARCH_H_)
-#define _PM_ARCH_H_
-
-#include <Arduino.h>
+#if !defined(_PROTOMATTER_ARCH_H_)
+#define _PROTOMATTER_ARCH_H_
 
 /*
+Common ground for architectures to support this library:
+
+- 32-bit device (e.g. ARM core, but potentially ESP32 and others in future)
+- One or more 32-bit GPIO PORTs with atomic bitmask SET and CLEAR registers.
+  A TOGGLE register, if present, may improve performance but is NOT required.
+- Tolerate 8-bit or word-aligned 16-bit accesses within the 32-bit PORT
+  registers (e.g. writing just one of four bytes, rather than the whole
+  32 bits). The library does not use any unaligned accesses (i.e. the
+  "middle word" of a 32-bit register), even if a device tolerates such.
+
+"Pin" as used in this code is always a uint8_t value, but the semantics
+of what it means may vary between Arduino and non-Arduino situations.
+In Arduino, it's the pin index one would pass to functions such as
+digitalWrite(), and doesn't necessarily correspond to physical hardware
+pins or any other arrangement. Some may have names like 'A0' that really
+just map to higher indices.
+In non-Arduino settings (CircuitPython, other languages, etc.), how a
+pin index relates to hardware is entirely implementation dependent, and
+how to get from one to the other is what must be implemented in this file.
+Quite often an environment will follow the Arduino pin designations
+(since the numbers are on a board's silkscreen) and will have an internal
+table mapping those indices to registers and bitmasks...but probably not
+an identically-named and -structured table to the Arduino code, hence the
+reason for many "else" situations in this code.
+
 Each architecture defines the following macros and/or functions (the _PM_
-prefix on each is to reduce likelihood of naming collisions...especially on
-ESP32, which has some similarly-named timer functions...though note that
-this library is not currently ported to ESP32):
+prefix on each is to reduce likelihood of naming collisions...especially
+on ESP32, which has some similarly-named timer functions...though note
+that this library is NOT CURRENTLY PORTED to ESP32):
 
 _PM_portOutRegister(pin):    Get address of PORT out register. Code calling
                              this can cast it to whatever type's needed.
@@ -33,7 +57,7 @@ _PM_timerStop(void):         Stop timer, return current timer counter value.
 _PM_timerGetCount(void):     Get current timer counter value (whether timer
                              is running or stopped).
 A timer interrupt service routine is also required, syntax for which varies
-among architectures.
+between architectures.
 
 _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
                              to the device) is rounded up (if necessary) to
@@ -63,37 +87,75 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
                              each bitplane (else lower bits may be the same).
 */
 
+#if defined(ARDUINO)   // If compiling in Arduino IDE...
+  #include <Arduino.h> // pull in all that stuff.
 
-// SAMD --------------------------------------------------------------------
+  #define _PM_delayMicroseconds(us) delayMicroseconds(us)
+  #define _PM_pinOutput(pin)        pinMode(pin, OUTPUT)
+  #define _PM_pinInput(pin)         pinMode(pin, INPUT)
+  #define _PM_pinHigh(pin)          digitalWrite(pin, HIGH)
+  #define _PM_pinLow(pin)           digitalWrite(pin, LOW)
+  #define _PM_portBitMask(pin)      digitalPinToBitMask(pin)
 
-#if defined(ARDUINO_ARCH_SAMD)
+// No #else here. In non-Arduino case, declare things in the arch-specific
+// sections below...unless other environments provide device-neutral
+// functions as above, in which case those could go here (w/elif).
 
-  // Code common to both SAMD51 and SAMD21 ---------------------------------
+#endif // end defined(ARDUINO)
 
-  #define _PM_TIMER            TC4
-  #define _PM_IRQN             TC4_IRQn
-  #define _PM_IRQ_HANDLER      TC4_Handler
-  #define _PM_TIMER_GCLK_ID    TC4_GCLK_ID
-  #define _PM_GCM_ID           GCM_TC4_TC5
+// CODE COMMON TO BOTH SAMD51 AND SAMD21 -----------------------------------
 
-  #define _PM_portBitMask(pin) digitalPinToBitMask(pin)
-  #define _PM_timerFreq        48000000
+#if defined(__SAMD51__) || defined(_SAMD21_)
+  #if defined(ARDUINO)
 
-  // Timer interrupt service routine
-  void _PM_IRQ_HANDLER(void) {
-      extern void _PM_row_handler(void); // In .cpp
-      _PM_TIMER->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF; // Clear overflow flag
-      _PM_row_handler();
-  }
+    // g_APinDescription[] table and pin indices are Arduino specific:
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+      #define _PM_byteOffset(pin) (g_APinDescription[pin].ulPin / 8)
+    #else
+      #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
+    #endif
+
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+      #define _PM_wordOffset(pin) (g_APinDescription[pin].ulPin / 16)
+    #else
+      #define _PM_wordOffset(pin) (1 - (g_APinDescription[pin].ulPin / 16))
+    #endif
+
+    // Arduino implementation is tied to a specific timer/counter & freq:
+    #define _PM_TIMER_DEFAULT TC4
+    #define _PM_IRQ_HANDLER   TC4_Handler
+    #define _PM_timerFreq     48000000
+
+    void *_PM_protoPtr = NULL;
+
+    // Timer interrupt service routine
+    void _PM_IRQ_HANDLER(void) {
+//        extern void _PM_row_handler(void *core); // In core.c
+        // Clear overflow flag:
+        _PM_TIMER_DEFAULT->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF;
+        _PM_row_handler(_PM_protoPtr); // In core.c
+    }
+
+  #else
+
+    // Non-arduino byte offset macros, timer and ISR work go here.
+
+  #endif
 
   // Code below diverges for SAMD51 vs SAMD21, but is still very similar...
   // If making a change or bug fix in one, check to see if an equivalent
   // change should be made in the other!
 
-  #if defined(__SAMD51__)
+#endif // __SAMD51__ || _SAMD21_
 
-    // SAMD51 --------------------------------------------------------------
 
+// SAMD51-SPECIFIC CODE ----------------------------------------------------
+
+#if defined(__SAMD51__)
+
+  #if defined(ARDUINO)
+
+    // g_APinDescription[] table and pin indices are Arduino specific:
     #define _PM_portOutRegister(pin) \
       &PORT->Group[g_APinDescription[pin].ulPort].OUT.reg
 
@@ -106,96 +168,157 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_portToggleRegister(pin) \
       &PORT->Group[g_APinDescription[pin].ulPort].OUTTGL.reg
 
-    // Initialize, but do not start, timer
-    void _PM_timerInit(void) {
-        // Feed _PM_TIMER off GCLK1 (already set to 48 MHz by Arduino core).
-        // Sure, SAMD51 can run timers up to F_CPU (e.g. 120 MHz or up to
-        // 200 MHz with overclocking), but on higher bitplanes (which have
-        // progressively longer timer periods) I could see this possibly
-        // exceeding a 16-bit timer, and would have to switch prescalers.
-        // We don't actually need atomic precision on the timer -- point is
-        // simply that the period doubles with each bitplane, and this can
-        // work fine at 48 MHz.
-        GCLK->PCHCTRL[_PM_TIMER_GCLK_ID].bit.CHEN = 0;      // Disable
-        while(GCLK->PCHCTRL[_PM_TIMER_GCLK_ID].bit.CHEN);   // Wait for it
-        GCLK_PCHCTRL_Type pchctrl; // Read-modify-store
-        pchctrl.reg      = GCLK->PCHCTRL[_PM_TIMER_GCLK_ID].reg;
-        pchctrl.bit.GEN  = GCLK_PCHCTRL_GEN_GCLK1_Val;
-        pchctrl.bit.CHEN = 1;
-        GCLK->PCHCTRL[_PM_TIMER_GCLK_ID].reg = pchctrl.reg; // Atomic write
-        while(!GCLK->PCHCTRL[_PM_TIMER_GCLK_ID].bit.CHEN);  // Wait for enable
-
-        // Disable timer before configuring it
-        _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.ENABLE);
-
-        // 16-bit counter mode, 1:1 prescale
-        _PM_TIMER->COUNT16.CTRLA.bit.MODE      = TC_CTRLA_MODE_COUNT16;
-        _PM_TIMER->COUNT16.CTRLA.bit.PRESCALER = TC_CTRLA_PRESCALER_DIV1_Val;
-
-        _PM_TIMER->COUNT16.WAVE.bit.WAVEGEN =
-          TC_WAVE_WAVEGEN_MFRQ_Val; // Match frequency generation mode (MFRQ)
-
-        _PM_TIMER->COUNT16.CTRLBCLR.reg = TC_CTRLBCLR_DIR; // Count up
-        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.CTRLB);
-
-        // Overflow interrupt
-        _PM_TIMER->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
-
-        NVIC_DisableIRQ(_PM_IRQN);
-        NVIC_ClearPendingIRQ(_PM_IRQN);
-        NVIC_SetPriority(_PM_IRQN, 0); // Top priority
-        NVIC_EnableIRQ(_PM_IRQN);
-
-        // Timer is configured but NOT enabled by default
-    }
-
-    // Set timer period, initialize count value to zero, enable timer.
-    // Timer must be inactive before calling this.
-    inline void _PM_timerStart(uint32_t period) {
-        _PM_TIMER->COUNT16.COUNT.reg = 0;
-        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.COUNT);
-        _PM_TIMER->COUNT16.CC[0].reg = period;
-        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.CC0);
-        _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 1;
-        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.STATUS);
-    }
-
-    // Return current count value (timer enabled or not)
-    inline uint32_t _PM_timerGetCount(void) {
-        _PM_TIMER->COUNT16.CTRLBSET.bit.CMD = 0x4;  // Sync COUNT
-        while(_PM_TIMER->COUNT16.CTRLBSET.bit.CMD); // Wait for command
-        return _PM_TIMER->COUNT16.COUNT.reg;
-    }
-
-    // Disable timer and return current count value
-    inline uint32_t _PM_timerStop(void) {
-        uint32_t count = _PM_timerGetCount();
-        _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(_PM_TIMER->COUNT16.SYNCBUSY.bit.STATUS);
-        return count;
-    }
-
-    // See notes in .cpp before the "blast" functions
-    #if F_CPU >= 200000000
-      #define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop");
-      #define _PM_clockHoldLow  asm("nop; nop");
-    #elif F_CPU >= 180000000
-      #define _PM_clockHoldHigh asm("nop; nop; nop; nop");
-      #define _PM_clockHoldLow  asm("nop");
-    #elif F_CPU >= 150000000
-      #define _PM_clockHoldHigh asm("nop; nop; nop");
-      #define _PM_clockHoldLow  asm("nop");
-    #else
-      #define _PM_clockHoldHigh asm("nop; nop; nop");
-    #endif
-
-    #define _PM_minMinPeriod 160
-
   #else
 
-    // SAMD21 (presumably) -------------------------------------------------
+    // Non-Arduino port register lookups go here
 
+  #endif
+
+  // Initialize, but do not start, timer
+  void _PM_timerInit(void *tptr) {
+      static const struct {
+          Tc       *tc;      // -> Timer/counter peripheral base address
+          IRQn_Type IRQn;    // Interrupt number
+          uint8_t   GCLK_ID; // Peripheral channel # for clock source
+      } timer[] = {
+          TC0, TC0_IRQn, TC0_GCLK_ID,
+          TC1, TC1_IRQn, TC1_GCLK_ID,
+          TC2, TC2_IRQn, TC2_GCLK_ID,
+          TC3, TC3_IRQn, TC3_GCLK_ID,
+          TC4, TC4_IRQn, TC4_GCLK_ID,
+          TC5, TC5_IRQn, TC5_GCLK_ID,
+  #if defined(TC6)
+          TC6, TC6_IRQn, TC6_GCLK_ID,
+  #endif
+  #if defined(TC7)
+          TC7, TC7_IRQn, TC7_GCLK_ID,
+  #endif
+  #if defined(TC8)
+          TC8, TC8_IRQn, TC8_GCLK_ID,
+  #endif
+  #if defined(TC9)
+          TC9, TC9_IRQn, TC9_GCLK_ID,
+  #endif
+  #if defined(TC10)
+          TC10, TC10_IRQn, TC10_GCLK_ID,
+  #endif
+  #if defined(TC11)
+          TC11, TC11_IRQn, TC11_GCLK_ID,
+  #endif
+  #if defined(TC12)
+          TC12, TC12_IRQn, TC12_GCLK_ID,
+  #endif
+      };
+      #define NUM_TIMERS (sizeof timer / sizeof timer[0])
+
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+
+      uint8_t timerNum = 0;
+      while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tc)) {
+          timerNum++;
+      }
+      if(timerNum >= NUM_TIMERS) return;
+
+      // Feed timer/counter off GCLK1 (already set 48 MHz by Arduino core).
+      // Sure, SAMD51 can run timers up to F_CPU (e.g. 120 MHz or up to
+      // 200 MHz with overclocking), but on higher bitplanes (which have
+      // progressively longer timer periods) I could see this possibly
+      // exceeding a 16-bit timer, and would have to switch prescalers.
+      // We don't actually need atomic precision on the timer -- point is
+      // simply that the period doubles with each bitplane, and this can
+      // work fine at 48 MHz.
+      GCLK->PCHCTRL[timer[timerNum].GCLK_ID].bit.CHEN = 0;    // Disable
+      while(GCLK->PCHCTRL[timer[timerNum].GCLK_ID].bit.CHEN); // Wait for it
+      GCLK_PCHCTRL_Type pchctrl; // Read-modify-store
+      pchctrl.reg      = GCLK->PCHCTRL[timer[timerNum].GCLK_ID].reg;
+      pchctrl.bit.GEN  = GCLK_PCHCTRL_GEN_GCLK1_Val;
+      pchctrl.bit.CHEN = 1;
+      GCLK->PCHCTRL[timer[timerNum].GCLK_ID].reg = pchctrl.reg;
+      while(!GCLK->PCHCTRL[timer[timerNum].GCLK_ID].bit.CHEN);
+
+      // Disable timer before configuring it
+      tc->COUNT16.CTRLA.bit.ENABLE = 0;
+      while(tc->COUNT16.SYNCBUSY.bit.ENABLE);
+
+      // 16-bit counter mode, 1:1 prescale
+      tc->COUNT16.CTRLA.bit.MODE      = TC_CTRLA_MODE_COUNT16;
+      tc->COUNT16.CTRLA.bit.PRESCALER = TC_CTRLA_PRESCALER_DIV1_Val;
+
+      tc->COUNT16.WAVE.bit.WAVEGEN =
+        TC_WAVE_WAVEGEN_MFRQ_Val; // Match frequency generation mode (MFRQ)
+
+      tc->COUNT16.CTRLBCLR.reg = TC_CTRLBCLR_DIR; // Count up
+      while(tc->COUNT16.SYNCBUSY.bit.CTRLB);
+
+      // Overflow interrupt
+      tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
+
+      NVIC_DisableIRQ(timer[timerNum].IRQn);
+      NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
+      NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
+      NVIC_EnableIRQ(timer[timerNum].IRQn);
+
+      // Timer is configured but NOT enabled by default
+  }
+
+  // Set timer period, initialize count value to zero, enable timer.
+  // Timer must be initialized to 16-bit mode using the init function
+  // above, but must be inactive before calling this.
+  inline void _PM_timerStart(void *tptr, uint32_t period) {
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      tc->COUNT16.COUNT.reg = 0;
+      while(tc->COUNT16.SYNCBUSY.bit.COUNT);
+      tc->COUNT16.CC[0].reg = period;
+      while(tc->COUNT16.SYNCBUSY.bit.CC0);
+      tc->COUNT16.CTRLA.bit.ENABLE = 1;
+      while(tc->COUNT16.SYNCBUSY.bit.STATUS);
+  }
+
+  // Return current count value (timer enabled or not).
+  // Timer must be previously initialized.
+  inline uint32_t _PM_timerGetCount(void *tptr) {
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      tc->COUNT16.CTRLBSET.bit.CMD = 0x4;  // Sync COUNT
+      while(tc->COUNT16.CTRLBSET.bit.CMD); // Wait for command
+      return tc->COUNT16.COUNT.reg;
+  }
+
+  // Disable timer and return current count value.
+  // Timer must be previously initialized.
+  uint32_t _PM_timerStop(void *tptr) {
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      uint32_t count = _PM_timerGetCount(tptr);
+      tc->COUNT16.CTRLA.bit.ENABLE = 0;
+      while(tc->COUNT16.SYNCBUSY.bit.STATUS);
+      return count;
+  }
+
+  // See notes in core.c before the "blast" functions
+  #if F_CPU >= 200000000
+    #define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop");
+    #define _PM_clockHoldLow  asm("nop; nop");
+  #elif F_CPU >= 180000000
+    #define _PM_clockHoldHigh asm("nop; nop; nop; nop");
+    #define _PM_clockHoldLow  asm("nop");
+  #elif F_CPU >= 150000000
+    #define _PM_clockHoldHigh asm("nop; nop; nop");
+    #define _PM_clockHoldLow  asm("nop");
+  #else
+    #define _PM_clockHoldHigh asm("nop; nop; nop");
+  #endif
+
+  #define _PM_minMinPeriod 160
+
+#endif // end __SAMD51__
+
+
+// SAMD21-SPECIFIC CODE ----------------------------------------------------
+
+#if defined(_SAMD21_)
+
+  #if defined(ARDUINO)
+
+    // g_APinDescription[] table and pin indices are Arduino specific:
     #define _PM_portOutRegister(pin) \
       &PORT_IOBUS->Group[g_APinDescription[pin].ulPort].OUT.reg
 
@@ -208,98 +331,119 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_portToggleRegister(pin) \
       &PORT_IOBUS->Group[g_APinDescription[pin].ulPort].OUTTGL.reg
 
+  #else
+
+    // Non-Arduino port register lookups go here
+
+  #endif
+
+
     // Initialize, but do not start, timer
-    void _PM_timerInit(void) {
+    void _PM_timerInit(void *tptr) {
+        static const struct {
+            Tc       *tc;     // -> Timer/counter peripheral base address
+            IRQn_Type IRQn;   // Interrupt number
+            uint8_t   GCM_ID; // GCLK selection ID
+        } timer[] = {
+            TC0, TC0_IRQn, GCM_TCC0_TCC1,
+            TC1, TC1_IRQn, GCM_TCC0_TCC1,
+#if defined(TC2)
+            TC2, TC2_IRQn, GCM_TCC2_TC3,
+#endif
+#if defined(TC3)
+            TC3, TC3_IRQn, GCM_TCC2_TC3,
+#endif
+#if defined(TC4)
+            TC4, TC4_IRQn, GCM_TC4_TC5,
+#endif
+        };
+        #define NUM_TIMERS (sizeof timer / sizeof timer[0])
+
+        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+
+        uint8_t timerNum = 0;
+        while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tc)) {
+            timerNum++;
+        }
+        if(timerNum >= NUM_TIMERS) return;
+
         // Enable GCLK for timer/counter
         GCLK->CLKCTRL.reg = (uint16_t)(GCLK_CLKCTRL_CLKEN |
-          GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(_PM_GCM_ID));
+          GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(timer[timerNum].GCM_ID));
         while(GCLK->STATUS.bit.SYNCBUSY == 1);
 
         // Counter must first be disabled to configure it
-        _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
+        tc->COUNT16.CTRLA.bit.ENABLE = 0;
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        _PM_TIMER->COUNT16.CTRLA.reg =  // Configure timer counter
+        tc->COUNT16.CTRLA.reg =     // Configure timer counter
           TC_CTRLA_PRESCALER_DIV1 | // 1:1 Prescale
           TC_CTRLA_WAVEGEN_MFRQ   | // Match frequency generation mode (MFRQ)
           TC_CTRLA_MODE_COUNT16;    // 16-bit counter mode
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        _PM_TIMER->COUNT16.CTRLBCLR.reg = TCC_CTRLBCLR_DIR; // Count up
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
+        tc->COUNT16.CTRLBCLR.reg = TCC_CTRLBCLR_DIR; // Count up
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
         // Overflow interrupt
-        _PM_TIMER->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
+        tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
 
-        NVIC_DisableIRQ(_PM_IRQN);
-        NVIC_ClearPendingIRQ(_PM_IRQN);
-        NVIC_SetPriority(_PM_IRQN, 0); // Top priority
-        NVIC_EnableIRQ(_PM_IRQN);
+        NVIC_DisableIRQ(timer[timerNum].IRQn);
+        NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
+        NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
+        NVIC_EnableIRQ(timer[timerNum].IRQn);
 
         // Timer is configured but NOT enabled by default
     }
 
-    // Set timer period, initialize count value to zero, enable timer
-    // Timer must be inactive before calling this.
-    inline void _PM_timerStart(uint32_t period) {
-        _PM_TIMER->COUNT16.COUNT.reg = 0;
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
-        _PM_TIMER->COUNT16.CC[0].reg = period;
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
-        _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 1;
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
+    // Set timer period, initialize count value to zero, enable timer.
+    // Timer must be initialized to 16-bit mode using the init function
+    // above, but must be inactive before calling this.
+    inline void _PM_timerStart(void *tptr, uint32_t period) {
+        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+        tc->COUNT16.COUNT.reg = 0;
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+        tc->COUNT16.CC[0].reg = period;
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+        tc->COUNT16.CTRLA.bit.ENABLE = 1;
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
     }
 
-    // Return current count value (timer enabled or not)
-    inline uint32_t _PM_timerGetCount(void) {
-        _PM_TIMER->COUNT16.READREQ.reg =
-            TC_READREQ_RCONT | TC_READREQ_ADDR(0x10);
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
-        return _PM_TIMER->COUNT16.COUNT.reg;
+    // Return current count value (timer enabled or not).
+    // Timer must be previously initialized.
+    inline uint32_t _PM_timerGetCount(void *tptr) {
+        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+        tc->COUNT16.READREQ.reg = TC_READREQ_RCONT | TC_READREQ_ADDR(0x10);
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+        return tc->COUNT16.COUNT.reg;
     }
 
-    // Disable timer and return current count value
-    inline uint32_t _PM_timerStop(void) {
-        uint32_t count = _PM_timerGetCount();
-        _PM_TIMER->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(_PM_TIMER->COUNT16.STATUS.bit.SYNCBUSY);
+    // Disable timer and return current count value.
+    // Timer must be previously initialized.
+    inline uint32_t _PM_timerStop(void *tptr) {
+        Tc      *tc    = (Tc *)tptr; // Cast peripheral address passed in
+        uint32_t count = _PM_timerGetCount(tptr);
+        tc->COUNT16.CTRLA.bit.ENABLE = 0;
+        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
         return count;
     }
 
-  #endif // !__SAMD51__
-
-#endif // ARDUINO_ARCH_SAMD
+#endif // _SAMD21_
 
 
-// NRF52 -------------------------------------------------------------------
+// NRF52-SPECIFIC CODE -----------------------------------------------------
 
 #if defined(NRF52_SERIES)
 #endif // NRF52_SERIES
 
 
-// ESP32 -------------------------------------------------------------------
+// ESP32-SPECIFIC CODE -----------------------------------------------------
 
 #if defined(ARDUINO_ARCH_ESP32)
 #endif // ARDUINO_ARCH_ESP32
 
 
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
-
-#if !defined(_PM_byteOffset)
-  #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    #define _PM_byteOffset(pin) (g_APinDescription[pin].ulPin / 8)
-  #else
-    #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
-  #endif
-#endif
-
-#if !defined(_PM_wordOffset)
-  #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    #define _PM_wordOffset(pin) (g_APinDescription[pin].ulPin / 16)
-  #else
-    #define _PM_wordOffset(pin) (1 - (g_APinDescription[pin].ulPin / 16))
-  #endif
-#endif
 
 #if !defined(_PM_chunkSize)
   #define _PM_chunkSize 8
@@ -317,4 +461,4 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
   #define _PM_minMinPeriod 100
 #endif
 
-#endif // _PM_ARCH_H_
+#endif // _PROTOMATTER_ARCH_H_
