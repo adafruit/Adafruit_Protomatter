@@ -52,10 +52,12 @@ Adafruit_Protomatter::Adafruit_Protomatter(
 
 Adafruit_Protomatter::~Adafruit_Protomatter(void) {
     _PM_free(&core);
+    _PM_protoPtr = NULL;
 }
 
 ProtomatterStatus Adafruit_Protomatter::begin(void) {
-// make this call underlying lib
+    _PM_protoPtr = &core;
+    _PM_begin(&core);
     return PROTOMATTER_OK;
 }
 

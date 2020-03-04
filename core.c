@@ -7,6 +7,12 @@
 // is lacking, extend it there, do not go making device- or environment-
 // specific cases within this file.
 
+// Function names are intentionally a little obtuse, idea is that one
+// would write a more sensible wrapper around this for specific
+// environments (e.g. the Arduino stuff in Adafruit_Protomatter.cpp).
+// The "_PM_" prefix on most things hopefully makes function and variable
+// name collisions much less likely with one's own code.
+
 #include "core.h" // enums and structs
 #include "arch.h" // Do NOT include this in any other source files
 
@@ -360,6 +366,7 @@ void _PM_resume(Protomatter_core *core) {
 void _PM_free(Protomatter_core *core) {
     if((core)) {
         _PM_stop(core);
+        // TO DO: Set all pins back to inputs here?
         if(core->screenData) free(core->screenData);
         if(core->addr)       free(core->addr);
         if(core->rgbPins) {

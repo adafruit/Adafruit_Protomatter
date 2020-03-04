@@ -35,6 +35,8 @@ prefix on each is to reduce likelihood of naming collisions...especially
 on ESP32, which has some similarly-named timer functions...though note
 that this library is NOT CURRENTLY PORTED to ESP32):
 
+GPIO-related macros/functions:
+
 _PM_portOutRegister(pin):    Get address of PORT out register. Code calling
                              this can cast it to whatever type's needed.
 _PM_portSetRegister(pin):    Get address of PORT set-bits register.
@@ -43,21 +45,42 @@ _PM_portToggleRegister(pin): Get address of PORT toggle-bits register.
                              Not all devices support this, in which case
                              it must be left undefined.
 _PM_portBitMask(pin):        Get bit mask within PORT register corresponding
-                             to an Arduino pin number.
+                             to a pin number. When compiling for Arduino,
+                             this just maps to digitalPinToBitMask(), other
+                             environments will need an equivalent.
 _PM_byteOffset(pin):         Get index of byte (0 to 3) within 32-bit PORT
-                             corresponding to an Arduino pin number.
+                             corresponding to a pin number.
 _PM_wordOffset(pin):         Get index of word (0 or 1) within 32-bit PORT
-                             corresponding to an Arduino pin number.
+                             corresponding to a pin number.
+_PM_pinOutput(pin):          Set a pin to output mode. In Arduino this maps
+                             to pinMode(pin, OUTPUT). Other environments
+                             will need an equivalent.
+_PM_pinInput(pin):           Set a pin to input mode, no pullup. In Arduino
+                             this maps to pinMode(pin, INPUT).
+_PM_pinHigh(pin):            Set an output pin to a high or 1 state. In
+                             Arduino this maps to digitalWrite(pin, HIGH).
+_PM_pinLow(pin):             Set an output pin to a low or 0 state. In
+                             Arduino this maps to digitalWrite(pin, LOW).
+
+Timer-related macros/functions:
 
 _PM_timerFreq:               A numerical constant - the source clock rate
                              (in Hz) that's fed to the timer peripheral.
-_PM_timerInit(void):         Initialize (but do not start) timer.
-_PM_timerStart(count):       (Re)start timer for a given timer-tick interval.
-_PM_timerStop(void):         Stop timer, return current timer counter value.
-_PM_timerGetCount(void):     Get current timer counter value (whether timer
+_PM_timerInit(void*):        Initialize (but do not start) timer.
+_PM_timerStart(void*,count): (Re)start timer for a given timer-tick interval.
+_PM_timerStop(void*):        Stop timer, return current timer counter value.
+_PM_timerGetCount(void*):    Get current timer counter value (whether timer
                              is running or stopped).
 A timer interrupt service routine is also required, syntax for which varies
 between architectures.
+The void* argument passed to the timer functions is some indeterminate type
+used to uniquely identify a timer peripheral within a given environment. For
+example, in the Arduino wrapper for this library, compiling for SAMD chips,
+it's just a pointer directly to a timer/counter peripheral base address. If
+an implementation needs more data associated alongside a peripheral, this
+could instead be a pointer to a struct, or an integer index.
+
+Other macros/functions:
 
 _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
                              to the device) is rounded up (if necessary) to
@@ -75,6 +98,11 @@ _PM_chunkSize:               Matrix bitmap width (both in RAM and as issued
                              certain chunkSizes are actually implemented,
                              see .cpp code (avoiding GCC-specific tricks
                              that would handle arbitrary chunk sizes).
+_PM_delayMicroseconds(us):   Function or macro to delay some number of
+                             microseconds. For Arduino, this just maps to
+                             delayMicroseconds(). Other environments will
+                             need to provide their own or map to an
+                             an equivalent function.
 _PM_clockHoldHigh:           Additional code (typically some number of NOPs)
                              needed to delay the clock fall after RGB data is
                              written to PORT. Only required on fast devices.
@@ -99,9 +127,10 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
 // No #else here. In non-Arduino case, declare things in the arch-specific
 // sections below...unless other environments provide device-neutral
-// functions as above, in which case those could go here (w/elif).
+// functions as above, in which case those could go here (w/#elif).
 
 #endif // end defined(ARDUINO)
+
 
 // CODE COMMON TO BOTH SAMD51 AND SAMD21 -----------------------------------
 
@@ -126,11 +155,13 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_IRQ_HANDLER   TC4_Handler
     #define _PM_timerFreq     48000000
 
+    // Because it's tied to a specific timer right now, there can be only
+    // one instance of the Protomatter_core struct. The Arduino library
+    // sets up this pointer when calling begin().
     void *_PM_protoPtr = NULL;
 
     // Timer interrupt service routine
     void _PM_IRQ_HANDLER(void) {
-//        extern void _PM_row_handler(void *core); // In core.c
         // Clear overflow flag:
         _PM_TIMER_DEFAULT->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF;
         _PM_row_handler(_PM_protoPtr); // In core.c
