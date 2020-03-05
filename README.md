@@ -1,10 +1,14 @@
 # Adafruit_Protomatter
 
+"I used protomatter in the Genesis matrix." - David Marcus, Star Trek III
+
 An Arduino library for HUB75-style RGB LED matrices, targeted at 32-bit
 microcontrollers using "brute force" GPIO (that is, not relying on DMA or
 any specialized peripherals beyond timer interrupts, goal being portability).
-This does assume the existence of 32-bit GPIO ports with bit SET and CLEAR
+It does assume the existence of 32-bit GPIO ports with bit SET and CLEAR
 registers. A bit TOGGLE register (if available) can improve performance.
+Underlying code might be adaptable to other (non-Arduino) runtime
+environments (see notes in file arch.h).
 
 This might supersede the RGBmatrixPanel library on non-AVR devices, as the
 older library has painted itself into a few corners. The newer library uses
@@ -27,6 +31,4 @@ sequential within this byte, if for instance it makes PCB routing easier,
 but they should all aim for a single byte). Other pins (matrix address lines,
 latch and output enable) can reside on any PORT or bit.
 
-Name is likely to change as it's nondescriptive and tedious to type in code.
-It's a reference to a line in Star Trek III, "I used protomatter in the
-Genesis matrix."
+Name might change as it's nondescriptive and tedious to type in code.

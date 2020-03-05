@@ -30,8 +30,6 @@ extern Protomatter_core *_PM_protoPtr; // In core.c (via arch.h)
 #define _PM_ROW_DELAY 8
 
 
-// Need to pass in Tc here
-
 Adafruit_Protomatter::Adafruit_Protomatter(
   uint16_t bitWidth, uint8_t bitDepth,
   uint8_t rgbCount, uint8_t *rgbList,
@@ -61,12 +59,15 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
     return PROTOMATTER_OK;
 }
 
-// Convert GFXcanvas16 framebuffer representation to weird internal format
-// used by the matrix-driving loop.
+// Transfer data from GFXcanvas16 to the matrix framebuffer's weird
+// internal format. The actual conversion functions referenced below
+// are in core.c, reasoning is explained there.
 void Adafruit_Protomatter::show(void) {
 
-    // Dest address is computed in convert function
-    // (based on active buffer value).
+    // Destination address is computed in convert function
+    // (based on active buffer value, if double-buffering),
+    // just need to pass in the canvas buffer address and
+    // width in pixels.
     if(core.bytesPerElement == 1) {
         _PM_convert_565_byte(&core, getBuffer(), WIDTH);
     } else if(core.bytesPerElement == 2) {
