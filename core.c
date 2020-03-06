@@ -7,11 +7,11 @@
 // is lacking, extend it there, do not go making device- or environment-
 // specific cases within this file.
 
-// Function names are intentionally a little obtuse, idea is that one
-// would write a more sensible wrapper around this for specific
-// environments (e.g. the Arduino stuff in Adafruit_Protomatter.cpp).
-// The "_PM_" prefix on most things hopefully makes function and variable
-// name collisions much less likely with one's own code.
+// Function names are intentionally a little obtuse, idea is that one writes
+// a more sensible wrapper around this for specific environments (e.g. the
+// Arduino stuff in Adafruit_Protomatter.cpp). The "_PM_" prefix on most
+// things hopefully makes function and variable name collisions much less
+// likely with one's own code.
 
 #include "core.h" // enums and structs
 #include "arch.h" // Do NOT include this in any other source files
@@ -38,6 +38,18 @@
 // arch.h) because it's not architecture-specific.
 #define _PM_ROW_DELAY 8
 
+// These are the lowest-level functions for issing data to matrices.
+// There are three versions because it depends on how the six RGB data bits
+// (and clock bit) are arranged within a 32-bit PORT register. If all six
+// (seven) fit within one byte or word of the PORT, the library's memory
+// use (and corresponding data-issuing function) change. This will also have
+// an impact on parallel chains in the future, where the number of concurrent
+// RGB data bits isn't always six, but some multiple thereof (i.e. up to five
+// parallel outputs -- 30 RGB bits + clock -- on a 32-bit PORT, though that's
+// largely hypothetical as the chance of finding a PORT with that many bits
+// exposed and NOT interfering with other peripherals on a board is highly
+// improbable. But I could see four happening, maybe on a Grand Central or
+// other kitchen-sink board.
 static void blast_byte(Protomatter_core *core, uint8_t *data);
 static void blast_word(Protomatter_core *core, uint16_t *data);
 static void blast_long(Protomatter_core *core, uint32_t *data);
@@ -385,7 +397,7 @@ void _PM_row_handler(Protomatter_core *core) {
     // Stop timer, save count value at stop
     uint32_t elapsed = _PM_timerStop(core->timer);
 
-    _PM_pinHigh(core->latch.pin);        // Latch data loaded on PRIOR pass
+    _PM_pinHigh(core->latch.pin);    // Latch data loaded on PRIOR pass
     _PM_pinLow(core->latch.pin);
     uint8_t prevPlane = core->plane; // Save that plane # for later timing
 
@@ -410,7 +422,8 @@ void _PM_row_handler(Protomatter_core *core) {
         if(core->singleAddrPort) {
             // Make bitmasks of prior and new row bits
             uint32_t priorBits = 0, newBits = 0;
-            for(uint8_t line=0,bit=1; line<core->numAddressLines; line++, bit<<=1) {
+            for(uint8_t line=0,bit=1; line<core->numAddressLines;
+              line++, bit<<=1) {
                 if(core->row & bit) {
                     newBits |= core->addr[line].bit;
                 }
@@ -424,13 +437,13 @@ void _PM_row_handler(Protomatter_core *core) {
 #endif
             // Configure row address lines individually, making changes
             // (with delays) only where necessary.
-            for(uint8_t line=0,bit=1; line<core->numAddressLines; line++, bit<<=1) {
+            for(uint8_t line=0,bit=1; line<core->numAddressLines;
+              line++, bit<<=1) {
                 if((core->row & bit) != (core->prevRow & bit)) {
-// Can use bit set/clear registers here
-                    if(core->row & bit) {
-                        _PM_pinHigh(core->addr[line].pin);
-                    } else {
-                        _PM_pinLow(core->addr[line].pin);
+                    if(core->row & bit) { // Set addr line high
+                         *core->addr[line].setReg = core->addr[line].bit;
+                    } else { // Set addr line low
+                         *core->addr[line].clearReg = core->addr[line].bit;
                     }
                     _PM_delayMicroseconds(_PM_ROW_DELAY);
                 }
@@ -443,13 +456,13 @@ void _PM_row_handler(Protomatter_core *core) {
 
     // Advance bitplane index and/or row as necessary
     if(++core->plane >= core->numPlanes) {     // Next data bitplane, or
-        core->plane = 0;                 // roll over bitplane to start
+        core->plane = 0;                       // roll over bitplane to start
         if(++core->row >= core->numRowPairs) { // Next row, or
-            core->row = 0;               // roll over row to start
+            core->row = 0;                     // roll over row to start
             // Switch matrix buffers if due (only if double-buffered)
             if(core->swapBuffers) {
                 core->activeBuffer = 1 - core->activeBuffer;
-                core->swapBuffers  = 0; // Swapped!
+                core->swapBuffers  = 0;        // Swapped!
             }
             core->frameCount++;
         }
@@ -635,3 +648,19 @@ uint32_t _PM_getFrameCount(Protomatter_core *core) {
     }
     return count;
 }
+
+// Note to future self: I've gone back and forth between implementing all
+// this either as it currently is (with byte, word and long cases for various
+// steps), or using a uint32_t[64] table for expanding RGB bit combos to PORT
+// bit combos. The latter would certainly simplify the code a ton, and the
+// additional table lookup step wouldn't significantly impact performance,
+// especially going forward with faster processors (the SAMD51 code already
+// requires a few NOPs in the innermost loop to avoid outpacing the matrix).
+// BUT, the reason this is NOT currently done is that it only allows for a
+// single matrix chain (doing parallel chains would require either an
+// impractically large lookup table, or adding together multiple tables'
+// worth of bitmasks, which would slow things down in the vital inner loop).
+// Although parallel matrix chains aren't yet 100% implemented in this code
+// right now, I wanted to leave that possibility for the future, as a way to
+// handle larger matrix combos, because long chains will slow down the
+// refresh rate.
