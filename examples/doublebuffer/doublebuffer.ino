@@ -76,11 +76,11 @@ byte of PORT bits.
 Adafruit_Protomatter matrix(
   64, 6, 1, rgbPins, 4, addrPins, clockPin, latchPin, oePin, true);
 
-const char str[]   = "Adafruit 16x32 RGB LED Matrix";
-int16_t    textX   = matrix.width(),
-           textMin = sizeof(str) * -12,
-           hue     = 0;
-int8_t ball[3][4] = {
+int16_t textMin,
+        textX      = matrix.width(),
+        hue        = 0;
+char    str[40];
+int8_t  ball[3][4] = {
   {  3,  0,  1,  1 }, // Initial X,Y pos & velocity for 3 bouncy balls
   { 17, 15,  1, -1 },
   { 27,  4, -1,  1 }
@@ -99,6 +99,9 @@ void setup(void) {
   Serial.print("Protomatter begin() status: ");
   Serial.println((int)status);
 
+  sprintf(str, "Adafruit %dx%d RGB LED Matrix",
+    matrix.width(), matrix.height());
+  textMin = strlen(str) * -12;
   matrix.setTextWrap(false);
   matrix.setTextSize(2);
   matrix.setTextColor(0xFFFF); // White
