@@ -13,6 +13,8 @@
 // things hopefully makes function and variable name collisions much less
 // likely with one's own code.
 
+#include <stddef.h>
+#include <string.h>
 #include "core.h" // enums and structs
 #include "arch.h" // Do NOT include this in any other source files
 
@@ -71,10 +73,14 @@ ProtomatterStatus _PM_init(Protomatter_core *core,
     // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
     // but might be more or less elsewhere)
 
+#if defined(_PM_TIMER_DEFAULT)
     // If NULL timer was passed in (the default case for the constructor),
     // use default value from arch.h. For example, in the Arduino case it's
     // tied to TC4 specifically.
     if(timer == NULL) timer = _PM_TIMER_DEFAULT;
+#else
+    if(timer == NULL) return PROTOMATTER_ERR_ARG;
+#endif
 
     core->timer           = timer;
     core->width           = bitWidth; // Total matrix chain length in bits
@@ -95,15 +101,15 @@ ProtomatterStatus _PM_init(Protomatter_core *core,
     // the pin bitmasks.
 
     rgbCount *= 6; // Convert parallel count to pin count
-    if((core->rgbPins = (uint8_t *)malloc(rgbCount * sizeof(uint8_t)))) {
-        if((core->addr = (_PM_pin *)malloc(addrCount * sizeof(_PM_pin)))) {
+    if((core->rgbPins = (uint8_t *)_PM_ALLOCATOR(rgbCount * sizeof(uint8_t)))) {
+        if((core->addr = (_PM_pin *)_PM_ALLOCATOR(addrCount * sizeof(_PM_pin)))) {
             memcpy(core->rgbPins, rgbList, rgbCount * sizeof(uint8_t));
             for(uint8_t i=0; i<addrCount; i++) {
                 core->addr[i].pin = addrList[i];
             }
             return PROTOMATTER_OK;
         }
-        free(core->rgbPins);
+        _PM_FREE(core->rgbPins);
         core->rgbPins = NULL;
     }
     return PROTOMATTER_ERR_MALLOC;
@@ -184,8 +190,8 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
 
     // Allocate matrix buffer(s). Don't worry about the return type...
     // though we might be using words or longs for certain pin configs,
-    // malloc() by definition always aligns to the longest type.
-    if(!(core->screenData = (uint8_t *)malloc(screenBytes + rgbMaskBytes))) {
+    // _PM_ALLOCATOR() by definition always aligns to the longest type.
+    if(!(core->screenData = (uint8_t *)_PM_ALLOCATOR(screenBytes + rgbMaskBytes))) {
         return PROTOMATTER_ERR_MALLOC;
     }
 
@@ -379,10 +385,10 @@ void _PM_free(Protomatter_core *core) {
     if((core)) {
         _PM_stop(core);
         // TO DO: Set all pins back to inputs here?
-        if(core->screenData) free(core->screenData);
-        if(core->addr)       free(core->addr);
+        if(core->screenData) _PM_FREE(core->screenData);
+        if(core->addr)       _PM_FREE(core->addr);
         if(core->rgbPins) {
-            free(core->rgbPins);
+            _PM_FREE(core->rgbPins);
             core->rgbPins = NULL;
         }
     }

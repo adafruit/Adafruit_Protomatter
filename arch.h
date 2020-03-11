@@ -125,10 +125,23 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
   #define _PM_pinLow(pin)           digitalWrite(pin, LOW)
   #define _PM_portBitMask(pin)      digitalPinToBitMask(pin)
 
+#elif defined(CIRCUITPY)
+  #include "shared-bindings/microcontroller/Pin.h"
+  #include "py/mphal.h"
+
+  #define _PM_delayMicroseconds(us) mp_hal_delay_us(us)
+
+  #ifdef SAMD51
+  #define __SAMD51__
+  #define F_CPU (120000000)
+  #endif
+  #ifdef SAMD21
+  #define _SAMD21_
+  #endif
+
 // No #else here. In non-Arduino case, declare things in the arch-specific
 // sections below...unless other environments provide device-neutral
 // functions as above, in which case those could go here (w/#elif).
-
 #endif // end defined(ARDUINO)
 
 
@@ -170,9 +183,44 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
         _PM_row_handler(_PM_protoPtr); // In core.c
     }
 
+  #elif defined(CIRCUITPY)
+
+    #include "hal_gpio.h"
+
+    #define _PM_pinOutput(pin)        gpio_set_pin_direction(pin, GPIO_DIRECTION_OUT)
+    #define _PM_pinInput(pin)         gpio_set_pin_direction(pin, GPIO_DIRECTION_IN)
+    #define _PM_pinHigh(pin)          gpio_set_pin_level(pin, 1)
+    #define _PM_pinLow(pin)           gpio_set_pin_level(pin, 0)
+    #define _PM_portBitMask(pin)      (1u << ((pin) % 32))
+
+    #define _PM_byteOffset(pin) ((pin) / 8)
+    #define _PM_wordOffset(pin) ((pin) / 16)
+
+    #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+    #error  SRSLY
+    #endif
+
+    // CircuitPython implementation is tied to a specific freq (but the counter
+    // is dynamically allocated):
+    #define _PM_timerFreq     48000000
+    // Partly because IRQs must be declared at compile-time, and partly
+    // because we know Arduino's already set up one of the GCLK sources
+    // for 48 MHz.
+
+    // Because it's tied to a specific timer right now, there can be only
+    // one instance of the Protomatter_core struct. The Arduino library
+    // sets up this pointer when calling begin().
+    void *_PM_protoPtr = NULL;
+
+    // Timer interrupt service routine
+    void _PM_IRQ_HANDLER(void) {
+        ((Tc*)(((Protomatter_core*)_PM_protoPtr)->timer))->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF;
+        _PM_row_handler(_PM_protoPtr); // In core.c
+    }
+
   #else
 
-    // Non-arduino byte offset macros, timer and ISR work go here.
+    // Other port byte offset macros, timer and ISR work go here.
 
   #endif
 
@@ -181,6 +229,7 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
   // change should be made in the other!
 
 #endif // __SAMD51__ || _SAMD21_
+
 
 
 // SAMD51-SPECIFIC CODE ----------------------------------------------------
@@ -202,9 +251,25 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_portToggleRegister(pin) \
       &PORT->Group[g_APinDescription[pin].ulPort].OUTTGL.reg
 
+  #elif defined(CIRCUITPY)
+
+    #include "hal_gpio.h"
+
+    #define _PM_portOutRegister(pin) \
+      (&PORT->Group[(pin/32)].OUT.reg)
+
+    #define _PM_portSetRegister(pin) \
+      (&PORT->Group[(pin/32)].OUTSET.reg)
+
+    #define _PM_portClearRegister(pin) \
+      (&PORT->Group[(pin/32)].OUTCLR.reg)
+
+    #define _PM_portToggleRegister(pin) \
+      (&PORT->Group[(pin/32)].OUTTGL.reg)
+
   #else
 
-    // Non-Arduino port register lookups go here
+    // Other port register lookups go here
 
   #endif
 
@@ -496,9 +561,17 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
   #define _PM_minMinPeriod 100
 #endif
 
+#ifndef _PM_ALLOCATOR
+  #define _PM_ALLOCATOR(x) (malloc((x)))
+#endif
+
+#ifndef _PM_FREE
+  #define _PM_FREE(x) (free((x)))
+#endif
+
 // ARDUINO SPECIFIC CODE ---------------------------------------------------
 
-#if defined(ARDUINO)
+#if defined(ARDUINO) || defined(CIRCUITPY)
 
 // 16-bit (565) color conversion functions go here (rather than in the
 // Arduino lib .cpp) because knowledge is required of chunksize and the
@@ -521,10 +594,11 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 // width argument comes from GFX canvas width, which may be less than
 // core's bitWidth (due to padding). height isn't needed, it can be
 // inferred from core->numRowPairs.
-void _PM_convert_565_byte(Protomatter_core *core, uint16_t *source,
+__attribute__((noinline))
+void _PM_convert_565_byte(Protomatter_core *core, const uint16_t *source,
   uint16_t width) {
-    uint16_t *upperSrc = source;                             // Canvas top half
-    uint16_t *lowerSrc = source + width * core->numRowPairs; // " bottom half
+    const uint16_t *upperSrc = source;                             // Canvas top half
+    const uint16_t *lowerSrc = source + width * core->numRowPairs; // " bottom half
     uint8_t  *pinMask  = (uint8_t *)core->rgbMask;           // Pin bitmasks
     uint8_t  *dest     = (uint8_t *)core->screenData;
     if(core->doubleBuffer) {
@@ -638,6 +712,6 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
     // TO DO
 }
 
-#endif // ARDUINO
+#endif // ARDUINO || CIRCUITPYTHON
 
 #endif // _PROTOMATTER_ARCH_H_
