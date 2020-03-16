@@ -560,7 +560,7 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
     volatile uint8_t  *set;     // For RGB data set
     volatile uint32_t *set32;   // For clock set
     volatile uint32_t *clear32; // For RGB data + clock clear
-    set     = (volatile uint8_t *)core->setReg + portOffset;
+    set     = (volatile uint8_t *)core->setReg + core->portOffset;
     set32   = (volatile uint32_t *)core->setReg;
     clear32 = (volatile uint32_t *)core->clearReg;
     uint32_t rgbclock = core->rgbAndClockMask; // RGB + clock bit

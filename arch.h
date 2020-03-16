@@ -215,32 +215,44 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
           IRQn_Type IRQn;    // Interrupt number
           uint8_t   GCLK_ID; // Peripheral channel # for clock source
       } timer[] = {
-          TC0, TC0_IRQn, TC0_GCLK_ID,
-          TC1, TC1_IRQn, TC1_GCLK_ID,
-          TC2, TC2_IRQn, TC2_GCLK_ID,
-          TC3, TC3_IRQn, TC3_GCLK_ID,
-          TC4, TC4_IRQn, TC4_GCLK_ID,
-          TC5, TC5_IRQn, TC5_GCLK_ID,
+  #if defined(TC0)
+          { TC0, TC0_IRQn, TC0_GCLK_ID },
+  #endif
+  #if defined(TC1)
+          { TC1, TC1_IRQn, TC1_GCLK_ID },
+  #endif
+  #if defined(TC2)
+          { TC2, TC2_IRQn, TC2_GCLK_ID },
+  #endif
+  #if defined(TC3)
+          { TC3, TC3_IRQn, TC3_GCLK_ID },
+  #endif
+  #if defined(TC4)
+          { TC4, TC4_IRQn, TC4_GCLK_ID },
+  #endif
+  #if defined(TC5)
+          { TC5, TC5_IRQn, TC5_GCLK_ID },
+  #endif
   #if defined(TC6)
-          TC6, TC6_IRQn, TC6_GCLK_ID,
+          { TC6, TC6_IRQn, TC6_GCLK_ID },
   #endif
   #if defined(TC7)
-          TC7, TC7_IRQn, TC7_GCLK_ID,
+          { TC7, TC7_IRQn, TC7_GCLK_ID },
   #endif
   #if defined(TC8)
-          TC8, TC8_IRQn, TC8_GCLK_ID,
+          { TC8, TC8_IRQn, TC8_GCLK_ID },
   #endif
   #if defined(TC9)
-          TC9, TC9_IRQn, TC9_GCLK_ID,
+          { TC9, TC9_IRQn, TC9_GCLK_ID },
   #endif
   #if defined(TC10)
-          TC10, TC10_IRQn, TC10_GCLK_ID,
+          { TC10, TC10_IRQn, TC10_GCLK_ID },
   #endif
   #if defined(TC11)
-          TC11, TC11_IRQn, TC11_GCLK_ID,
+          { TC11, TC11_IRQn, TC11_GCLK_ID },
   #endif
   #if defined(TC12)
-          TC12, TC12_IRQn, TC12_GCLK_ID,
+          { TC12, TC12_IRQn, TC12_GCLK_ID },
   #endif
       };
       #define NUM_TIMERS (sizeof timer / sizeof timer[0])
@@ -380,17 +392,21 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
             IRQn_Type IRQn;   // Interrupt number
             uint8_t   GCM_ID; // GCLK selection ID
         } timer[] = {
-            TC0, TC0_IRQn, GCM_TCC0_TCC1,
-            TC1, TC1_IRQn, GCM_TCC0_TCC1,
-#if defined(TC2)
-            TC2, TC2_IRQn, GCM_TCC2_TC3,
-#endif
-#if defined(TC3)
-            TC3, TC3_IRQn, GCM_TCC2_TC3,
-#endif
-#if defined(TC4)
-            TC4, TC4_IRQn, GCM_TC4_TC5,
-#endif
+  #if defined(TC0)
+            { TC0, TC0_IRQn, GCM_TCC0_TCC1 },
+  #endif
+  #if defined(TC1)
+            { TC1, TC1_IRQn, GCM_TCC0_TCC1 },
+  #endif
+  #if defined(TC2)
+            { TC2, TC2_IRQn, GCM_TCC2_TC3 },
+  #endif
+  #if defined(TC3)
+            { TC3, TC3_IRQn, GCM_TCC2_TC3 },
+  #endif
+  #if defined(TC4)
+            { TC4, TC4_IRQn, GCM_TC4_TC5 },
+  #endif
         };
         #define NUM_TIMERS (sizeof timer / sizeof timer[0])
 
@@ -469,6 +485,77 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 // NRF52-SPECIFIC CODE -----------------------------------------------------
 
 #if defined(NRF52_SERIES)
+
+  #if defined(ARDUINO)
+
+    // g_ADigitalPinMap[] table and pin indices are Arduino specific:
+    void *_PM_portOutRegister(uint32_t pin) {
+      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+      return &port->OUT;
+    }
+
+    void *_PM_portSetRegister(uint32_t pin)  {
+      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+      return &port->OUTSET;
+    }
+
+    void *_PM_portClearRegister(uint32_t pin) {
+      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+      return &port->OUTCLR;
+    }
+
+    // Leave _PM_portToggleRegister(pin) undefined on nRF!
+
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+      #define _PM_byteOffset(pin) (g_ADigitalPinMap[pin & 0x1F] / 8)
+    #else
+      #define _PM_byteOffset(pin) (3 - (g_ADigitalPinMap[pin & 0x1F] / 8))
+    #endif
+
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+      #define _PM_wordOffset(pin) (g_ADigitalPinMap[pin & 0x1F] / 16)
+    #else
+      #define _PM_wordOffset(pin) (1 - (g_ADigitalPinMap[pin & 0x1F] / 16))
+    #endif
+
+    // Because it's tied to a specific timer right now, there can be only
+    // one instance of the Protomatter_core struct. The Arduino library
+    // sets up this pointer when calling begin().
+    void *_PM_protoPtr = NULL;
+
+    // Arduino implementation is tied to a specific timer/counter,
+    // Partly because IRQs must be declared at compile-time.
+    #define _PM_IRQ_HANDLER   TIMER4_IRQHandler
+    #define _PM_timerFreq     16000000
+    #define _PM_TIMER_DEFAULT NRF_TIMER4
+
+    // Timer interrupt service routine
+    void _PM_IRQ_HANDLER(void) {
+        // Clear overflow flag:
+//        _PM_TIMER_DEFAULT->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF;
+        _PM_row_handler(_PM_protoPtr); // In core.c
+    }
+
+  #else
+
+    // Non-arduino byte offset macros, timer and ISR work go here.
+
+  #endif
+
+  void _PM_timerInit(void *tptr) {
+  }
+
+  inline void _PM_timerStart(void *tptr, uint32_t period) {
+  }
+
+  inline uint32_t _PM_timerGetCount(void *tptr) {
+      return 0;
+  }
+
+  uint32_t _PM_timerStop(void *tptr) {
+      return 0;
+  }
+
 #endif // NRF52_SERIES
 
 
