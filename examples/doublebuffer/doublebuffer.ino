@@ -70,6 +70,13 @@ byte of PORT bits.
   uint8_t clockPin   = SDA;
   uint8_t latchPin   = 4;
   uint8_t oePin      = 5;
+#elif defined(NRF52_SERIES)
+  // Use FeatherWing pinout
+  uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
+  uint8_t addrPins[] = {A5, A4, A3, A2};
+  uint8_t clockPin   = 13;
+  uint8_t latchPin   = 0;
+  uint8_t oePin      = 1;
 #endif
 
 // Last arg here enables double-buffering

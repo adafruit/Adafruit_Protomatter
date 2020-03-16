@@ -71,11 +71,12 @@ byte of PORT bits.
   uint8_t latchPin   = 4;
   uint8_t oePin      = 5;
 #elif defined(NRF52_SERIES)
-  uint8_t rgbPins[]  = {6, 7, 10, 11, 12, 13};
-  uint8_t addrPins[] = {0, 1, 2, 3};
-  uint8_t clockPin   = SDA;
-  uint8_t latchPin   = 4;
-  uint8_t oePin      = 5;
+  // Use FeatherWing pinout
+  uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
+  uint8_t addrPins[] = {A5, A4, A3, A2};
+  uint8_t clockPin   = 13;
+  uint8_t latchPin   = 0;
+  uint8_t oePin      = 1;
 #endif
 
 Adafruit_Protomatter matrix(
