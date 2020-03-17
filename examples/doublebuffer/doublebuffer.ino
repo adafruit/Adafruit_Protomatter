@@ -42,14 +42,14 @@ PA06       PA14       PA22 SDA   PB06       PB14
 PA07 D9    PA15 D5    PA23 SCL   PB07       PB15
 
 FEATHER nRF52840:
-P0.00      P0.08 D12   P0.24 RXD  P1.08 D5
-P0.01      P0.09       P0.25 TXD  P1.09 D13
-P0.02 A4   P0.10 D2    P0.26 D9   P1.10
-P0.03 A5   P0.11 SCL   P0.27 D10  P1.11
-P0.04 A0   P0.12 SDA   P0.28 A3   P1.12
-P0.05 A1   P0.13 MOSI  P0.29      P1.13
-P0.06 D11  P0.14 SCK   P0.30 A2   P1.14
-P0.07 D6   P0.15 MISO  P0.31      P1.15
+P0.00      P0.08 D12       P0.24 RXD  P1.08 D5
+P0.01      P0.09           P0.25 TXD  P1.09 D13
+P0.02 A4   P0.10 D2 (NFC)  P0.26 D9   P1.10
+P0.03 A5   P0.11 SCL       P0.27 D10  P1.11
+P0.04 A0   P0.12 SDA       P0.28 A3   P1.12
+P0.05 A1   P0.13 MOSI      P0.29      P1.13
+P0.06 D11  P0.14 SCK       P0.30 A2   P1.14
+P0.07 D6   P0.15 MISO      P0.31      P1.15
 
 RGB Matrix FeatherWing:
 R1  D6    A   A5
@@ -83,10 +83,10 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t oePin      = 5;
 #elif defined(NRF52_SERIES)
   uint8_t rgbPins[]  = {6, 11, A0, A1, A4, A5};
-  uint8_t addrPins[] = {2, 5, 12, 13};
-  uint8_t clockPin   = 9;
-  uint8_t latchPin   = 10;
-  uint8_t oePin      = A2;
+  uint8_t addrPins[] = {5, 9, 10, 13};
+  uint8_t clockPin   = 12;
+  uint8_t latchPin   = A2;
+  uint8_t oePin      = A3;
 #endif
 
 // Last arg here enables double-buffering

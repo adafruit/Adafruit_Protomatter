@@ -528,8 +528,8 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
     // Timer interrupt service routine
     void _PM_IRQ_HANDLER(void) {
-        if(NRF_TIMER3->EVENTS_COMPARE[0]) {
-            NRF_TIMER3->EVENTS_COMPARE[0] = 0;
+        if(_PM_TIMER_DEFAULT->EVENTS_COMPARE[0]) {
+            _PM_TIMER_DEFAULT->EVENTS_COMPARE[0] = 0;
         }
         _PM_row_handler(_PM_protoPtr); // In core.c
     }
@@ -611,7 +611,7 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
       return _PM_timerGetCount(tptr);
   }
 
-  #define _PM_minMinPeriod 1000
+  #define _PM_minMinPeriod 25
 
 #endif // NRF52_SERIES
 
