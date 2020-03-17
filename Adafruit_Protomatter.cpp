@@ -55,8 +55,7 @@ Adafruit_Protomatter::~Adafruit_Protomatter(void) {
 
 ProtomatterStatus Adafruit_Protomatter::begin(void) {
     _PM_protoPtr = &core;
-    _PM_begin(&core);
-    return PROTOMATTER_OK;
+    return _PM_begin(&core);
 }
 
 // Transfer data from GFXcanvas16 to the matrix framebuffer's weird

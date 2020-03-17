@@ -386,98 +386,98 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
 
     // Initialize, but do not start, timer
-    void _PM_timerInit(void *tptr) {
-        static const struct {
-            Tc       *tc;     // -> Timer/counter peripheral base address
-            IRQn_Type IRQn;   // Interrupt number
-            uint8_t   GCM_ID; // GCLK selection ID
-        } timer[] = {
+  void _PM_timerInit(void *tptr) {
+      static const struct {
+          Tc       *tc;     // -> Timer/counter peripheral base address
+          IRQn_Type IRQn;   // Interrupt number
+          uint8_t   GCM_ID; // GCLK selection ID
+      } timer[] = {
   #if defined(TC0)
-            { TC0, TC0_IRQn, GCM_TCC0_TCC1 },
+          { TC0, TC0_IRQn, GCM_TCC0_TCC1 },
   #endif
   #if defined(TC1)
-            { TC1, TC1_IRQn, GCM_TCC0_TCC1 },
+          { TC1, TC1_IRQn, GCM_TCC0_TCC1 },
   #endif
   #if defined(TC2)
-            { TC2, TC2_IRQn, GCM_TCC2_TC3 },
+          { TC2, TC2_IRQn, GCM_TCC2_TC3 },
   #endif
   #if defined(TC3)
-            { TC3, TC3_IRQn, GCM_TCC2_TC3 },
+          { TC3, TC3_IRQn, GCM_TCC2_TC3 },
   #endif
   #if defined(TC4)
-            { TC4, TC4_IRQn, GCM_TC4_TC5 },
+          { TC4, TC4_IRQn, GCM_TC4_TC5 },
   #endif
-        };
-        #define NUM_TIMERS (sizeof timer / sizeof timer[0])
+      };
+      #define NUM_TIMERS (sizeof timer / sizeof timer[0])
 
-        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
 
-        uint8_t timerNum = 0;
-        while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tc)) {
-            timerNum++;
-        }
-        if(timerNum >= NUM_TIMERS) return;
+      uint8_t timerNum = 0;
+      while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tc)) {
+          timerNum++;
+      }
+      if(timerNum >= NUM_TIMERS) return;
 
-        // Enable GCLK for timer/counter
-        GCLK->CLKCTRL.reg = (uint16_t)(GCLK_CLKCTRL_CLKEN |
-          GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(timer[timerNum].GCM_ID));
-        while(GCLK->STATUS.bit.SYNCBUSY == 1);
+      // Enable GCLK for timer/counter
+      GCLK->CLKCTRL.reg = (uint16_t)(GCLK_CLKCTRL_CLKEN |
+        GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(timer[timerNum].GCM_ID));
+      while(GCLK->STATUS.bit.SYNCBUSY == 1);
 
-        // Counter must first be disabled to configure it
-        tc->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      // Counter must first be disabled to configure it
+      tc->COUNT16.CTRLA.bit.ENABLE = 0;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        tc->COUNT16.CTRLA.reg =     // Configure timer counter
-          TC_CTRLA_PRESCALER_DIV1 | // 1:1 Prescale
-          TC_CTRLA_WAVEGEN_MFRQ   | // Match frequency generation mode (MFRQ)
-          TC_CTRLA_MODE_COUNT16;    // 16-bit counter mode
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CTRLA.reg =     // Configure timer counter
+        TC_CTRLA_PRESCALER_DIV1 | // 1:1 Prescale
+        TC_CTRLA_WAVEGEN_MFRQ   | // Match frequency generation mode (MFRQ)
+        TC_CTRLA_MODE_COUNT16;    // 16-bit counter mode
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        tc->COUNT16.CTRLBCLR.reg = TCC_CTRLBCLR_DIR; // Count up
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CTRLBCLR.reg = TCC_CTRLBCLR_DIR; // Count up
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        // Overflow interrupt
-        tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
+      // Overflow interrupt
+      tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
 
-        NVIC_DisableIRQ(timer[timerNum].IRQn);
-        NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
-        NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
-        NVIC_EnableIRQ(timer[timerNum].IRQn);
+      NVIC_DisableIRQ(timer[timerNum].IRQn);
+      NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
+      NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
+      NVIC_EnableIRQ(timer[timerNum].IRQn);
 
-        // Timer is configured but NOT enabled by default
-    }
+      // Timer is configured but NOT enabled by default
+  }
 
-    // Set timer period, initialize count value to zero, enable timer.
-    // Timer must be initialized to 16-bit mode using the init function
-    // above, but must be inactive before calling this.
-    inline void _PM_timerStart(void *tptr, uint32_t period) {
-        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
-        tc->COUNT16.COUNT.reg = 0;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        tc->COUNT16.CC[0].reg = period;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        tc->COUNT16.CTRLA.bit.ENABLE = 1;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-    }
+  // Set timer period, initialize count value to zero, enable timer.
+  // Timer must be initialized to 16-bit mode using the init function
+  // above, but must be inactive before calling this.
+  inline void _PM_timerStart(void *tptr, uint32_t period) {
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      tc->COUNT16.COUNT.reg = 0;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CC[0].reg = period;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CTRLA.bit.ENABLE = 1;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+  }
 
-    // Return current count value (timer enabled or not).
-    // Timer must be previously initialized.
-    inline uint32_t _PM_timerGetCount(void *tptr) {
-        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
-        tc->COUNT16.READREQ.reg = TC_READREQ_RCONT | TC_READREQ_ADDR(0x10);
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        return tc->COUNT16.COUNT.reg;
-    }
+  // Return current count value (timer enabled or not).
+  // Timer must be previously initialized.
+  inline uint32_t _PM_timerGetCount(void *tptr) {
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      tc->COUNT16.READREQ.reg = TC_READREQ_RCONT | TC_READREQ_ADDR(0x10);
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      return tc->COUNT16.COUNT.reg;
+  }
 
-    // Disable timer and return current count value.
-    // Timer must be previously initialized.
-    inline uint32_t _PM_timerStop(void *tptr) {
-        Tc      *tc    = (Tc *)tptr; // Cast peripheral address passed in
-        uint32_t count = _PM_timerGetCount(tptr);
-        tc->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        return count;
-    }
+  // Disable timer and return current count value.
+  // Timer must be previously initialized.
+  inline uint32_t _PM_timerStop(void *tptr) {
+      Tc      *tc    = (Tc *)tptr; // Cast peripheral address passed in
+      uint32_t count = _PM_timerGetCount(tptr);
+      tc->COUNT16.CTRLA.bit.ENABLE = 0;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      return count;
+  }
 
 #endif // _SAMD21_
 
@@ -529,12 +529,22 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_timerFreq     16000000
     #define _PM_TIMER_DEFAULT NRF_TIMER4
 
+    #ifdef __cplusplus
+    extern "C" {
+    #endif
+
     // Timer interrupt service routine
     void _PM_IRQ_HANDLER(void) {
-        // Clear overflow flag:
-//        _PM_TIMER_DEFAULT->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF;
+        if(NRF_TIMER3->EVENTS_COMPARE[0]) {
+            NRF_TIMER3->EVENTS_COMPARE[0] = 0;
+        }
         _PM_row_handler(_PM_protoPtr); // In core.c
     }
+
+    #ifdef __cplusplus
+    }
+    #endif
+
 
   #else
 
@@ -543,17 +553,69 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
   #endif
 
   void _PM_timerInit(void *tptr) {
+      static const struct {
+          NRF_TIMER_Type *tc;   // -> Timer peripheral base address
+          IRQn_Type       IRQn; // Interrupt number
+      } timer[] = {
+  #if defined(NRF_TIMER0)
+          { NRF_TIMER0, TIMER0_IRQn },
+  #endif
+  #if defined(NRF_TIMER1)
+          { NRF_TIMER1, TIMER1_IRQn },
+  #endif
+  #if defined(NRF_TIMER2)
+          { NRF_TIMER2, TIMER2_IRQn },
+  #endif
+  #if defined(NRF_TIMER3)
+          { NRF_TIMER3, TIMER3_IRQn },
+  #endif
+  #if defined(NRF_TIMER4)
+          { NRF_TIMER4, TIMER4_IRQn },
+  #endif
+      };
+      #define NUM_TIMERS (sizeof timer / sizeof timer[0])
+
+      // Determine IRQn from timer address
+      uint8_t timerNum = 0;
+      while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tptr)) {
+          timerNum++;
+      }
+      if(timerNum >= NUM_TIMERS) return;
+
+      NRF_TIMER_Type *tc = timer[timerNum].tc;
+
+      tc->TASKS_STOP  = 1; // Stop timer
+      tc->MODE        = TIMER_MODE_MODE_Timer; // Timer (not counter) mode
+      tc->TASKS_CLEAR = 1;
+      tc->BITMODE     = TIMER_BITMODE_BITMODE_16Bit <<
+                        TIMER_BITMODE_BITMODE_Pos; // 16-bit timer res
+      tc->PRESCALER   = 0; // 1:1 prescale (16 MHz)
+      tc->INTENSET    = TIMER_INTENSET_COMPARE0_Enabled <<
+                        TIMER_INTENSET_COMPARE0_Pos; // Event 0 interrupt
+      NVIC_DisableIRQ(timer[timerNum].IRQn);
+      NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
+      NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
+      NVIC_EnableIRQ(timer[timerNum].IRQn);
   }
 
   inline void _PM_timerStart(void *tptr, uint32_t period) {
+      NRF_TIMER_Type *tc = (NRF_TIMER_Type *)tptr;
+      tc->TASKS_STOP  = 1; // Stop timer
+      tc->TASKS_CLEAR = 1;
+      tc->CC[0]       = period;
+      tc->TASKS_START = 1; // Start timer
   }
 
   inline uint32_t _PM_timerGetCount(void *tptr) {
-      return 0;
+      NRF_TIMER_Type *tc = (NRF_TIMER_Type *)tptr;
+      tc->TASKS_CAPTURE[0] = 1; // Capture timer to CC[n] register
+      return tc->CC[0];
   }
 
   uint32_t _PM_timerStop(void *tptr) {
-      return 0;
+      NRF_TIMER_Type *tc = (NRF_TIMER_Type *)tptr;
+      tc->TASKS_STOP = 1; // Stop timer
+      return _PM_timerGetCount(tptr);
   }
 
 #endif // NRF52_SERIES
