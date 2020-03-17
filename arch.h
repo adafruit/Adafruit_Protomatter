@@ -140,13 +140,9 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     // g_APinDescription[] table and pin indices are Arduino specific:
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
       #define _PM_byteOffset(pin) (g_APinDescription[pin].ulPin / 8)
-    #else
-      #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
-    #endif
-
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
       #define _PM_wordOffset(pin) (g_APinDescription[pin].ulPin / 16)
     #else
+      #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
       #define _PM_wordOffset(pin) (1 - (g_APinDescription[pin].ulPin / 16))
     #endif
 
@@ -488,34 +484,31 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
   #if defined(ARDUINO)
 
-    // g_ADigitalPinMap[] table and pin indices are Arduino specific:
+    // digitalPinToPort, g_ADigitalPinMap[] are Arduino specific:
+
     void *_PM_portOutRegister(uint32_t pin) {
-      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
-      return &port->OUT;
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUT;
     }
 
     void *_PM_portSetRegister(uint32_t pin)  {
-      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
-      return &port->OUTSET;
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUTSET;
     }
 
     void *_PM_portClearRegister(uint32_t pin) {
-      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
-      return &port->OUTCLR;
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUTCLR;
     }
 
     // Leave _PM_portToggleRegister(pin) undefined on nRF!
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      #define _PM_byteOffset(pin) (g_ADigitalPinMap[pin & 0x1F] / 8)
+      #define _PM_byteOffset(pin) ((g_ADigitalPinMap[pin] & 0x1F) / 8)
+      #define _PM_wordOffset(pin) ((g_ADigitalPinMap[pin] & 0x1F) / 16)
     #else
-      #define _PM_byteOffset(pin) (3 - (g_ADigitalPinMap[pin & 0x1F] / 8))
-    #endif
-
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      #define _PM_wordOffset(pin) (g_ADigitalPinMap[pin & 0x1F] / 16)
-    #else
-      #define _PM_wordOffset(pin) (1 - (g_ADigitalPinMap[pin & 0x1F] / 16))
+      #define _PM_byteOffset(pin) (3 - ((g_ADigitalPinMap[pin] & 0x1F) / 8))
+      #define _PM_wordOffset(pin) (1 - ((g_ADigitalPinMap[pin] & 0x1F) / 16))
     #endif
 
     // Because it's tied to a specific timer right now, there can be only
@@ -617,6 +610,8 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
       tc->TASKS_STOP = 1; // Stop timer
       return _PM_timerGetCount(tptr);
   }
+
+  #define _PM_minMinPeriod 1000
 
 #endif // NRF52_SERIES
 
