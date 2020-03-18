@@ -140,13 +140,9 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     // g_APinDescription[] table and pin indices are Arduino specific:
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
       #define _PM_byteOffset(pin) (g_APinDescription[pin].ulPin / 8)
-    #else
-      #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
-    #endif
-
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
       #define _PM_wordOffset(pin) (g_APinDescription[pin].ulPin / 16)
     #else
+      #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
       #define _PM_wordOffset(pin) (1 - (g_APinDescription[pin].ulPin / 16))
     #endif
 
@@ -488,34 +484,31 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
   #if defined(ARDUINO)
 
-    // g_ADigitalPinMap[] table and pin indices are Arduino specific:
+    // digitalPinToPort, g_ADigitalPinMap[] are Arduino specific:
+
     void *_PM_portOutRegister(uint32_t pin) {
-      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
-      return &port->OUT;
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUT;
     }
 
     void *_PM_portSetRegister(uint32_t pin)  {
-      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
-      return &port->OUTSET;
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUTSET;
     }
 
     void *_PM_portClearRegister(uint32_t pin) {
-      NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
-      return &port->OUTCLR;
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUTCLR;
     }
 
     // Leave _PM_portToggleRegister(pin) undefined on nRF!
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      #define _PM_byteOffset(pin) (g_ADigitalPinMap[pin & 0x1F] / 8)
+      #define _PM_byteOffset(pin) ((g_ADigitalPinMap[pin] & 0x1F) / 8)
+      #define _PM_wordOffset(pin) ((g_ADigitalPinMap[pin] & 0x1F) / 16)
     #else
-      #define _PM_byteOffset(pin) (3 - (g_ADigitalPinMap[pin & 0x1F] / 8))
-    #endif
-
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      #define _PM_wordOffset(pin) (g_ADigitalPinMap[pin & 0x1F] / 16)
-    #else
-      #define _PM_wordOffset(pin) (1 - (g_ADigitalPinMap[pin & 0x1F] / 16))
+      #define _PM_byteOffset(pin) (3 - ((g_ADigitalPinMap[pin] & 0x1F) / 8))
+      #define _PM_wordOffset(pin) (1 - ((g_ADigitalPinMap[pin] & 0x1F) / 16))
     #endif
 
     // Because it's tied to a specific timer right now, there can be only
@@ -535,8 +528,8 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
     // Timer interrupt service routine
     void _PM_IRQ_HANDLER(void) {
-        if(NRF_TIMER3->EVENTS_COMPARE[0]) {
-            NRF_TIMER3->EVENTS_COMPARE[0] = 0;
+        if(_PM_TIMER_DEFAULT->EVENTS_COMPARE[0]) {
+            _PM_TIMER_DEFAULT->EVENTS_COMPARE[0] = 0;
         }
         _PM_row_handler(_PM_protoPtr); // In core.c
     }
@@ -592,31 +585,41 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
       tc->PRESCALER   = 0; // 1:1 prescale (16 MHz)
       tc->INTENSET    = TIMER_INTENSET_COMPARE0_Enabled <<
                         TIMER_INTENSET_COMPARE0_Pos; // Event 0 interrupt
-      NVIC_DisableIRQ(timer[timerNum].IRQn);
-      NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
-      NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
+      //NVIC_DisableIRQ(timer[timerNum].IRQn);
+      //NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
+      //NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
       NVIC_EnableIRQ(timer[timerNum].IRQn);
   }
 
   inline void _PM_timerStart(void *tptr, uint32_t period) {
-      NRF_TIMER_Type *tc = (NRF_TIMER_Type *)tptr;
+      volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
       tc->TASKS_STOP  = 1; // Stop timer
-      tc->TASKS_CLEAR = 1;
+      tc->TASKS_CLEAR = 1; // Reset to 0
       tc->CC[0]       = period;
       tc->TASKS_START = 1; // Start timer
   }
 
   inline uint32_t _PM_timerGetCount(void *tptr) {
-      NRF_TIMER_Type *tc = (NRF_TIMER_Type *)tptr;
+      volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
       tc->TASKS_CAPTURE[0] = 1; // Capture timer to CC[n] register
       return tc->CC[0];
   }
 
   uint32_t _PM_timerStop(void *tptr) {
-      NRF_TIMER_Type *tc = (NRF_TIMER_Type *)tptr;
+      volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
       tc->TASKS_STOP = 1; // Stop timer
-      return _PM_timerGetCount(tptr);
+      uint32_t count = _PM_timerGetCount(tptr);
+      // NOTE TO FUTURE SELF: I don't know why the GetCount code isn't
+      // working. It does the expected thing in a small test program but
+      // not here. I need to get on with testing on an actual matrix, so
+      // this is just a nonsense fudge value for now:
+      return 100;
+      //return count;
   }
+
+  #define _PM_clockHoldHigh asm("nop; nop");
+
+  #define _PM_minMinPeriod 100
 
 #endif // NRF52_SERIES
 
