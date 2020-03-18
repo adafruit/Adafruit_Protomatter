@@ -75,7 +75,7 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t clockPin   = 13;
   uint8_t latchPin   = 0;
   uint8_t oePin      = 1;
-#else // SAMD21
+#elif defined(_SAMD21_)
   uint8_t rgbPins[]  = {6, 7, 10, 11, 12, 13};
   uint8_t addrPins[] = {0, 1, 2, 3};
   uint8_t clockPin   = SDA;

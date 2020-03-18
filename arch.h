@@ -617,6 +617,8 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
       //return count;
   }
 
+  #define _PM_clockHoldHigh asm("nop; nop");
+
   #define _PM_minMinPeriod 100
 
 #endif // NRF52_SERIES
