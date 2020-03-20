@@ -1057,6 +1057,30 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
     }
 }
 
+void _PM_convert_565(Protomatter_core *core, uint16_t *source, uint16_t width) {
+    // Destination address is computed in convert function
+    // (based on active buffer value, if double-buffering),
+    // just need to pass in the canvas buffer address and
+    // width in pixels.
+    if(core->bytesPerElement == 1) {
+        _PM_convert_565_byte(core, source, width);
+    } else if(core->bytesPerElement == 2) {
+        _PM_convert_565_word(core, source, width);
+    } else {
+        _PM_convert_565_long(core, source, width);
+    }
+
+}
+
+void _PM_swapbuffer_maybe(Protomatter_core *core) {
+    if(core->doubleBuffer) {
+        core->swapBuffers = 1;
+        // To avoid overwriting data on the matrix, don't return
+        // until the timer ISR has performed the swap at the right time.
+        while(core->swapBuffers);
+    }
+}
+
 #endif // ARDUINO || CIRCUITPYTHON
 
 #endif // _PROTOMATTER_ARCH_H_
