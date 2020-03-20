@@ -400,12 +400,11 @@ void _PM_row_handler(Protomatter_core *core) {
 
     *core->oe.setReg = core->oe.bit; // Disable LED output
 
+    *core->latch.setReg   = core->latch.bit; // Latch data from PRIOR pass
     // Stop timer, save count value at stop
     uint32_t elapsed = _PM_timerStop(core->timer);
-
-    _PM_pinHigh(core->latch.pin);    // Latch data loaded on PRIOR pass
-    _PM_pinLow(core->latch.pin);
     uint8_t prevPlane = core->plane; // Save that plane # for later timing
+    *core->latch.clearReg = core->latch.bit; // (split to add a few cycles)
 
     // If plane 0 just finished being displayed (plane 1 was loaded on prior
     // pass, or there's only one plane...I know, it's confusing), take note
@@ -559,14 +558,15 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
     // clock are all within the same byte of a PORT register, else we'd be
     // in the word- or long-blasting functions now. So we just need an
     // 8-bit pointer to the PORT.
-    volatile uint8_t *toggle = (volatile uint8_t *)core->toggleReg + core->portOffset;
+    volatile uint8_t *toggle = (volatile uint8_t *)core->toggleReg +
+        core->portOffset;
 #else
     // No-toggle version is a little different. If here, RGB data is all
     // in one byte of PORT register, clock can be any bit in 32-bit PORT.
     volatile uint8_t  *set;     // For RGB data set
     volatile uint32_t *set32;   // For clock set
     volatile uint32_t *clear32; // For RGB data + clock clear
-    set     = (volatile uint8_t *)core->setReg + portOffset;
+    set     = (volatile uint8_t *)core->setReg + core->portOffset;
     set32   = (volatile uint32_t *)core->setReg;
     clear32 = (volatile uint32_t *)core->clearReg;
     uint32_t rgbclock = core->rgbAndClockMask; // RGB + clock bit
@@ -595,7 +595,8 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
 static void blast_word(Protomatter_core *core, uint16_t *data) {
 #if defined(_PM_portToggleRegister)
     // See notes above -- except now 16-bit word in PORT.
-    volatile uint16_t *toggle = (volatile uint16_t *)core->toggleReg + core->portOffset;
+    volatile uint16_t *toggle = (volatile uint16_t *)core->toggleReg +
+        core->portOffset;
 #else
     volatile uint16_t *set;     // For RGB data set
     volatile uint32_t *set32;   // For clock set
@@ -612,7 +613,8 @@ static void blast_word(Protomatter_core *core, uint16_t *data) {
     }
 #if defined(_PM_portToggleRegister)
     // rgbAndClockMask is a 16-bit value when toggling, hence offset here.
-    *((volatile uint16_t *)core->clearReg + core->portOffset) = core->rgbAndClockMask;
+    *((volatile uint16_t *)core->clearReg + core->portOffset) =
+        core->rgbAndClockMask;
 #endif
 }
 

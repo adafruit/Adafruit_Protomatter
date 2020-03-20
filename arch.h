@@ -153,13 +153,9 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     // g_APinDescription[] table and pin indices are Arduino specific:
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
       #define _PM_byteOffset(pin) (g_APinDescription[pin].ulPin / 8)
-    #else
-      #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
-    #endif
-
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
       #define _PM_wordOffset(pin) (g_APinDescription[pin].ulPin / 16)
     #else
+      #define _PM_byteOffset(pin) (3 - (g_APinDescription[pin].ulPin / 8))
       #define _PM_wordOffset(pin) (1 - (g_APinDescription[pin].ulPin / 16))
     #endif
 
@@ -280,32 +276,44 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
           IRQn_Type IRQn;    // Interrupt number
           uint8_t   GCLK_ID; // Peripheral channel # for clock source
       } timer[] = {
-          TC0, TC0_IRQn, TC0_GCLK_ID,
-          TC1, TC1_IRQn, TC1_GCLK_ID,
-          TC2, TC2_IRQn, TC2_GCLK_ID,
-          TC3, TC3_IRQn, TC3_GCLK_ID,
-          TC4, TC4_IRQn, TC4_GCLK_ID,
-          TC5, TC5_IRQn, TC5_GCLK_ID,
+  #if defined(TC0)
+          { TC0, TC0_IRQn, TC0_GCLK_ID },
+  #endif
+  #if defined(TC1)
+          { TC1, TC1_IRQn, TC1_GCLK_ID },
+  #endif
+  #if defined(TC2)
+          { TC2, TC2_IRQn, TC2_GCLK_ID },
+  #endif
+  #if defined(TC3)
+          { TC3, TC3_IRQn, TC3_GCLK_ID },
+  #endif
+  #if defined(TC4)
+          { TC4, TC4_IRQn, TC4_GCLK_ID },
+  #endif
+  #if defined(TC5)
+          { TC5, TC5_IRQn, TC5_GCLK_ID },
+  #endif
   #if defined(TC6)
-          TC6, TC6_IRQn, TC6_GCLK_ID,
+          { TC6, TC6_IRQn, TC6_GCLK_ID },
   #endif
   #if defined(TC7)
-          TC7, TC7_IRQn, TC7_GCLK_ID,
+          { TC7, TC7_IRQn, TC7_GCLK_ID },
   #endif
   #if defined(TC8)
-          TC8, TC8_IRQn, TC8_GCLK_ID,
+          { TC8, TC8_IRQn, TC8_GCLK_ID },
   #endif
   #if defined(TC9)
-          TC9, TC9_IRQn, TC9_GCLK_ID,
+          { TC9, TC9_IRQn, TC9_GCLK_ID },
   #endif
   #if defined(TC10)
-          TC10, TC10_IRQn, TC10_GCLK_ID,
+          { TC10, TC10_IRQn, TC10_GCLK_ID },
   #endif
   #if defined(TC11)
-          TC11, TC11_IRQn, TC11_GCLK_ID,
+          { TC11, TC11_IRQn, TC11_GCLK_ID },
   #endif
   #if defined(TC12)
-          TC12, TC12_IRQn, TC12_GCLK_ID,
+          { TC12, TC12_IRQn, TC12_GCLK_ID },
   #endif
       };
       #define NUM_TIMERS (sizeof timer / sizeof timer[0])
@@ -439,94 +447,98 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
 
     // Initialize, but do not start, timer
-    void _PM_timerInit(void *tptr) {
-        static const struct {
-            Tc       *tc;     // -> Timer/counter peripheral base address
-            IRQn_Type IRQn;   // Interrupt number
-            uint8_t   GCM_ID; // GCLK selection ID
-        } timer[] = {
-            TC0, TC0_IRQn, GCM_TCC0_TCC1,
-            TC1, TC1_IRQn, GCM_TCC0_TCC1,
-#if defined(TC2)
-            TC2, TC2_IRQn, GCM_TCC2_TC3,
-#endif
-#if defined(TC3)
-            TC3, TC3_IRQn, GCM_TCC2_TC3,
-#endif
-#if defined(TC4)
-            TC4, TC4_IRQn, GCM_TC4_TC5,
-#endif
-        };
-        #define NUM_TIMERS (sizeof timer / sizeof timer[0])
+  void _PM_timerInit(void *tptr) {
+      static const struct {
+          Tc       *tc;     // -> Timer/counter peripheral base address
+          IRQn_Type IRQn;   // Interrupt number
+          uint8_t   GCM_ID; // GCLK selection ID
+      } timer[] = {
+  #if defined(TC0)
+          { TC0, TC0_IRQn, GCM_TCC0_TCC1 },
+  #endif
+  #if defined(TC1)
+          { TC1, TC1_IRQn, GCM_TCC0_TCC1 },
+  #endif
+  #if defined(TC2)
+          { TC2, TC2_IRQn, GCM_TCC2_TC3 },
+  #endif
+  #if defined(TC3)
+          { TC3, TC3_IRQn, GCM_TCC2_TC3 },
+  #endif
+  #if defined(TC4)
+          { TC4, TC4_IRQn, GCM_TC4_TC5 },
+  #endif
+      };
+      #define NUM_TIMERS (sizeof timer / sizeof timer[0])
 
-        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
 
-        uint8_t timerNum = 0;
-        while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tc)) {
-            timerNum++;
-        }
-        if(timerNum >= NUM_TIMERS) return;
+      uint8_t timerNum = 0;
+      while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tc)) {
+          timerNum++;
+      }
+      if(timerNum >= NUM_TIMERS) return;
 
-        // Enable GCLK for timer/counter
-        GCLK->CLKCTRL.reg = (uint16_t)(GCLK_CLKCTRL_CLKEN |
-          GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(timer[timerNum].GCM_ID));
-        while(GCLK->STATUS.bit.SYNCBUSY == 1);
+      // Enable GCLK for timer/counter
+      GCLK->CLKCTRL.reg = (uint16_t)(GCLK_CLKCTRL_CLKEN |
+        GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(timer[timerNum].GCM_ID));
+      while(GCLK->STATUS.bit.SYNCBUSY == 1);
 
-        // Counter must first be disabled to configure it
-        tc->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      // Counter must first be disabled to configure it
+      tc->COUNT16.CTRLA.bit.ENABLE = 0;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        tc->COUNT16.CTRLA.reg =     // Configure timer counter
-          TC_CTRLA_PRESCALER_DIV1 | // 1:1 Prescale
-          TC_CTRLA_WAVEGEN_MFRQ   | // Match frequency generation mode (MFRQ)
-          TC_CTRLA_MODE_COUNT16;    // 16-bit counter mode
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CTRLA.reg =     // Configure timer counter
+        TC_CTRLA_PRESCALER_DIV1 | // 1:1 Prescale
+        TC_CTRLA_WAVEGEN_MFRQ   | // Match frequency generation mode (MFRQ)
+        TC_CTRLA_MODE_COUNT16;    // 16-bit counter mode
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        tc->COUNT16.CTRLBCLR.reg = TCC_CTRLBCLR_DIR; // Count up
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CTRLBCLR.reg = TCC_CTRLBCLR_DIR; // Count up
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
 
-        // Overflow interrupt
-        tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
+      // Overflow interrupt
+      tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
 
-        NVIC_DisableIRQ(timer[timerNum].IRQn);
-        NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
-        NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
-        NVIC_EnableIRQ(timer[timerNum].IRQn);
+      NVIC_DisableIRQ(timer[timerNum].IRQn);
+      NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
+      NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
+      NVIC_EnableIRQ(timer[timerNum].IRQn);
 
-        // Timer is configured but NOT enabled by default
-    }
+      // Timer is configured but NOT enabled by default
+  }
 
-    // Set timer period, initialize count value to zero, enable timer.
-    // Timer must be initialized to 16-bit mode using the init function
-    // above, but must be inactive before calling this.
-    inline void _PM_timerStart(void *tptr, uint32_t period) {
-        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
-        tc->COUNT16.COUNT.reg = 0;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        tc->COUNT16.CC[0].reg = period;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        tc->COUNT16.CTRLA.bit.ENABLE = 1;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-    }
+  // Set timer period, initialize count value to zero, enable timer.
+  // Timer must be initialized to 16-bit mode using the init function
+  // above, but must be inactive before calling this.
+  inline void _PM_timerStart(void *tptr, uint32_t period) {
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      tc->COUNT16.COUNT.reg = 0;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CC[0].reg = period;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      tc->COUNT16.CTRLA.bit.ENABLE = 1;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+  }
 
-    // Return current count value (timer enabled or not).
-    // Timer must be previously initialized.
-    inline uint32_t _PM_timerGetCount(void *tptr) {
-        Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
-        tc->COUNT16.READREQ.reg = TC_READREQ_RCONT | TC_READREQ_ADDR(0x10);
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        return tc->COUNT16.COUNT.reg;
-    }
+  // Return current count value (timer enabled or not).
+  // Timer must be previously initialized.
+  inline uint32_t _PM_timerGetCount(void *tptr) {
+      Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+      tc->COUNT16.READREQ.reg = TC_READREQ_RCONT | TC_READREQ_ADDR(0x10);
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      return tc->COUNT16.COUNT.reg;
+  }
 
-    // Disable timer and return current count value.
-    // Timer must be previously initialized.
-    inline uint32_t _PM_timerStop(void *tptr) {
-        Tc      *tc    = (Tc *)tptr; // Cast peripheral address passed in
-        uint32_t count = _PM_timerGetCount(tptr);
-        tc->COUNT16.CTRLA.bit.ENABLE = 0;
-        while(tc->COUNT16.STATUS.bit.SYNCBUSY);
-        return count;
-    }
+  // Disable timer and return current count value.
+  // Timer must be previously initialized.
+  inline uint32_t _PM_timerStop(void *tptr) {
+      Tc      *tc    = (Tc *)tptr; // Cast peripheral address passed in
+      uint32_t count = _PM_timerGetCount(tptr);
+      tc->COUNT16.CTRLA.bit.ENABLE = 0;
+      while(tc->COUNT16.STATUS.bit.SYNCBUSY);
+      return count;
+  }
 
 #endif // _SAMD21_
 
@@ -534,6 +546,146 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 // NRF52-SPECIFIC CODE -----------------------------------------------------
 
 #if defined(NRF52_SERIES)
+
+  #if defined(ARDUINO)
+
+    // digitalPinToPort, g_ADigitalPinMap[] are Arduino specific:
+
+    void *_PM_portOutRegister(uint32_t pin) {
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUT;
+    }
+
+    void *_PM_portSetRegister(uint32_t pin)  {
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUTSET;
+    }
+
+    void *_PM_portClearRegister(uint32_t pin) {
+        NRF_GPIO_Type *port = digitalPinToPort(pin);
+        return &port->OUTCLR;
+    }
+
+    // Leave _PM_portToggleRegister(pin) undefined on nRF!
+
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+      #define _PM_byteOffset(pin) ((g_ADigitalPinMap[pin] & 0x1F) / 8)
+      #define _PM_wordOffset(pin) ((g_ADigitalPinMap[pin] & 0x1F) / 16)
+    #else
+      #define _PM_byteOffset(pin) (3 - ((g_ADigitalPinMap[pin] & 0x1F) / 8))
+      #define _PM_wordOffset(pin) (1 - ((g_ADigitalPinMap[pin] & 0x1F) / 16))
+    #endif
+
+    // Because it's tied to a specific timer right now, there can be only
+    // one instance of the Protomatter_core struct. The Arduino library
+    // sets up this pointer when calling begin().
+    void *_PM_protoPtr = NULL;
+
+    // Arduino implementation is tied to a specific timer/counter,
+    // Partly because IRQs must be declared at compile-time.
+    #define _PM_IRQ_HANDLER   TIMER4_IRQHandler
+    #define _PM_timerFreq     16000000
+    #define _PM_TIMER_DEFAULT NRF_TIMER4
+
+    #ifdef __cplusplus
+    extern "C" {
+    #endif
+
+    // Timer interrupt service routine
+    void _PM_IRQ_HANDLER(void) {
+        if(_PM_TIMER_DEFAULT->EVENTS_COMPARE[0]) {
+            _PM_TIMER_DEFAULT->EVENTS_COMPARE[0] = 0;
+        }
+        _PM_row_handler(_PM_protoPtr); // In core.c
+    }
+
+    #ifdef __cplusplus
+    }
+    #endif
+
+
+  #else
+
+    // Non-arduino byte offset macros, timer and ISR work go here.
+
+  #endif
+
+  void _PM_timerInit(void *tptr) {
+      static const struct {
+          NRF_TIMER_Type *tc;   // -> Timer peripheral base address
+          IRQn_Type       IRQn; // Interrupt number
+      } timer[] = {
+  #if defined(NRF_TIMER0)
+          { NRF_TIMER0, TIMER0_IRQn },
+  #endif
+  #if defined(NRF_TIMER1)
+          { NRF_TIMER1, TIMER1_IRQn },
+  #endif
+  #if defined(NRF_TIMER2)
+          { NRF_TIMER2, TIMER2_IRQn },
+  #endif
+  #if defined(NRF_TIMER3)
+          { NRF_TIMER3, TIMER3_IRQn },
+  #endif
+  #if defined(NRF_TIMER4)
+          { NRF_TIMER4, TIMER4_IRQn },
+  #endif
+      };
+      #define NUM_TIMERS (sizeof timer / sizeof timer[0])
+
+      // Determine IRQn from timer address
+      uint8_t timerNum = 0;
+      while((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tptr)) {
+          timerNum++;
+      }
+      if(timerNum >= NUM_TIMERS) return;
+
+      NRF_TIMER_Type *tc = timer[timerNum].tc;
+
+      tc->TASKS_STOP  = 1; // Stop timer
+      tc->MODE        = TIMER_MODE_MODE_Timer; // Timer (not counter) mode
+      tc->TASKS_CLEAR = 1;
+      tc->BITMODE     = TIMER_BITMODE_BITMODE_16Bit <<
+                        TIMER_BITMODE_BITMODE_Pos; // 16-bit timer res
+      tc->PRESCALER   = 0; // 1:1 prescale (16 MHz)
+      tc->INTENSET    = TIMER_INTENSET_COMPARE0_Enabled <<
+                        TIMER_INTENSET_COMPARE0_Pos; // Event 0 interrupt
+      //NVIC_DisableIRQ(timer[timerNum].IRQn);
+      //NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
+      //NVIC_SetPriority(timer[timerNum].IRQn, 0); // Top priority
+      NVIC_EnableIRQ(timer[timerNum].IRQn);
+  }
+
+  inline void _PM_timerStart(void *tptr, uint32_t period) {
+      volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
+      tc->TASKS_STOP  = 1; // Stop timer
+      tc->TASKS_CLEAR = 1; // Reset to 0
+      tc->CC[0]       = period;
+      tc->TASKS_START = 1; // Start timer
+  }
+
+  inline uint32_t _PM_timerGetCount(void *tptr) {
+      volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
+      tc->TASKS_CAPTURE[0] = 1; // Capture timer to CC[n] register
+      return tc->CC[0];
+  }
+
+  uint32_t _PM_timerStop(void *tptr) {
+      volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
+      tc->TASKS_STOP = 1; // Stop timer
+      uint32_t count = _PM_timerGetCount(tptr);
+      // NOTE TO FUTURE SELF: I don't know why the GetCount code isn't
+      // working. It does the expected thing in a small test program but
+      // not here. I need to get on with testing on an actual matrix, so
+      // this is just a nonsense fudge value for now:
+      return 100;
+      //return count;
+  }
+
+  #define _PM_clockHoldHigh asm("nop; nop");
+
+  #define _PM_minMinPeriod 100
+
 #endif // NRF52_SERIES
 
 
@@ -659,7 +811,7 @@ void _PM_convert_565_byte(Protomatter_core *core, const uint16_t *source,
             for(uint16_t x=0; x<width; x++) {
                 uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
                 uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
-                uint8_t result = 0;
+                uint8_t  result   = 0;
                 if(upperRGB & redBit)   result |= pinMask[0];
                 if(upperRGB & greenBit) result |= pinMask[1];
                 if(upperRGB & blueBit)  result |= pinMask[2];
@@ -702,14 +854,207 @@ void _PM_convert_565_byte(Protomatter_core *core, const uint16_t *source,
     } // end row
 }
 
+// Corresponding function for word output -- either 12 RGB bits (2 parallel
+// matrix chains), or 1 chain with RGB bits not in the same byte (but in the
+// same 16-bit word). Some of the comments have been stripped out since it's
+// largely the same operation, but changes are noted.
 void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
   uint16_t width) {
-    // TO DO
+    uint16_t *upperSrc = source;                             // Matrix top half
+    uint16_t *lowerSrc = source + width * core->numRowPairs; // " bottom half
+    uint16_t *pinMask  = (uint16_t *)core->rgbMask;          // Pin bitmasks
+    uint16_t *dest     = (uint16_t *)core->screenData;
+    if(core->doubleBuffer) {
+        dest += core->bufferSize / core->bytesPerElement *
+          (1 - core->activeBuffer);
+    }
+
+    uint32_t bitplaneSize = _PM_chunkSize *
+      ((width + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
+    uint8_t  pad          = bitplaneSize - width;      // Start-of-plane pad
+
+    uint32_t initialRedBit, initialGreenBit, initialBlueBit;
+    if(core->numPlanes == 6) {
+        initialRedBit   = 0b1000000000000000; // MSB red
+        initialGreenBit = 0b0000000000100000; // LSB green
+        initialBlueBit  = 0b0000000000010000; // MSB blue
+    } else {
+        uint8_t shiftLeft = 5 - core->numPlanes;
+        initialRedBit   = 0b0000100000000000 << shiftLeft;
+        initialGreenBit = 0b0000000001000000 << shiftLeft;
+        initialBlueBit  = 0b0000000000000001 << shiftLeft;
+    }
+
+    // Unlike the 565 byte converter, the word converter DOES clear out the
+    // matrix buffer (because each chain is OR'd into place). If a toggle
+    // register exists, "clear" really means the clock mask is set in all
+    // but the first element on a scanline (per bitplane). If no toggle
+    // register, can just zero everything out.
+#if defined(_PM_portToggleRegister)
+    // No per-chain loop is required; one clock bit handles all chains
+    uint32_t offset = 0; // Current position in the 'dest' buffer
+    for(uint8_t row=0; row<core->numRowPairs; row++) {
+        for(uint8_t plane=0; plane<core->numPlanes; plane++) {
+            dest[offset++] = 0; // First element of each plane
+            for(uint16_t x=1; x<bitplaneSize; x++) { // All subsequent items
+                dest[offset++] = core->clockMask;
+            }
+        }
+    }
+#else
+    memset(dest, 0, core->bufferSize);
+#endif
+
+    dest += pad; // Pad value is in 'elements,' not bytes, so this is OK
+
+    // After a set of rows+bitplanes are processed, upperSrc and lowerSrc
+    // have advanced halfway down one matrix. This offset is used after
+    // each chain to advance them to the start/middle of the next matrix.
+    uint32_t halfMatrixOffset = width * core->numPlanes * core->numRowPairs;
+
+    for(uint8_t chain=0; chain<core->parallel; chain++) {
+        for(uint8_t row=0; row<core->numRowPairs; row++) {
+            uint32_t redBit   = initialRedBit;
+            uint32_t greenBit = initialGreenBit;
+            uint32_t blueBit  = initialBlueBit;
+            for(uint8_t plane=0; plane<core->numPlanes; plane++) {
+#if defined(_PM_portToggleRegister)
+                // Since we're ORing in bits over an existing clock bit,
+                // prior is 0 rather than clockMask as in the byte case.
+                uint16_t prior = 0;
+#endif
+                for(uint16_t x=0; x<width; x++) {
+                    uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
+                    uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
+                    uint16_t result   = 0;
+                    if(upperRGB & redBit)   result |= pinMask[0];
+                    if(upperRGB & greenBit) result |= pinMask[1];
+                    if(upperRGB & blueBit)  result |= pinMask[2];
+                    if(lowerRGB & redBit)   result |= pinMask[3];
+                    if(lowerRGB & greenBit) result |= pinMask[4];
+                    if(lowerRGB & blueBit)  result |= pinMask[5];
+                    // Main difference here vs byte converter is each chain
+                    // ORs new bits into place (vs single-pass overwrite).
+#if defined(_PM_portToggleRegister)
+                    dest[x] |= result ^ prior; // Bitwise OR
+                    prior    = result;
+#else
+                    dest[x] |= result;         // Bitwise OR
+#endif
+                } // end x
+                greenBit <<= 1;
+                if(plane || (core->numPlanes < 6)) {
+                    redBit  <<= 1;
+                    blueBit <<= 1;
+                } else {
+                    redBit  = 0b0000100000000000;
+                    blueBit = 0b0000000000000001;
+                }
+                dest += bitplaneSize; // Advance one scanline in dest buffer
+            } // end plane
+            upperSrc += width; // Advance one scanline in source buffer
+            lowerSrc += width;
+        } // end row
+        pinMask  += 6;                // Next chain's RGB pin masks
+        upperSrc += halfMatrixOffset; // Advance to next matrix start pos
+        lowerSrc += halfMatrixOffset;
+    }
 }
 
+// Corresponding function for long output -- either several parallel chains
+// (up to 5), or 1 chain with RGB bits scattered widely about the PORT.
+// Same deal, comments are pared back, see above functions for explanations.
 void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
   uint16_t width) {
-    // TO DO
+    uint16_t *upperSrc = source;                             // Matrix top half
+    uint16_t *lowerSrc = source + width * core->numRowPairs; // " bottom half
+    uint32_t *pinMask  = (uint32_t *)core->rgbMask;          // Pin bitmasks
+    uint32_t *dest     = (uint32_t *)core->screenData;
+    if(core->doubleBuffer) {
+        dest += core->bufferSize / core->bytesPerElement *
+          (1 - core->activeBuffer);
+    }
+
+    uint32_t bitplaneSize = _PM_chunkSize *
+      ((width + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
+    uint8_t  pad          = bitplaneSize - width;      // Start-of-plane pad
+
+    uint32_t initialRedBit, initialGreenBit, initialBlueBit;
+    if(core->numPlanes == 6) {
+        initialRedBit   = 0b1000000000000000; // MSB red
+        initialGreenBit = 0b0000000000100000; // LSB green
+        initialBlueBit  = 0b0000000000010000; // MSB blue
+    } else {
+        uint8_t shiftLeft = 5 - core->numPlanes;
+        initialRedBit   = 0b0000100000000000 << shiftLeft;
+        initialGreenBit = 0b0000000001000000 << shiftLeft;
+        initialBlueBit  = 0b0000000000000001 << shiftLeft;
+    }
+
+#if defined(_PM_portToggleRegister)
+    // No per-chain loop is required; one clock bit handles all chains
+    uint32_t offset = 0; // Current position in the 'dest' buffer
+    for(uint8_t row=0; row<core->numRowPairs; row++) {
+        for(uint8_t plane=0; plane<core->numPlanes; plane++) {
+            dest[offset++] = 0; // First element of each plane
+            for(uint16_t x=1; x<bitplaneSize; x++) { // All subsequent items
+                dest[offset++] = core->clockMask;
+            }
+        }
+    }
+#else
+    memset(dest, 0, core->bufferSize);
+#endif
+
+    dest += pad; // Pad value is in 'elements,' not bytes, so this is OK
+
+    uint32_t halfMatrixOffset = width * core->numPlanes * core->numRowPairs;
+
+    for(uint8_t chain=0; chain<core->parallel; chain++) {
+        for(uint8_t row=0; row<core->numRowPairs; row++) {
+            uint32_t redBit   = initialRedBit;
+            uint32_t greenBit = initialGreenBit;
+            uint32_t blueBit  = initialBlueBit;
+            for(uint8_t plane=0; plane<core->numPlanes; plane++) {
+#if defined(_PM_portToggleRegister)
+                uint32_t prior = 0;
+#endif
+                for(uint16_t x=0; x<width; x++) {
+                    uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
+                    uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
+                    uint32_t result   = 0;
+                    if(upperRGB & redBit)   result |= pinMask[0];
+                    if(upperRGB & greenBit) result |= pinMask[1];
+                    if(upperRGB & blueBit)  result |= pinMask[2];
+                    if(lowerRGB & redBit)   result |= pinMask[3];
+                    if(lowerRGB & greenBit) result |= pinMask[4];
+                    if(lowerRGB & blueBit)  result |= pinMask[5];
+                    // Main difference here vs byte converter is each chain
+                    // ORs new bits into place (vs single-pass overwrite).
+#if defined(_PM_portToggleRegister)
+                    dest[x] |= result ^ prior; // Bitwise OR
+                    prior    = result;
+#else
+                    dest[x] |= result;         // Bitwise OR
+#endif
+                } // end x
+                greenBit <<= 1;
+                if(plane || (core->numPlanes < 6)) {
+                    redBit  <<= 1;
+                    blueBit <<= 1;
+                } else {
+                    redBit  = 0b0000100000000000;
+                    blueBit = 0b0000000000000001;
+                }
+                dest += bitplaneSize; // Advance one scanline in dest buffer
+            } // end plane
+            upperSrc += width; // Advance one scanline in source buffer
+            lowerSrc += width;
+        } // end row
+        pinMask  += 6;                // Next chain's RGB pin masks
+        upperSrc += halfMatrixOffset; // Advance to next matrix start pos
+        lowerSrc += halfMatrixOffset;
+    }
 }
 
 #endif // ARDUINO || CIRCUITPYTHON
