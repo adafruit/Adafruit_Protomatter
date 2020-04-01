@@ -603,6 +603,55 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     }
     #endif
 
+  #elif defined(CIRCUITPY)
+
+    #include "nrf_gpio.h"
+
+    volatile uint32_t *_PM_portOutRegister(uint32_t pin) {
+        NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+        return &port->OUT;
+    }
+
+    volatile uint32_t *_PM_portSetRegister(uint32_t pin)  {
+        NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+        return &port->OUTSET;
+    }
+
+    volatile uint32_t *_PM_portClearRegister(uint32_t pin) {
+        NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+        return &port->OUTCLR;
+    }
+    #define _PM_pinOutput(pin)        nrf_gpio_cfg(pin, NRF_GPIO_PIN_DIR_OUTPUT, NRF_GPIO_PIN_INPUT_DISCONNECT, NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_H0H1, NRF_GPIO_PIN_NOSENSE)
+    #define _PM_pinInput(pin)         nrf_gpio_cfg_input(pin)
+    #define _PM_pinHigh(pin)          nrf_gpio_pin_set(pin)
+    #define _PM_pinLow(pin)           nrf_gpio_pin_clear(pin)
+    #define _PM_portBitMask(pin)      (1u << ((pin) % 32))
+
+    #define _PM_byteOffset(pin) ((pin) / 8)
+    #define _PM_wordOffset(pin) ((pin) / 16)
+
+    #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+    #error  SRSLY
+    #endif
+
+    // CircuitPython implementation is tied to a specific freq (but the counter
+    // is dynamically allocated):
+    #define _PM_timerFreq     16000000
+
+    // Because it's tied to a specific timer right now, there can be only
+    // one instance of the Protomatter_core struct. The Arduino library
+    // sets up this pointer when calling begin().
+    void *_PM_protoPtr = NULL;
+
+    // Timer interrupt service routine
+    void _PM_IRQ_HANDLER(void) {
+        NRF_TIMER_Type* timer = (((Protomatter_core*)_PM_protoPtr)->timer);
+        if(timer->EVENTS_COMPARE[0]) {
+            timer->EVENTS_COMPARE[0] = 0;
+        }
+
+        _PM_row_handler(_PM_protoPtr); // In core.c
+    }
 
   #else
 
@@ -673,6 +722,7 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
   uint32_t _PM_timerStop(void *tptr) {
       volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
       tc->TASKS_STOP = 1; // Stop timer
+      __attribute__((unused))
       uint32_t count = _PM_timerGetCount(tptr);
       // NOTE TO FUTURE SELF: I don't know why the GetCount code isn't
       // working. It does the expected thing in a small test program but
