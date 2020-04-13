@@ -62,25 +62,8 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
 // internal format. The actual conversion functions referenced below
 // are in core.c, reasoning is explained there.
 void Adafruit_Protomatter::show(void) {
-
-    // Destination address is computed in convert function
-    // (based on active buffer value, if double-buffering),
-    // just need to pass in the canvas buffer address and
-    // width in pixels.
-    if(core.bytesPerElement == 1) {
-        _PM_convert_565_byte(&core, getBuffer(), WIDTH);
-    } else if(core.bytesPerElement == 2) {
-        _PM_convert_565_word(&core, getBuffer(), WIDTH);
-    } else {
-        _PM_convert_565_long(&core, getBuffer(), WIDTH);
-    }
-
-    if(core.doubleBuffer) {
-        core.swapBuffers = 1;
-        // To avoid overwriting data on the matrix, don't return
-        // until the timer ISR has performed the swap at the right time.
-        while(core.swapBuffers);
-    }
+    _PM_convert_565(&core, getBuffer(), WIDTH);
+    _PM_swapbuffer_maybe();
 }
 
 // Returns current value of frame counter and resets its value to zero.

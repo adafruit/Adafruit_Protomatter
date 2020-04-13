@@ -93,15 +93,9 @@ extern uint32_t          _PM_getFrameCount(Protomatter_core *core);
 extern void              _PM_timerStart(void *tptr, uint32_t period);
 extern uint32_t          _PM_timerStop(void *tptr);
 extern uint32_t          _PM_timerGetCount(void *tptr);
-
-#if defined(ARDUINO)
-extern void _PM_convert_565_byte(Protomatter_core *core,
+extern void              _PM_convert_565(Protomatter_core *core,
   uint16_t *source, uint16_t width);
-extern void _PM_convert_565_word(Protomatter_core *core,
-  uint16_t *source, uint16_t width);
-extern void _PM_convert_565_long(Protomatter_core *core,
-  uint16_t *source, uint16_t width);
-#endif // ARDUINO
+extern void              _PM_swapbuffer_maybe(Protomatter_core *core);
 
 #ifdef __cplusplus
 } // extern "C"
