@@ -63,7 +63,7 @@ ProtomatterStatus Adafruit_Protomatter::begin(void) {
 // are in core.c, reasoning is explained there.
 void Adafruit_Protomatter::show(void) {
     _PM_convert_565(&core, getBuffer(), WIDTH);
-    _PM_swapbuffer_maybe();
+    _PM_swapbuffer_maybe(&core);
 }
 
 // Returns current value of frame counter and resets its value to zero.
