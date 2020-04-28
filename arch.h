@@ -1133,4 +1133,8 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
 
 #endif // ARDUINO || CIRCUITPYTHON
 
+#ifndef _PM_PORT_TYPE
+#define _PM_PORT_TYPE uint32_t
+#endif
+
 #endif // _PROTOMATTER_ARCH_H_
