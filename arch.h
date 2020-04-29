@@ -189,8 +189,8 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_pinLow(pin)           gpio_set_pin_level(pin, 0)
     #define _PM_portBitMask(pin)      (1u << ((pin) % 32))
 
-    #define _PM_byteOffset(pin) ((pin) / 8)
-    #define _PM_wordOffset(pin) ((pin) / 16)
+    #define _PM_byteOffset(pin) ((pin % 32) / 8)
+    #define _PM_wordOffset(pin) ((pin % 32) / 16)
 
     #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
     #error  SRSLY
@@ -627,8 +627,8 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #define _PM_pinLow(pin)           nrf_gpio_pin_clear(pin)
     #define _PM_portBitMask(pin)      (1u << ((pin) % 32))
 
-    #define _PM_byteOffset(pin) ((pin) / 8)
-    #define _PM_wordOffset(pin) ((pin) / 16)
+    #define _PM_byteOffset(pin) ((pin % 32) / 8)
+    #define _PM_wordOffset(pin) ((pin % 32) / 16)
 
     #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
     #error  SRSLY
