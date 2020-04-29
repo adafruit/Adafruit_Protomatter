@@ -139,6 +139,10 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
   #define _SAMD21_
   #endif
 
+  #ifdef STM32F405xx
+  #define STM32F4_SERIES (1)
+  #endif
+
 // No #else here. In non-Arduino case, declare things in the arch-specific
 // sections below...unless other environments provide device-neutral
 // functions as above, in which case those could go here (w/#elif).
@@ -738,6 +742,119 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
 #endif // NRF52_SERIES
 
+
+// STM32F4xx SPECIFIC CODE -------------------------------------------------
+#if defined(STM32F4_SERIES)
+  #if defined(ARDUINO)
+    // Arduino port register lookups go here
+  #elif defined(CIRCUITPY)
+
+    #undef _PM_portBitMask
+    #define _PM_portBitMask(pin) (1u << ((pin) % 16))
+    #define _PM_byteOffset(pin) ((pin % 16) / 8)
+    #define _PM_wordOffset(pin) ((pin % 16) / 16)
+
+    #define _PM_pinOutput(pin_) do { \
+        int8_t pin = (pin_); \
+        GPIO_InitTypeDef GPIO_InitStruct = {0}; \
+        GPIO_InitStruct.Pin = 1 << (pin % 16); \
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP; \
+        GPIO_InitStruct.Pull = GPIO_NOPULL; \
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH; \
+        HAL_GPIO_Init(pin_port(pin / 16), &GPIO_InitStruct); \
+    } while(0)
+    #define _PM_pinInput(pin_) do { \
+        int8_t pin = (pin_); \
+        GPIO_InitTypeDef GPIO_InitStruct = {0}; \
+        GPIO_InitStruct.Pin = 1 << (pin % 16); \
+        GPIO_InitStruct.Mode = GPIO_MODE_INPUT; \
+        GPIO_InitStruct.Pull = GPIO_NOPULL; \
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH; \
+        HAL_GPIO_Init(pin_port(pin / 16), &GPIO_InitStruct); \
+    } while(0)
+    #define _PM_pinHigh(pin)          HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin % 16), GPIO_PIN_SET)
+    #define _PM_pinLow(pin)           HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin % 16), GPIO_PIN_RESET)
+
+    #define _PM_PORT_TYPE uint16_t
+
+    volatile uint16_t *_PM_portOutRegister(uint32_t pin) {
+        return (uint16_t*)&pin_port(pin / 16)->ODR;
+    }
+
+    volatile uint16_t *_PM_portSetRegister(uint32_t pin)  {
+        return (uint16_t*)&pin_port(pin / 16)->BSRR;
+    }
+
+    // To make things interesting, STM32F4xx places the set and clear
+    // GPIO bits within a single register.  The "clear" bits are upper, so
+    // offset by 1 in uint16_ts
+    volatile uint16_t *_PM_portClearRegister(uint32_t pin) {
+        return 1 + (uint16_t*)&pin_port(pin / 16)->BSRR;
+    }
+
+    // Use hard-coded TIM6 (TIM7 is used by PulseOut, other TIM by PWMOut)
+    #define _PM_timerFreq     42000000
+
+    // Because it's tied to a specific timer right now, there can be only
+    // one instance of the Protomatter_core struct. The Arduino library
+    // sets up this pointer when calling begin().
+    void *_PM_protoPtr = NULL;
+
+    STATIC TIM_HandleTypeDef t6_handle;
+
+    #define _PM_IRQ_HANDLER TIM6_DAC_IRQHandler
+
+    // Timer interrupt service routine
+    void _PM_IRQ_HANDLER(void) {
+        // Clear overflow flag:
+        //_PM_TIMER_DEFAULT->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF;
+        _PM_row_handler(_PM_protoPtr); // In core.c
+    }
+
+
+    // Initialize, but do not start, timer
+    void _PM_timerInit(void *tptr) {
+        __HAL_RCC_TIM6_CLK_ENABLE();
+
+        t6_handle.Instance = TIM6;
+        t6_handle.Init.Period = 1000; //immediately replaced.
+        t6_handle.Init.Prescaler = 0;
+        t6_handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+        t6_handle.Init.CounterMode = TIM_COUNTERMODE_UP;
+        t6_handle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+
+        HAL_TIM_Base_Init(&t6_handle);
+
+        HAL_NVIC_DisableIRQ(TIM6_DAC_IRQn);
+        NVIC_ClearPendingIRQ(TIM6_DAC_IRQn);
+        NVIC_SetPriority(TIM6_DAC_IRQn, 0); // Top priority
+
+    }
+
+    inline void _PM_timerStart(void *tptr, uint32_t period) {
+        TIM_TypeDef *tim = tptr;
+        tim->SR = 0;
+        tim->ARR = period;
+        tim->CR1 |= TIM_CR1_CEN;
+        tim->DIER |= TIM_DIER_UIE;
+        HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);
+    }
+
+    uint32_t _PM_timerStop(void *tptr) {
+        HAL_NVIC_DisableIRQ(TIM6_DAC_IRQn);
+        TIM_TypeDef *tim = tptr;
+        tim->CR1 &= ~TIM_CR1_CEN;
+        tim->DIER &= ~TIM_DIER_UIE;
+        return tim->CNT;
+    }
+    // settings from M4 for >= 150MHz, we use this part at 168MHz
+    #define _PM_clockHoldHigh asm("nop; nop; nop");
+    #define _PM_clockHoldLow  asm("nop");
+
+    #define _PM_minMinPeriod 140
+
+  #endif
+#endif // STM32F4_SERIES
 
 // ESP32-SPECIFIC CODE -----------------------------------------------------
 
