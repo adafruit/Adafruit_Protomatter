@@ -1,0 +1,27 @@
+var searchData=
+[
+  ['_5fpm_5fallocator',['_PM_ALLOCATOR',['../arch_8h.html#a9fb2175867238a750d7d086aaa66f96b',1,'arch.h']]],
+  ['_5fpm_5fbegin',['_PM_begin',['../core_8c.html#abb36fc4f875be610434118739356fb5c',1,'_PM_begin(Protomatter_core *core):&#160;core.c'],['../core_8h.html#abb36fc4f875be610434118739356fb5c',1,'_PM_begin(Protomatter_core *core):&#160;core.c']]],
+  ['_5fpm_5fchunksize',['_PM_chunkSize',['../arch_8h.html#aa17268df973b8f04acb6200c0f187e58',1,'arch.h']]],
+  ['_5fpm_5fclearreg',['_PM_clearReg',['../core_8c.html#a5baa3832df0a853a8ecc25d616d82671',1,'core.c']]],
+  ['_5fpm_5fclockholdhigh',['_PM_clockHoldHigh',['../arch_8h.html#a486e988c1a6ab7121383a389c936e76d',1,'arch.h']]],
+  ['_5fpm_5fclockholdlow',['_PM_clockHoldLow',['../arch_8h.html#aeb7d2c59d87d665cb80532e655d16ef0',1,'arch.h']]],
+  ['_5fpm_5fconvert_5f565',['_PM_convert_565',['../core_8h.html#a71e9ef50719d587b0b0a6c8157320c95',1,'core.h']]],
+  ['_5fpm_5ffree',['_PM_FREE',['../arch_8h.html#ac1c38418405aa6afa179ddda55cb8744',1,'_PM_FREE():&#160;arch.h'],['../core_8c.html#adf89afcb7761b40e2cfa65a70bce5675',1,'_PM_free(Protomatter_core *core):&#160;core.c'],['../core_8h.html#adf89afcb7761b40e2cfa65a70bce5675',1,'_PM_free(Protomatter_core *core):&#160;core.c']]],
+  ['_5fpm_5fgetframecount',['_PM_getFrameCount',['../core_8c.html#a00d7939d31d18e0763fcdf47ad5b298c',1,'_PM_getFrameCount(Protomatter_core *core):&#160;core.c'],['../core_8h.html#a00d7939d31d18e0763fcdf47ad5b298c',1,'_PM_getFrameCount(Protomatter_core *core):&#160;core.c']]],
+  ['_5fpm_5finit',['_PM_init',['../core_8c.html#a2382fb4f3e05345517f48ccfe8327da6',1,'_PM_init(Protomatter_core *core, uint16_t bitWidth, uint8_t bitDepth, uint8_t rgbCount, uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList, uint8_t clockPin, uint8_t latchPin, uint8_t oePin, bool doubleBuffer, void *timer):&#160;core.c'],['../core_8h.html#a2382fb4f3e05345517f48ccfe8327da6',1,'_PM_init(Protomatter_core *core, uint16_t bitWidth, uint8_t bitDepth, uint8_t rgbCount, uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList, uint8_t clockPin, uint8_t latchPin, uint8_t oePin, bool doubleBuffer, void *timer):&#160;core.c']]],
+  ['_5fpm_5fmax_5frefresh_5fhz',['_PM_MAX_REFRESH_HZ',['../_adafruit___protomatter_8cpp.html#ae4ad109606de0143863f6fa67bc65a7c',1,'_PM_MAX_REFRESH_HZ():&#160;Adafruit_Protomatter.cpp'],['../core_8c.html#ae4ad109606de0143863f6fa67bc65a7c',1,'_PM_MAX_REFRESH_HZ():&#160;core.c']]],
+  ['_5fpm_5fminminperiod',['_PM_minMinPeriod',['../arch_8h.html#a91c8dfef7687605312a9616dd4a7fa64',1,'arch.h']]],
+  ['_5fpm_5fpin',['_PM_pin',['../struct___p_m__pin.html',1,'']]],
+  ['_5fpm_5fport_5ftype',['_PM_PORT_TYPE',['../arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0',1,'arch.h']]],
+  ['_5fpm_5fprotoptr',['_PM_protoPtr',['../_adafruit___protomatter_8cpp.html#aa9f464604e6c21cd5d01816b8bd9ac1c',1,'Adafruit_Protomatter.cpp']]],
+  ['_5fpm_5fresume',['_PM_resume',['../core_8c.html#ace9b720e159e7ac6863915ee7e889768',1,'_PM_resume(Protomatter_core *core):&#160;core.c'],['../core_8h.html#ace9b720e159e7ac6863915ee7e889768',1,'_PM_resume(Protomatter_core *core):&#160;core.c']]],
+  ['_5fpm_5frow_5fdelay',['_PM_ROW_DELAY',['../_adafruit___protomatter_8cpp.html#acf9fbe59de37b1be30ca970d0fbb5b2a',1,'_PM_ROW_DELAY():&#160;Adafruit_Protomatter.cpp'],['../core_8c.html#acf9fbe59de37b1be30ca970d0fbb5b2a',1,'_PM_ROW_DELAY():&#160;core.c']]],
+  ['_5fpm_5frow_5fhandler',['_PM_row_handler',['../core_8c.html#abb462880fa61b8dcc1bee712a9be2f58',1,'_PM_row_handler(Protomatter_core *core):&#160;core.c'],['../core_8h.html#abb462880fa61b8dcc1bee712a9be2f58',1,'_PM_row_handler(Protomatter_core *core):&#160;core.c']]],
+  ['_5fpm_5fsetreg',['_PM_setReg',['../core_8c.html#a88096016bcf17f3a923c32ce76981b57',1,'core.c']]],
+  ['_5fpm_5fstop',['_PM_stop',['../core_8c.html#a98d7c90c3c5b83a38da3fd522f68abd7',1,'_PM_stop(Protomatter_core *core):&#160;core.c'],['../core_8h.html#a98d7c90c3c5b83a38da3fd522f68abd7',1,'_PM_stop(Protomatter_core *core):&#160;core.c']]],
+  ['_5fpm_5fswapbuffer_5fmaybe',['_PM_swapbuffer_maybe',['../core_8h.html#afa6eb479b93756b3d6585b1a835955d7',1,'core.h']]],
+  ['_5fpm_5ftimergetcount',['_PM_timerGetCount',['../core_8h.html#a887e8b5eb089e72b544b296a134f6d7c',1,'core.h']]],
+  ['_5fpm_5ftimerstart',['_PM_timerStart',['../core_8h.html#a479b3bbe256525ac43cc1e835d70b532',1,'core.h']]],
+  ['_5fpm_5ftimerstop',['_PM_timerStop',['../core_8h.html#acf68ecae1fb8101d8cc73d67eea533a0',1,'core.h']]]
+];
