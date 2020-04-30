@@ -21,15 +21,15 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /** Status type returned by some functions. */
 typedef enum {
-    PROTOMATTER_OK,         // Everything is hunky-dory!
-    PROTOMATTER_ERR_PINS,   // Clock and/or data pins on different PORTs
-    PROTOMATTER_ERR_MALLOC, // Couldn't allocate memory for display
-    PROTOMATTER_ERR_ARG,    // Bad input to function
+  PROTOMATTER_OK,         // Everything is hunky-dory!
+  PROTOMATTER_ERR_PINS,   // Clock and/or data pins on different PORTs
+  PROTOMATTER_ERR_MALLOC, // Couldn't allocate memory for display
+  PROTOMATTER_ERR_ARG,    // Bad input to function
 } ProtomatterStatus;
 
 /** Struct for matrix control lines NOT related to RGB data or clock, i.e.
@@ -39,10 +39,10 @@ typedef enum {
     RGB data but do NOT need the set or clear registers, so those items are
     also declared as separate things in the core structure that follows. */
 typedef struct {
-    volatile void *setReg;              ///< GPIO bit set register
-    volatile void *clearReg;            ///< GPIO bit clear register
-    uint32_t       bit;                 ///< GPIO bitmask
-    uint8_t        pin;                 ///< Some unique ID, e.g. Arduino pin #
+  volatile void *setReg;   ///< GPIO bit set register
+  volatile void *clearReg; ///< GPIO bit clear register
+  uint32_t bit;            ///< GPIO bitmask
+  uint8_t pin;             ///< Some unique ID, e.g. Arduino pin #
 } _PM_pin;
 
 /** Struct with info about an RGB matrix chain and lots of state and buffer
@@ -56,38 +56,38 @@ typedef struct {
     to put any toggle-specific stuff at the end of the struct with an ifdef
     check, but that's just dirty pool and asking for trouble.) */
 typedef struct {
-    void              *timer;           ///< Arch-specific timer/counter info
-    void              *setReg;          ///< RGBC bit set register (cast to use)
-    void              *clearReg;        ///< RGBC bit clear register "
-    void              *toggleReg;       ///< RGBC bit toggle register "
-    uint8_t           *rgbPins;         ///< Array of RGB data pins (mult of 6)
-    void              *rgbMask;         ///< PORT bit mask for each RGB pin
-    uint32_t           clockMask;       ///< PORT bit mask for RGB clock
-    uint32_t           rgbAndClockMask; ///< PORT bit mask for RGB data + clock
-    volatile void     *addrPortToggle;  ///< See singleAddrPort below
-    void              *screenData;      ///< Per-bitplane RGB data for matrix
-    _PM_pin            latch;           ///< RGB data latch
-    _PM_pin            oe;              ///< !OE (LOW out enable)
-    _PM_pin           *addr;            ///< Array of address pins
-    uint32_t           bufferSize;      ///< Bytes per matrix buffer
-    uint32_t           bitZeroPeriod;   ///< Bitplane 0 timer period
-    uint32_t           minPeriod;       ///< Plane 0 timer period for ~250Hz
-    volatile uint32_t  frameCount;      ///< For estimating refresh rate
-    uint16_t           width;           ///< Matrix chain width in bits
-    uint8_t            bytesPerElement; ///< Using 8, 16 or 32 bits of PORT?
-    uint8_t            clockPin;        ///< RGB clock pin identifier
-    uint8_t            parallel;        ///< Number of concurrent matrix outs
-    uint8_t            numAddressLines; ///< Number of address line pins
-    uint8_t            portOffset;      ///< Active 8- or 16-bit pos. in PORT
-    uint8_t            numPlanes;       ///< Display bitplanes (1 to 6)
-    uint8_t            numRowPairs;     ///< Addressable row pairs
-    bool               doubleBuffer;    ///< 2X buffers for clean switchover
-    bool               singleAddrPort;  ///< If 1, all addr lines on same PORT
-    volatile uint8_t   activeBuffer;    ///< Index of currently-displayed buf
-    volatile uint8_t   plane;           ///< Current bitplane (changes in ISR)
-    volatile uint8_t   row;             ///< Current scanline (changes in ISR)
-    volatile uint8_t   prevRow;         ///< Scanline from prior ISR
-    volatile bool      swapBuffers;     ///< If 1, awaiting double-buf switch
+  void *timer;                   ///< Arch-specific timer/counter info
+  void *setReg;                  ///< RGBC bit set register (cast to use)
+  void *clearReg;                ///< RGBC bit clear register "
+  void *toggleReg;               ///< RGBC bit toggle register "
+  uint8_t *rgbPins;              ///< Array of RGB data pins (mult of 6)
+  void *rgbMask;                 ///< PORT bit mask for each RGB pin
+  uint32_t clockMask;            ///< PORT bit mask for RGB clock
+  uint32_t rgbAndClockMask;      ///< PORT bit mask for RGB data + clock
+  volatile void *addrPortToggle; ///< See singleAddrPort below
+  void *screenData;              ///< Per-bitplane RGB data for matrix
+  _PM_pin latch;                 ///< RGB data latch
+  _PM_pin oe;                    ///< !OE (LOW out enable)
+  _PM_pin *addr;                 ///< Array of address pins
+  uint32_t bufferSize;           ///< Bytes per matrix buffer
+  uint32_t bitZeroPeriod;        ///< Bitplane 0 timer period
+  uint32_t minPeriod;            ///< Plane 0 timer period for ~250Hz
+  volatile uint32_t frameCount;  ///< For estimating refresh rate
+  uint16_t width;                ///< Matrix chain width in bits
+  uint8_t bytesPerElement;       ///< Using 8, 16 or 32 bits of PORT?
+  uint8_t clockPin;              ///< RGB clock pin identifier
+  uint8_t parallel;              ///< Number of concurrent matrix outs
+  uint8_t numAddressLines;       ///< Number of address line pins
+  uint8_t portOffset;            ///< Active 8- or 16-bit pos. in PORT
+  uint8_t numPlanes;             ///< Display bitplanes (1 to 6)
+  uint8_t numRowPairs;           ///< Addressable row pairs
+  bool doubleBuffer;             ///< 2X buffers for clean switchover
+  bool singleAddrPort;           ///< If 1, all addr lines on same PORT
+  volatile uint8_t activeBuffer; ///< Index of currently-displayed buf
+  volatile uint8_t plane;        ///< Current bitplane (changes in ISR)
+  volatile uint8_t row;          ///< Current scanline (changes in ISR)
+  volatile uint8_t prevRow;      ///< Scanline from prior ISR
+  volatile bool swapBuffers;     ///< If 1, awaiting double-buf switch
 } Protomatter_core;
 
 // Protomatter core function prototypes. Environment-specific code (like the
@@ -148,12 +148,12 @@ typedef struct {
           PROTOMATTER_ERR_ARG if a bad value (core or timer pointer) was
           passed in.
 */
-extern ProtomatterStatus _PM_init(Protomatter_core *core,
-  uint16_t bitWidth, uint8_t bitDepth,
-  uint8_t rgbCount, uint8_t *rgbList,
-  uint8_t addrCount, uint8_t *addrList,
-  uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-  bool doubleBuffer, void *timer);
+extern ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
+                                  uint8_t bitDepth, uint8_t rgbCount,
+                                  uint8_t *rgbList, uint8_t addrCount,
+                                  uint8_t *addrList, uint8_t clockPin,
+                                  uint8_t latchPin, uint8_t oePin,
+                                  bool doubleBuffer, void *timer);
 
 /*!
   @brief  Allocate display buffers and populate additional elements of a
@@ -246,8 +246,8 @@ extern uint32_t _PM_timerGetCount(void *tptr);
   @param  width   Width of canvas in pixels, as this may be different than
                   the matrix pixel width due to row padding.
 */
-extern void _PM_convert_565(Protomatter_core *core,
-  uint16_t *source, uint16_t width);
+extern void _PM_convert_565(Protomatter_core *core, uint16_t *source,
+                            uint16_t width);
 
 /*!
   @brief  Pauses until the next vertical blank to avoid 'tearing' animation

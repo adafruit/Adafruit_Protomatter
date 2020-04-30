@@ -64,41 +64,41 @@ extern Protomatter_core *_PM_protoPtr; ///< In core.c (via arch.h)
 // arch.h) because it's not architecture-specific.
 #define _PM_ROW_DELAY 8 ///< Delay time between row address line changes (ms)
 
+Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
+                                           uint8_t rgbCount, uint8_t *rgbList,
+                                           uint8_t addrCount, uint8_t *addrList,
+                                           uint8_t clockPin, uint8_t latchPin,
+                                           uint8_t oePin, bool doubleBuffer,
+                                           void *timer)
+    : GFXcanvas16(bitWidth, (2 << min(addrCount, 5)) * min(rgbCount, 5)) {
+  if (bitDepth > 6)
+    bitDepth = 6; // GFXcanvas16 color limit (565)
 
-Adafruit_Protomatter::Adafruit_Protomatter(
-  uint16_t bitWidth, uint8_t bitDepth,
-  uint8_t rgbCount, uint8_t *rgbList,
-  uint8_t addrCount, uint8_t *addrList,
-  uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-  bool doubleBuffer, void *timer) :
-  GFXcanvas16(bitWidth, (2 << min(addrCount, 5)) * min(rgbCount, 5)) {
-    if(bitDepth > 6)  bitDepth = 6;   // GFXcanvas16 color limit (565)
-
-    // Arguments are passed through to the C _PM_init() function which does
-    // some input validation and minor allocation. Return value is ignored
-    // because we can't really do anything about it in a C++ constructor.
-    // The class begin() function checks rgbPins for NULL to determine
-    // whether to proceed or indicate an error.
-    (void)_PM_init(&core, bitWidth, bitDepth, rgbCount, rgbList,
-      addrCount, addrList, clockPin, latchPin, oePin, doubleBuffer, timer);
+  // Arguments are passed through to the C _PM_init() function which does
+  // some input validation and minor allocation. Return value is ignored
+  // because we can't really do anything about it in a C++ constructor.
+  // The class begin() function checks rgbPins for NULL to determine
+  // whether to proceed or indicate an error.
+  (void)_PM_init(&core, bitWidth, bitDepth, rgbCount, rgbList, addrCount,
+                 addrList, clockPin, latchPin, oePin, doubleBuffer, timer);
 }
 
 Adafruit_Protomatter::~Adafruit_Protomatter(void) {
-    _PM_free(&core);
-    _PM_protoPtr = NULL;
+  _PM_free(&core);
+  _PM_protoPtr = NULL;
 }
 
 ProtomatterStatus Adafruit_Protomatter::begin(void) {
-    _PM_protoPtr = &core;
-    return _PM_begin(&core);
+  _PM_protoPtr = &core;
+  return _PM_begin(&core);
 }
 
 // Transfer data from GFXcanvas16 to the matrix framebuffer's weird
 // internal format. The actual conversion functions referenced below
 // are in core.c, reasoning is explained there.
 void Adafruit_Protomatter::show(void) {
-    _PM_convert_565(&core, getBuffer(), WIDTH);
-    _PM_swapbuffer_maybe(&core);
+  _PM_convert_565(&core, getBuffer(), WIDTH);
+  _PM_swapbuffer_maybe(&core);
 }
 
 // Returns current value of frame counter and resets its value to zero.
@@ -106,5 +106,5 @@ void Adafruit_Protomatter::show(void) {
 // intervals), can be used to get a rough frames-per-second value for
 // the matrix (since this is difficult to estimate beforehand).
 uint32_t Adafruit_Protomatter::getFrameCount(void) {
-    return _PM_getFrameCount(_PM_protoPtr);
+  return _PM_getFrameCount(_PM_protoPtr);
 }
