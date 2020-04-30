@@ -1,12 +1,10 @@
-# Adafruit_Protomatter
+# Adafruit_Protomatter [![Build Status](https://travis-ci.com/adafruit/Adafruit_Protomatter.svg?branch=master)](https://travis-ci.com/adafruit/Adafruit_Protomatter)
 
 "I used protomatter in the Genesis matrix." - David Marcus, Star Trek III
 
 Code for driving HUB75-style RGB LED matrices, targeted at 32-bit MCUs
 using brute-force GPIO (that is, not relying on DMA or other specialized
 peripherals beyond a timer interrupt, goal being portability).
-
-Name might change as it's nondescriptive and tedious to type in code.
 
 # Matrix Concepts and Jargon
 
