@@ -1,3 +1,38 @@
+/*!
+ * @file Adafruit_Protomatter.cpp
+ *
+ * @mainpage Adafruit Protomatter RGB LED matrix library.
+ *
+ * @section intro_sec Introduction
+ *
+ * This is documentation for Adafruit's protomatter library for HUB75-style
+ * RGB LED matrices. It is designed to work with various matrices sold by
+ * Adafruit ("HUB75" is a vague term and other similar matrices are not
+ * guaranteed to work). This file is the Arduino-specific calls; the
+ * underlying C code is more platform-neutral.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing products
+ * from Adafruit!
+ *
+ * @section dependencies Dependencies
+ *
+ * This library depends on
+ * <a href="https://github.com/adafruit/Adafruit-GFX-Library">Adafruit_GFX</a>
+ * being present on your system. Please make sure you have installed the
+ * latest version before using this library.
+ *
+ * @section author Author
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * @section license License
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
+
 // Arduino-specific wrapper for the Protomatter C library (provides
 // constructor and so forth, builds on Adafruit_GFX). There should
 // not be any device-specific #ifdefs here. See notes in core.c and
@@ -5,7 +40,7 @@
 
 #include "Adafruit_Protomatter.h" // Also includes core.h & Adafruit_GFX.h
 
-extern Protomatter_core *_PM_protoPtr; // In core.c (via arch.h)
+extern Protomatter_core *_PM_protoPtr; ///< In core.c (via arch.h)
 
 // Overall matrix refresh rate (frames/second) is a function of matrix width
 // and chain length, number of address lines, number of bit planes, CPU speed
@@ -21,13 +56,13 @@ extern Protomatter_core *_PM_protoPtr; // In core.c (via arch.h)
 // refresh slower than this, and in many cases will...just need to set an
 // upper limit to avoid excessive CPU load). An incredibly long comment block
 // for a single constant, thank you for coming to my TED talk!
-#define _PM_MAX_REFRESH_HZ 250
+#define _PM_MAX_REFRESH_HZ 250 ///< Upper limit (ish) to matrix refresh rate
 
 // Time (in milliseconds) to pause following any change in address lines
 // (individually or collectively). Some matrices respond slowly there...
 // must pause on change for matrix to catch up. Defined here (rather than
 // arch.h) because it's not architecture-specific.
-#define _PM_ROW_DELAY 8
+#define _PM_ROW_DELAY 8 ///< Delay time between row address line changes (ms)
 
 
 Adafruit_Protomatter::Adafruit_Protomatter(

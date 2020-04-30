@@ -1,3 +1,19 @@
+/*!
+ * @file arch.h
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
+
 // Establishes some very low-level things specific to each supported device.
 // This should ONLY be included by core.c, nowhere else. Ever.
 
@@ -865,27 +881,27 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
 
 #if !defined(_PM_chunkSize)
-  #define _PM_chunkSize 8
+  #define _PM_chunkSize 8 ///< Unroll data-stuffing loop to this size
 #endif
 
 #if !defined(_PM_clockHoldHigh)
-  #define _PM_clockHoldHigh
+  #define _PM_clockHoldHigh ///< Extra cycles (if any) on clock HIGH signal
 #endif
 
 #if !defined(_PM_clockHoldLow)
-  #define _PM_clockHoldLow
+  #define _PM_clockHoldLow ///< Extra cycles (if any) on clock LOW signal
 #endif
 
 #if !defined(_PM_minMinPeriod)
-  #define _PM_minMinPeriod 100
+  #define _PM_minMinPeriod 100 ///< Minimum timer interval for least bit
 #endif
 
 #ifndef _PM_ALLOCATOR
-  #define _PM_ALLOCATOR(x) (malloc((x)))
+  #define _PM_ALLOCATOR(x) (malloc((x))) ///< Memory alloc call
 #endif
 
 #ifndef _PM_FREE
-  #define _PM_FREE(x) (free((x)))
+  #define _PM_FREE(x) (free((x))) ///< Memory free call
 #endif
 
 // ARDUINO SPECIFIC CODE ---------------------------------------------------
@@ -1251,7 +1267,7 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
 #endif // ARDUINO || CIRCUITPYTHON
 
 #ifndef _PM_PORT_TYPE
-#define _PM_PORT_TYPE uint32_t
+  #define _PM_PORT_TYPE uint32_t ///< PORT register size/type
 #endif
 
 #endif // _PROTOMATTER_ARCH_H_

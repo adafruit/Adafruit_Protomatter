@@ -1,3 +1,19 @@
+/*!
+ * @file core.c
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
+
 // Device- and environment-neutral core matrix-driving functionality.
 // See notes near top of arch.h regarding assumptions of hardware
 // "common ground." If you find yourself doing an "#ifdef ARDUINO" or
@@ -32,13 +48,13 @@
 // refresh slower than this, and in many cases will...just need to set an
 // upper limit to avoid excessive CPU load). An incredibly long comment block
 // for a single constant, thank you for coming to my TED talk!
-#define _PM_MAX_REFRESH_HZ 250
+#define _PM_MAX_REFRESH_HZ 250 ///< Max matrix refresh rate
 
 // Time (in microseconds) to pause following any change in address lines
 // (individually or collectively). Some matrices respond slowly there...
 // must pause on change for matrix to catch up. Defined here (rather than
 // arch.h) because it's not architecture-specific.
-#define _PM_ROW_DELAY 8
+#define _PM_ROW_DELAY 8 ///< Delay time between row address line changes (ms)
 
 // These are the lowest-level functions for issing data to matrices.
 // There are three versions because it depends on how the six RGB data bits
@@ -56,8 +72,8 @@ static void blast_byte(Protomatter_core *core, uint8_t *data);
 static void blast_word(Protomatter_core *core, uint16_t *data);
 static void blast_long(Protomatter_core *core, uint32_t *data);
 
-#define _PM_clearReg(x) (*(volatile _PM_PORT_TYPE*)((x).clearReg) = ((x).bit))
-#define _PM_setReg(x) (*(volatile _PM_PORT_TYPE*)((x).setReg) = ((x).bit))
+#define _PM_clearReg(x) (*(volatile _PM_PORT_TYPE*)((x).clearReg) = ((x).bit)) ///< Clear non-RGB-data-or-clock control line (_PM_pin type)
+#define _PM_setReg(x) (*(volatile _PM_PORT_TYPE*)((x).setReg) = ((x).bit)) ///< Set non-RGB-data-or-clock control line (_PM_pin type)
 
 // Validate and populate vital elements of core structure.
 // Does NOT allocate core struct -- calling function must provide that.
@@ -525,13 +541,13 @@ void _PM_row_handler(Protomatter_core *core) {
     _PM_clockHoldLow; \
     *set_full   =  clock;    /* Set clock high */ \
     _PM_clockHoldHigh; \
-    *clear_full =  rgbclock; /* Clear RGB data + clock */
+    *clear_full =  rgbclock; /* Clear RGB data + clock */ ///< Bitbang one set of RGB data bits to matrix
 #endif
 
 #if _PM_chunkSize == 1
   #define PEW_UNROLL PEW
 #elif _PM_chunkSize == 8
-  #define PEW_UNROLL PEW PEW PEW PEW PEW PEW PEW PEW
+  #define PEW_UNROLL PEW PEW PEW PEW PEW PEW PEW PEW ///< 8-way PEW unroll
 #elif _PM_chunkSize == 16
   #define PEW_UNROLL \
     PEW PEW PEW PEW PEW PEW PEW PEW PEW PEW PEW PEW PEW PEW PEW PEW
