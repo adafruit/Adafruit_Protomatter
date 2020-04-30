@@ -439,7 +439,7 @@ void _PM_row_handler(Protomatter_core *core) {
                     priorBits |= core->addr[line].bit;
                 }
             }
-            *core->addrPortToggle = newBits ^ priorBits;
+            *(volatile _PM_PORT_TYPE*)core->addrPortToggle = newBits ^ priorBits;
             _PM_delayMicroseconds(_PM_ROW_DELAY);
         } else {
 #endif
