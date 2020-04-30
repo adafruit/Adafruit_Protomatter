@@ -56,6 +56,9 @@ static void blast_byte(Protomatter_core *core, uint8_t *data);
 static void blast_word(Protomatter_core *core, uint16_t *data);
 static void blast_long(Protomatter_core *core, uint32_t *data);
 
+#define _PM_clearReg(x) (*(volatile _PM_PORT_TYPE*)((x).clearReg) = ((x).bit))
+#define _PM_setReg(x) (*(volatile _PM_PORT_TYPE*)((x).setReg) = ((x).bit))
+
 // Validate and populate vital elements of core structure.
 // Does NOT allocate core struct -- calling function must provide that.
 // (In the Arduino C++ library, it’s part of the Protomatter class.)
@@ -344,7 +347,7 @@ void _PM_stop(Protomatter_core *core) {
     if((core)) {
         while(core->swapBuffers);        // Wait for any pending buffer swap
         _PM_timerStop(core->timer);      // Halt timer
-        *core->oe.setReg = core->oe.bit; // Set OE HIGH (disable output)
+        _PM_setReg(core->oe);            // Set OE HIGH (disable output)
         // So, in PRINCIPLE, setting OE high would be sufficient...
         // but in case that pin is shared with another function such
         // as the onloard LED (which pulses during bootloading) let's
@@ -361,8 +364,8 @@ void _PM_stop(Protomatter_core *core) {
             _PM_clockHoldLow;
         }
         // Latch data
-        *core->latch.setReg   = core->latch.bit;
-        *core->latch.clearReg = core->latch.bit;
+        _PM_setReg(core->latch);
+        _PM_clearReg(core->latch);
     }
 }
 
@@ -398,13 +401,13 @@ void _PM_free(Protomatter_core *core) {
 // ISR function (in arch.h) calls this function which it extern'd.
 void _PM_row_handler(Protomatter_core *core) {
 
-    *core->oe.setReg = core->oe.bit; // Disable LED output
+    _PM_setReg(core->oe); // Disable LED output
 
-    *core->latch.setReg   = core->latch.bit; // Latch data from PRIOR pass
+    _PM_setReg(core->latch);
     // Stop timer, save count value at stop
     uint32_t elapsed = _PM_timerStop(core->timer);
     uint8_t prevPlane = core->plane; // Save that plane # for later timing
-    *core->latch.clearReg = core->latch.bit; // (split to add a few cycles)
+    _PM_clearReg(core->latch); // (split to add a few cycles)
 
     // If plane 0 just finished being displayed (plane 1 was loaded on prior
     // pass, or there's only one plane...I know, it's confusing), take note
@@ -446,9 +449,9 @@ void _PM_row_handler(Protomatter_core *core) {
               line++, bit<<=1) {
                 if((core->row & bit) != (core->prevRow & bit)) {
                     if(core->row & bit) { // Set addr line high
-                         *core->addr[line].setReg = core->addr[line].bit;
+                         _PM_setReg(core->addr[line]);
                     } else { // Set addr line low
-                         *core->addr[line].clearReg = core->addr[line].bit;
+                         _PM_clearReg(core->addr[line]);
                     }
                     _PM_delayMicroseconds(_PM_ROW_DELAY);
                 }
@@ -479,7 +482,7 @@ void _PM_row_handler(Protomatter_core *core) {
 
     // Set timer and enable LED output for data loaded on PRIOR pass:
     _PM_timerStart(core->timer, core->bitZeroPeriod << prevPlane);
-    *core->oe.clearReg = core->oe.bit; // Enable LED output
+    _PM_clearReg(core->oe); // Enable LED output
 
     uint32_t elementsPerLine = _PM_chunkSize *
         ((core->width + (_PM_chunkSize - 1)) / _PM_chunkSize);
@@ -520,9 +523,9 @@ void _PM_row_handler(Protomatter_core *core) {
   #define PEW \
     *set     = *data++;   /* Set RGB data high */ \
     _PM_clockHoldLow; \
-    *set32   =  clock;    /* Set clock high */ \
+    *set_full   =  clock;    /* Set clock high */ \
     _PM_clockHoldHigh; \
-    *clear32 =  rgbclock; /* Clear RGB data + clock */
+    *clear_full =  rgbclock; /* Clear RGB data + clock */
 #endif
 
 #if _PM_chunkSize == 1
@@ -564,14 +567,14 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
     // No-toggle version is a little different. If here, RGB data is all
     // in one byte of PORT register, clock can be any bit in 32-bit PORT.
     volatile uint8_t  *set;     // For RGB data set
-    volatile uint32_t *set32;   // For clock set
-    volatile uint32_t *clear32; // For RGB data + clock clear
-    set     = (volatile uint8_t *)core->setReg + core->portOffset;
-    set32   = (volatile uint32_t *)core->setReg;
-    clear32 = (volatile uint32_t *)core->clearReg;
-    uint32_t rgbclock = core->rgbAndClockMask; // RGB + clock bit
+    volatile _PM_PORT_TYPE *set_full;   // For clock set
+    volatile _PM_PORT_TYPE *clear_full; // For RGB data + clock clear
+    set        = (volatile uint8_t *)core->setReg + core->portOffset;
+    set_full   = (volatile _PM_PORT_TYPE *)core->setReg;
+    clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
+    _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
-    uint32_t clock  = core->clockMask; // Clock bit
+    _PM_PORT_TYPE clock  = core->clockMask; // Clock bit
     uint8_t  chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
 
     // PORT has already been initialized with RGB data + clock bits
@@ -598,15 +601,15 @@ static void blast_word(Protomatter_core *core, uint16_t *data) {
     volatile uint16_t *toggle = (volatile uint16_t *)core->toggleReg +
         core->portOffset;
 #else
-    volatile uint16_t *set;     // For RGB data set
-    volatile uint32_t *set32;   // For clock set
-    volatile uint32_t *clear32; // For RGB data + clock clear
-    set     = (volatile uint16_t *)core->setReg + core->portOffset;
-    set32   = (volatile uint32_t *)core->setReg;
-    clear32 = (volatile uint32_t *)core->clearReg;
-    uint32_t rgbclock = core->rgbAndClockMask; // RGB + clock bit
+    volatile uint16_t *set;             // For RGB data set
+    volatile _PM_PORT_TYPE *set_full;   // For clock set
+    volatile _PM_PORT_TYPE *clear_full; // For RGB data + clock clear
+    set        = (volatile uint16_t *)core->setReg + core->portOffset;
+    set_full   = (volatile _PM_PORT_TYPE *)core->setReg;
+    clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
+    _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
-    uint32_t clock  = core->clockMask; // Clock bit
+    _PM_PORT_TYPE clock  = core->clockMask; // Clock bit
     uint8_t  chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
     while(chunks--) {
         PEW_UNROLL // _PM_chunkSize RGB+clock writes
@@ -626,15 +629,15 @@ static void blast_long(Protomatter_core *core, uint32_t *data) {
     // Note in this case two copies exist of the PORT set register.
     // The optimizer will most likely simplify this; leaving as-is, not
     // wanting a special case of the PEW macro due to divergence risk.
-    volatile uint32_t *set;     // For RGB data set
-    volatile uint32_t *set32;   // For clock set
-    volatile uint32_t *clear32; // For RGB data + clock clear
-    set     = (volatile uint32_t *)core->setReg;
-    set32   = (volatile uint32_t *)core->setReg;
-    clear32 = (volatile uint32_t *)core->clearReg;
-    uint32_t rgbclock = core->rgbAndClockMask; // RGB + clock bit
+    volatile uint32_t *set;             // For RGB data set
+    volatile _PM_PORT_TYPE *set_full;   // For clock set
+    volatile _PM_PORT_TYPE *clear_full; // For RGB data + clock clear
+    set        = (volatile uint32_t *)core->setReg;
+    set_full   = (volatile _PM_PORT_TYPE *)core->setReg;
+    clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
+    _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
-    uint32_t clock  = core->clockMask; // Clock bit
+    _PM_PORT_TYPE clock  = core->clockMask; // Clock bit
     uint8_t  chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
     while(chunks--) {
         PEW_UNROLL // _PM_chunkSize RGB+clock writes

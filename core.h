@@ -23,8 +23,8 @@ typedef enum {
 // RGB data but do NOT need the set or clear registers, so those items
 // are also declared as separate things in the core structure that follows.
 typedef struct {
-    volatile uint32_t *setReg;          // GPIO bit set register
-    volatile uint32_t *clearReg;        // GPIO bit clear register
+    volatile void *setReg;              // GPIO bit set register
+    volatile void *clearReg;            // GPIO bit clear register
     uint32_t           bit;             // GPIO bitmask
     uint8_t            pin;             // Some identifier, e.g. Arduino pin #
 } _PM_pin;
@@ -48,7 +48,7 @@ typedef struct {
     void              *rgbMask;         // PORT bit mask for each RGB pin
     uint32_t           clockMask;       // PORT bit mask for RGB clock
     uint32_t           rgbAndClockMask; // PORT bit mask for RGB data + clock
-    volatile uint32_t *addrPortToggle;  // See singleAddrPort below
+    volatile void     *addrPortToggle;  // See singleAddrPort below
     void              *screenData;      // Per-bitplane RGB data for matrix
     _PM_pin            latch;           // RGB data latch
     _PM_pin            oe;              // !OE (LOW out enable)
