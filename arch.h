@@ -180,8 +180,13 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
     #endif
 
     // Arduino implementation is tied to a specific timer/counter & freq:
+#if defined(TC4)
     #define _PM_TIMER_DEFAULT TC4
     #define _PM_IRQ_HANDLER   TC4_Handler
+#else // No TC4 on some M4's
+    #define _PM_TIMER_DEFAULT TC3
+    #define _PM_IRQ_HANDLER   TC3_Handler
+#endif
     #define _PM_timerFreq     48000000
     // Partly because IRQs must be declared at compile-time, and partly
     // because we know Arduino's already set up one of the GCLK sources
