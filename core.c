@@ -556,8 +556,7 @@ void _PM_row_handler(Protomatter_core *core) {
   *set_full = clock; /* Set clock high */                                      \
   _PM_clockHoldHigh;                                                           \
   *clear_full = rgbclock;                                                      \
-      /* Clear RGB data + clock */ ///< Bitbang one set of RGB data bits to
-                                   ///< matrix
+  /* Clear RGB data + clock */ ///< Bitbang one set of RGB data bits to matrix
 #endif
 
 #if _PM_chunkSize == 1
