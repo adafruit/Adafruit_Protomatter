@@ -51,6 +51,16 @@ P0.05 A1   P0.13 MOSI      P0.29      P1.13
 P0.06 D11  P0.14 SCK       P0.30 A2   P1.14
 P0.07 D6   P0.15 MISO      P0.31      P1.15
 
+FEATHER ESP32:
+P0.00          P0.08          P0.16 16/RX    P0.24          P1.00 32/A7
+P0.01          P0.09          P0.17 17/TX    P0.25 25/A1    P1.01 33/A9/SS
+P0.02          P0.10          P0.18 18/MOSI  P0.26 26/A0    P1.02 34/A2
+P0.03          P0.11          P0.19 19/MISO  P0.27 27/A10   P1.03
+P0.04 4/A5     P0.12 12/A11   P0.20          P0.28          P1.04 36/A4
+P0.05 5/SCK    P0.13 13/A12   P0.21 21       P0.29          P1.05
+P0.06          P0.14 14/A6    P0.22 22/SCL   P0.30          P1.06
+P0.07          P0.15 15/A8    P0.23 23/SDA   P0.31          P1.07 39/A3
+
 RGB Matrix FeatherWing:
 R1  D6    A   A5
 G1  D5    B   A4
@@ -87,6 +97,12 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t clockPin   = 12;
   uint8_t latchPin   = A2;
   uint8_t oePin      = A3;
+#elif defined(ESP32)
+  uint8_t rgbPins[]  = {A5, 14, 15, 27, 21, 12};
+  uint8_t addrPins[] = {A7, A4, A3, A2};
+  uint8_t clockPin   = 13;
+  uint8_t latchPin   = 16; // RX
+  uint8_t oePin      = 17; // TX
 #endif
 
 Adafruit_Protomatter matrix(

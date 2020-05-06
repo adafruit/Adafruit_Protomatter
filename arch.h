@@ -23,7 +23,7 @@
 /*
 Common ground for architectures to support this library:
 
-- 32-bit device (e.g. ARM core, but potentially ESP32 and others in future)
+- 32-bit device (e.g. ARM core, but potentially others in the future)
 - One or more 32-bit GPIO PORTs with atomic bitmask SET and CLEAR registers.
   A TOGGLE register, if present, may improve performance but is NOT required.
 - Tolerate 8-bit or word-aligned 16-bit accesses within the 32-bit PORT
@@ -48,8 +48,7 @@ reason for many "else" situations in this code.
 
 Each architecture defines the following macros and/or functions (the _PM_
 prefix on each is to reduce likelihood of naming collisions...especially
-on ESP32, which has some similarly-named timer functions...though note
-that this library is NOT CURRENTLY PORTED to ESP32):
+on ESP32, which has some similarly-named timer functions:
 
 GPIO-related macros/functions:
 
@@ -893,8 +892,120 @@ uint32_t _PM_timerStop(void *tptr) {
 
 // ESP32-SPECIFIC CODE -----------------------------------------------------
 
-#if defined(ARDUINO_ARCH_ESP32)
-#endif // ARDUINO_ARCH_ESP32
+#if defined(ESP32)
+
+#if defined(ARDUINO)
+
+#include "driver/timer.h"
+
+#define _PM_portOutRegister(pin)                                               \
+  (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
+
+#define _PM_portSetRegister(pin)                                               \
+  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
+
+#define _PM_portClearRegister(pin)                                             \
+  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define _PM_byteOffset(pin) ((pin & 31) / 8)
+#define _PM_wordOffset(pin) ((pin & 31) / 16)
+#else
+#define _PM_byteOffset(pin) (3 - ((pin & 31) / 8))
+#define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
+#endif
+
+// Arduino implementation is tied to a specific timer
+#define TIMER_GROUP TIMER_GROUP_1 // Timer group index (0 or 1)
+#define TIMER TIMER_0             // Timer index within group (0 or 1)
+#define TIMERBASE TIMERG1         // Group register base address
+#define _PM_timerFreq 40000000    // 40 MHz
+
+typedef struct {
+  timg_dev_t *base;    // Timer group register base address
+  timer_group_t group; // Timer group # (0 or 1)
+  timer_idx_t idx;     // Timer index within group (0 or 1)
+} _PM_espTimerStruct;
+
+// Because it's tied to a specific timer right now, there can be only
+// one instance of the Protomatter_core struct. The Arduino library
+// sets up this pointer when calling begin().
+void *_PM_protoPtr = NULL;
+
+// Note to future self: this IRAM_ATTR attribute will also have to go
+// in core.c ahead of _PM_row_handler() unfortunately. Maybe do an ifdef
+// check -- define it to nothing if not defined
+
+IRAM_ATTR void IRQ_HANDLER(void *tptr) {
+  _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
+
+  uint32_t intr_status = timer->base->int_st_timers.val;
+
+  _PM_row_handler(_PM_protoPtr); // In core.c
+
+  // Clear the interrupt, re-enable for next pass
+  if (intr_status & BIT(timer->idx)) {
+    timer->base->int_clr_timers.val = timer->idx;
+  }
+  timer->base->hw_timer[timer->idx].config.alarm_en = TIMER_ALARM_EN;
+}
+
+// Initialize, but do not start, timer
+void _PM_timerInit(void *tptr) {
+  _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
+
+  timer_config_t timer_cfg;
+  timer_cfg.divider = 2; // 1:2 prescale 80->40 MHz
+  timer_cfg.counter_dir = TIMER_COUNT_UP;
+  timer_cfg.counter_en = TIMER_PAUSE;
+  timer_cfg.alarm_en = true;
+  timer_cfg.auto_reload = true;
+  timer_cfg.intr_type = TIMER_INTR_LEVEL;
+
+  timer_init(timer->group, timer->idx, &timer_cfg);
+  // Timer initial count and reload-on-alarm value
+  timer_set_counter_value(timer->group, timer->idx, 0);
+  // Configure alarm 'top' and the interrupt on alarm
+  timer_set_alarm_value(timer->group, timer->idx, 10000);
+  // Pass pointer to timer struct into ISR
+  timer_isr_register(timer->group, timer->idx, IRQ_HANDLER, (void *)timer,
+                     ESP_INTR_FLAG_IRAM, NULL);
+  timer_enable_intr(timer->group, timer->idx);
+}
+
+// Set timer period, initialize count value to zero, enable timer.
+// Timer must be initialized to 16-bit mode using the init function
+// above, but must be inactive before calling this.
+inline void _PM_timerStart(void *tptr, uint32_t period) {
+  _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
+  timer_set_alarm_value(timer->group, timer->idx, period);
+  timer_start(timer->group, timer->idx);
+}
+
+// Return current count value (timer enabled or not).
+// Timer must be previously initialized.
+inline uint32_t _PM_timerGetCount(void *tptr) {
+  _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
+  uint64_t timer_val;
+  timer_get_counter_value(timer->group, timer->idx, &timer_val);
+  return (uint32_t)timer_val;
+}
+
+// Disable timer and return current count value.
+// Timer must be previously initialized.
+uint32_t _PM_timerStop(void *tptr) {
+  _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
+  timer_pause(timer->group, timer->idx);
+  return _PM_timerGetCount(tptr);
+}
+
+#elif defined(CIRCUITPY)
+
+// ESP32 CircuitPython magic goes here
+
+#endif
+
+#endif // ESP32
 
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
 

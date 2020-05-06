@@ -70,7 +70,8 @@ Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
                                            uint8_t clockPin, uint8_t latchPin,
                                            uint8_t oePin, bool doubleBuffer,
                                            void *timer)
-    : GFXcanvas16(bitWidth, (2 << min(addrCount, 5)) * min(rgbCount, 5)) {
+    : GFXcanvas16(bitWidth,
+                  (2 << min((int)addrCount, 5)) * min((int)rgbCount, 5)) {
   if (bitDepth > 6)
     bitDepth = 6; // GFXcanvas16 color limit (565)
 
