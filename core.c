@@ -428,7 +428,15 @@ void _PM_free(Protomatter_core *core) {
 }
 
 // ISR function (in arch.h) calls this function which it extern'd.
-void _PM_row_handler(Protomatter_core *core) {
+// Profuse apologies for the ESP32-specific IRAM_ATTR here -- the goal was
+// for all architecture-specific detauls to be in arch.h -- but the need
+// for one here caught me off guard. So, in arch.h, for all non-ESP32
+// devices, IRAM_ATTR is defined to nothing and is ignored here. If any
+// future architectures have their own attribute for making a function
+// RAM-resident, #define IRAM_ATTR to that in the corresponding device-
+// specific section of arch.h. Sorry. :/
+// Any functions called by this function should also be IRAM_ATTR'd.
+IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
   _PM_setReg(core->oe); // Disable LED output
 
@@ -586,7 +594,7 @@ void _PM_row_handler(Protomatter_core *core) {
 // function, too often ends in disaster...but must be vigilant in the
 // three-function maintenance then.)
 
-static void blast_byte(Protomatter_core *core, uint8_t *data) {
+IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 #if defined(_PM_portToggleRegister)
   // If here, it was established in begin() that the RGB data bits and
   // clock are all within the same byte of a PORT register, else we'd be
@@ -626,7 +634,7 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
 #endif
 }
 
-static void blast_word(Protomatter_core *core, uint16_t *data) {
+IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
 #if defined(_PM_portToggleRegister)
   // See notes above -- except now 16-bit word in PORT.
   volatile uint16_t *toggle =
@@ -652,7 +660,7 @@ static void blast_word(Protomatter_core *core, uint16_t *data) {
 #endif
 }
 
-static void blast_long(Protomatter_core *core, uint32_t *data) {
+IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
 #if defined(_PM_portToggleRegister)
   // See notes above -- except now full 32-bit PORT.
   volatile uint32_t *toggle = (volatile uint32_t *)core->toggleReg;

@@ -915,27 +915,37 @@ uint32_t _PM_timerStop(void *tptr) {
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
-// Arduino implementation is tied to a specific timer
-#define TIMER_GROUP TIMER_GROUP_1 // Timer group index (0 or 1)
-#define TIMER TIMER_0             // Timer index within group (0 or 1)
-#define TIMERBASE TIMERG1         // Group register base address
-#define _PM_timerFreq 40000000    // 40 MHz
+// Because it's tied to a specific timer right now, there can be only
+// one instance of the Protomatter_core struct. The Arduino library
+// sets up this pointer when calling begin().
+void *_PM_protoPtr = NULL;
 
+#define _PM_timerFreq 40000000 // 40 MHz
+
+// Whereas most architectures can just pass around the base address of
+// a timer peripheral, ESP32 needs some additional info, so it's packaged
+// up in this struct and attached to _PM_protoPtr->timer:
 typedef struct {
   timg_dev_t *base;    // Timer group register base address
   timer_group_t group; // Timer group # (0 or 1)
   timer_idx_t idx;     // Timer index within group (0 or 1)
 } _PM_espTimerStruct;
 
-// Because it's tied to a specific timer right now, there can be only
-// one instance of the Protomatter_core struct. The Arduino library
-// sets up this pointer when calling begin().
-void *_PM_protoPtr = NULL;
+// As mentioned above, Arduino implementation is tied to a specific timer
+// (group 1, index 0), so there's just one of these structures around,
+// initialized with fixed values for the aforementioned group and index:
+static const _PM_espTimerStruct _PM_ESP32_ArduinoTimer = {
+    &TIMERG1, TIMER_GROUP_1, TIMER_0};
 
-// Note to future self: this IRAM_ATTR attribute will also have to go
-// in core.c ahead of _PM_row_handler() unfortunately. Maybe do an ifdef
-// check -- define it to nothing if not defined
+// The default timer (referenced in core.c) then points to the above struct.
+#define _PM_TIMER_DEFAULT &_PM_ESP32_ArduinoTimer;
+// The following timer functions COULD just lazily reference the single
+// struct directly...but rather keep the possibility open for using other
+// or multiple timers in the future, and also to make these functions
+// partially or fully reusable for CircuitPython or other environments
+// where timers are an allocated resource.
 
+// Any function called by _PM_row_handler should also have IRAM_ATTR.
 IRAM_ATTR void IRQ_HANDLER(void *tptr) {
   _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
 
@@ -976,7 +986,7 @@ void _PM_timerInit(void *tptr) {
 // Set timer period, initialize count value to zero, enable timer.
 // Timer must be initialized to 16-bit mode using the init function
 // above, but must be inactive before calling this.
-inline void _PM_timerStart(void *tptr, uint32_t period) {
+IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
   _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
   timer_set_alarm_value(timer->group, timer->idx, period);
   timer_start(timer->group, timer->idx);
@@ -984,7 +994,7 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-inline uint32_t _PM_timerGetCount(void *tptr) {
+IRAM_ATTR inline uint32_t _PM_timerGetCount(void *tptr) {
   _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
   uint64_t timer_val;
   timer_get_counter_value(timer->group, timer->idx, &timer_val);
@@ -993,7 +1003,7 @@ inline uint32_t _PM_timerGetCount(void *tptr) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-uint32_t _PM_timerStop(void *tptr) {
+IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
   _PM_espTimerStruct *timer = (_PM_espTimerStruct *)tptr;
   timer_pause(timer->group, timer->idx);
   return _PM_timerGetCount(tptr);
@@ -1031,6 +1041,10 @@ uint32_t _PM_timerStop(void *tptr) {
 
 #ifndef _PM_FREE
 #define _PM_FREE(x) (free((x))) ///< Memory free call
+#endif
+
+#ifndef IRAM_ATTR
+#define IRAM_ATTR ///< Neutralize ESP32-specific attribute in core.c
 #endif
 
 // ARDUINO SPECIFIC CODE ---------------------------------------------------
