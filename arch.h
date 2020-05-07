@@ -20,6 +20,8 @@
 #if !defined(_PROTOMATTER_ARCH_H_)
 #define _PROTOMATTER_ARCH_H_
 
+#include <string.h>
+
 /*
 Common ground for architectures to support this library:
 
