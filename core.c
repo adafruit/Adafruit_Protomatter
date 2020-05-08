@@ -440,6 +440,17 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
   _PM_setReg(core->oe); // Disable LED output
 
+  // ESP32 requires this next line, but not wanting to put arch-specific
+  // ifdefs in this code...it's a trivial operation so just do it.
+  // Latch is already clear at this point, but we go through the motions
+  // to clear it again in order to sync up the setReg(OE) above with the
+  // setReg(latch) that follows. Reason being, bit set/clear operations
+  // on ESP32 aren't truly atomic, and if those two pins are on the same
+  // port (quite common) the second setReg will be ignored. The nonsense
+  // clearReg is used to sync up the two setReg operations. See also the
+  // ESP32-specific PEW define in arch.h, same deal.
+  _PM_clearReg(core->latch);
+
   _PM_setReg(core->latch);
   // Stop timer, save count value at stop
   uint32_t elapsed = _PM_timerStop(core->timer);
@@ -551,6 +562,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 // after data is placed on the PORT. _PM_clockHoldHigh is code for delay
 // before setting the clock back low. If undefined, nothing goes there.
 
+#if !defined(PEW) // arch.h can define a custom PEW if needed (e.g. ESP32)
 #if defined(_PM_portToggleRegister)
 #define PEW                                                                    \
   *toggle = *data++; /* Toggle in new data + toggle clock low */               \
@@ -563,9 +575,10 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   _PM_clockHoldLow;                                                            \
   *set_full = clock; /* Set clock high */                                      \
   _PM_clockHoldHigh;                                                           \
-  *clear_full = rgbclock;                                                      \
-  /* Clear RGB data + clock */ ///< Bitbang one set of RGB data bits to matrix
+  *clear_full = rgbclock; /* Clear RGB data + clock */                         \
+  ///< Bitbang one set of RGB data bits to matrix
 #endif
+#endif // PEW
 
 #if _PM_chunkSize == 1
 #define PEW_UNROLL PEW

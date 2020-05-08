@@ -915,13 +915,25 @@ uint32_t _PM_timerStop(void *tptr) {
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
+// ESP32 requires a custom PEW declaration (issues one set of RGB color bits
+// followed by clock pulse). Turns out the bit set/clear registers are not
+// actually atomic. If two writes are made in quick succession, the second
+// has no effect. One option is NOPs, other is to write a 0 (no effect) to
+// the opposing register (set vs clear) to synchronize the next write.
+#define PEW                                                                    \
+  *set = *data++;         /* Set RGB data high */                              \
+  *clear_full = 0;        /* ESP32 MUST sync before 2nd 'set' */               \
+  *set_full = clock;      /* Set clock high */                                 \
+  *clear_full = rgbclock; /* Clear RGB data + clock */                         \
+  ///< Bitbang one set of RGB data bits to matrix
+
 // As written, because it's tied to a specific timer right now, the
 // Arduino lib only permits one instance of the Protomatter_core struct,
 // which it sets up when calling begin().
 void *_PM_protoPtr = NULL;
 
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
-#define _PM_timerNum  0        // Timer #0 (can be 0-3)
+#define _PM_timerNum 0         // Timer #0 (can be 0-3)
 
 // This is the default aforementioned singular timer. IN THEORY, other
 // timers could be used, IF an Arduino sketch passes the address of its
@@ -931,6 +943,8 @@ void *_PM_protoPtr = NULL;
 // directly, in case that's ever actually used in the future.
 static hw_timer_t *_PM_esp32timer = NULL;
 #define _PM_TIMER_DEFAULT &_PM_esp32timer
+
+extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core);
 
 // Timer interrupt handler. This, _PM_row_handler() and any functions
 // called by _PM_row_handler() should all have the IRAM_ATTR attribute
@@ -944,7 +958,7 @@ IRAM_ATTR static void _PM_esp32timerCallback(void) {
 // Initialize, but do not start, timer.
 void _PM_timerInit(void *tptr) {
   hw_timer_t **timer = (hw_timer_t **)tptr; // pointer-to-pointer
-  if(timer == _PM_TIMER_DEFAULT) {
+  if (timer == _PM_TIMER_DEFAULT) {
     *timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
   }
   timerAttachInterrupt(*timer, &_PM_esp32timerCallback, true);

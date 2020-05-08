@@ -104,7 +104,7 @@ RGB+clock are on different PORTs on nRF52840.
   // 16, 17 (RX, TX), 25, 26 (A0, A1), 18, 5, 9 (MOSI, SCK, MISO), 22, 23 (SCL, SDA)
   uint8_t rgbPins[]  = {4, 12, 13, 14, 15, 21};
   uint8_t addrPins[] = {16, 17, 25, 26};
-  uint8_t clockPin   = 27;
+  uint8_t clockPin   = 27; // Must be on same port as rgbPins
   uint8_t latchPin   = 32;
   uint8_t oePin      = 33;
 #endif
