@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['latch',['latch',['../struct_protomatter__core.html#a76d2101a0cfc1593a544d78925f0a169',1,'Protomatter_core']]]
+  ['iram_5fattr',['IRAM_ATTR',['../arch_8h.html#a8b5a7da03d5e9fbb2ca81ddc85025012',1,'arch.h']]]
 ];

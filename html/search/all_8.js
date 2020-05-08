@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['minperiod',['minPeriod',['../struct_protomatter__core.html#ad65c463e3ac64f0a7e4a64ed415451cd',1,'Protomatter_core']]]
+  ['latch',['latch',['../struct_protomatter__core.html#a76d2101a0cfc1593a544d78925f0a169',1,'Protomatter_core']]]
 ];

@@ -111,9 +111,9 @@ Functions</h2></td></tr>
 <tr class="memitem:adf89afcb7761b40e2cfa65a70bce5675"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8c.html#adf89afcb7761b40e2cfa65a70bce5675">_PM_free</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
 <tr class="memdesc:adf89afcb7761b40e2cfa65a70bce5675"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deallocate memory associated with <a class="el" href="struct_protomatter__core.html">Protomatter_core</a> structure (e.g. screen data, pin lists for data and rows). Does not deallocate the structure itself.  <a href="#adf89afcb7761b40e2cfa65a70bce5675">More...</a><br /></td></tr>
 <tr class="separator:adf89afcb7761b40e2cfa65a70bce5675"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abb462880fa61b8dcc1bee712a9be2f58"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8c.html#abb462880fa61b8dcc1bee712a9be2f58">_PM_row_handler</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
-<tr class="memdesc:abb462880fa61b8dcc1bee712a9be2f58"><td class="mdescLeft">&#160;</td><td class="mdescRight">Matrix "row handler" that's called by the timer interrupt. Handles row address lines and issuing data to matrix.  <a href="#abb462880fa61b8dcc1bee712a9be2f58">More...</a><br /></td></tr>
-<tr class="separator:abb462880fa61b8dcc1bee712a9be2f58"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8abcc9738c44a9a5e572c32e594d66b9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="arch_8h.html#a8b5a7da03d5e9fbb2ca81ddc85025012">IRAM_ATTR</a> void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8c.html#a8abcc9738c44a9a5e572c32e594d66b9">_PM_row_handler</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
+<tr class="memdesc:a8abcc9738c44a9a5e572c32e594d66b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Matrix "row handler" that's called by the timer interrupt. Handles row address lines and issuing data to matrix.  <a href="#a8abcc9738c44a9a5e572c32e594d66b9">More...</a><br /></td></tr>
+<tr class="separator:a8abcc9738c44a9a5e572c32e594d66b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00d7939d31d18e0763fcdf47ad5b298c"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8c.html#a00d7939d31d18e0763fcdf47ad5b298c">_PM_getFrameCount</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
 <tr class="memdesc:a00d7939d31d18e0763fcdf47ad5b298c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current value of frame counter and resets its value to zero. Two calls to this, timed one second apart (or use math with other intervals), can be used to get a rough frames-per-second value for the matrix (since this is difficult to estimate beforehand).  <a href="#a00d7939d31d18e0763fcdf47ad5b298c">More...</a><br /></td></tr>
 <tr class="separator:a00d7939d31d18e0763fcdf47ad5b298c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -139,7 +139,7 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).clearReg) =                                 \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1419</div></div>
+<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).clearReg) =                                 \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1413</div></div>
 </div><!-- fragment -->
 <p>Clear non-RGB-data-or-clock control line (<a class="el" href="struct___p_m__pin.html">_PM_pin</a> type) </p>
 
@@ -160,7 +160,7 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).setReg) =                                   \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1419</div></div>
+<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).setReg) =                                   \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1413</div></div>
 </div><!-- fragment -->
 <p>Set non-RGB-data-or-clock control line (<a class="el" href="struct___p_m__pin.html">_PM_pin</a> type) </p>
 
@@ -177,7 +177,7 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">*<span class="keyword">set</span> = *data++; <span class="comment">/* Set RGB data high */</span>                                      \</div><div class="line">  _PM_clockHoldLow;                                                            \</div><div class="line">  *set_full = clock; <span class="comment">/* Set clock high */</span>                                      \</div><div class="line">  _PM_clockHoldHigh;                                                           \</div><div class="line">  *clear_full = rgbclock;                                                      \</div><div class="line">  <span class="comment">/* Clear RGB data + clock */</span></div></div><!-- fragment -->
+<b>Value:</b><div class="fragment"><div class="line">*<span class="keyword">set</span> = *data++; <span class="comment">/* Set RGB data high */</span>                                      \</div><div class="line">  _PM_clockHoldLow;                                                            \</div><div class="line">  *set_full = clock; <span class="comment">/* Set clock high */</span>                                      \</div><div class="line">  _PM_clockHoldHigh;                                                           \</div><div class="line">  *clear_full = rgbclock; <span class="comment">/* Clear RGB data + clock */</span>                         \</div></div><!-- fragment -->
 <p>Bitbang one set of RGB data bits to matrix. </p>
 
 </div>
@@ -396,14 +396,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="abb462880fa61b8dcc1bee712a9be2f58"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abb462880fa61b8dcc1bee712a9be2f58">&#9670;&nbsp;</a></span>_PM_row_handler()</h2>
+<a id="a8abcc9738c44a9a5e572c32e594d66b9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8abcc9738c44a9a5e572c32e594d66b9">&#9670;&nbsp;</a></span>_PM_row_handler()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void _PM_row_handler </td>
+          <td class="memname"><a class="el" href="arch_8h.html#a8b5a7da03d5e9fbb2ca81ddc85025012">IRAM_ATTR</a> void _PM_row_handler </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *&#160;</td>
           <td class="paramname"><em>core</em></td><td>)</td>
