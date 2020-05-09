@@ -428,9 +428,28 @@ void _PM_free(Protomatter_core *core) {
 }
 
 // ISR function (in arch.h) calls this function which it extern'd.
-void _PM_row_handler(Protomatter_core *core) {
+// Profuse apologies for the ESP32-specific IRAM_ATTR here -- the goal was
+// for all architecture-specific detauls to be in arch.h -- but the need
+// for one here caught me off guard. So, in arch.h, for all non-ESP32
+// devices, IRAM_ATTR is defined to nothing and is ignored here. If any
+// future architectures have their own attribute for making a function
+// RAM-resident, #define IRAM_ATTR to that in the corresponding device-
+// specific section of arch.h. Sorry. :/
+// Any functions called by this function should also be IRAM_ATTR'd.
+IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
   _PM_setReg(core->oe); // Disable LED output
+
+  // ESP32 requires this next line, but not wanting to put arch-specific
+  // ifdefs in this code...it's a trivial operation so just do it.
+  // Latch is already clear at this point, but we go through the motions
+  // to clear it again in order to sync up the setReg(OE) above with the
+  // setReg(latch) that follows. Reason being, bit set/clear operations
+  // on ESP32 aren't truly atomic, and if those two pins are on the same
+  // port (quite common) the second setReg will be ignored. The nonsense
+  // clearReg is used to sync up the two setReg operations. See also the
+  // ESP32-specific PEW define in arch.h, same deal.
+  _PM_clearReg(core->latch);
 
   _PM_setReg(core->latch);
   // Stop timer, save count value at stop
@@ -543,6 +562,7 @@ void _PM_row_handler(Protomatter_core *core) {
 // after data is placed on the PORT. _PM_clockHoldHigh is code for delay
 // before setting the clock back low. If undefined, nothing goes there.
 
+#if !defined(PEW) // arch.h can define a custom PEW if needed (e.g. ESP32)
 #if defined(_PM_portToggleRegister)
 #define PEW                                                                    \
   *toggle = *data++; /* Toggle in new data + toggle clock low */               \
@@ -555,9 +575,10 @@ void _PM_row_handler(Protomatter_core *core) {
   _PM_clockHoldLow;                                                            \
   *set_full = clock; /* Set clock high */                                      \
   _PM_clockHoldHigh;                                                           \
-  *clear_full = rgbclock;                                                      \
-  /* Clear RGB data + clock */ ///< Bitbang one set of RGB data bits to matrix
+  *clear_full = rgbclock; /* Clear RGB data + clock */                         \
+  ///< Bitbang one set of RGB data bits to matrix
 #endif
+#endif // PEW
 
 #if _PM_chunkSize == 1
 #define PEW_UNROLL PEW
@@ -586,7 +607,7 @@ void _PM_row_handler(Protomatter_core *core) {
 // function, too often ends in disaster...but must be vigilant in the
 // three-function maintenance then.)
 
-static void blast_byte(Protomatter_core *core, uint8_t *data) {
+IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 #if defined(_PM_portToggleRegister)
   // If here, it was established in begin() that the RGB data bits and
   // clock are all within the same byte of a PORT register, else we'd be
@@ -626,7 +647,7 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
 #endif
 }
 
-static void blast_word(Protomatter_core *core, uint16_t *data) {
+IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
 #if defined(_PM_portToggleRegister)
   // See notes above -- except now 16-bit word in PORT.
   volatile uint16_t *toggle =
@@ -652,7 +673,7 @@ static void blast_word(Protomatter_core *core, uint16_t *data) {
 #endif
 }
 
-static void blast_long(Protomatter_core *core, uint32_t *data) {
+IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
 #if defined(_PM_portToggleRegister)
   // See notes above -- except now full 32-bit PORT.
   volatile uint32_t *toggle = (volatile uint32_t *)core->toggleReg;
