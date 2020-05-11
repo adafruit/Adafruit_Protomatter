@@ -4,6 +4,13 @@ on: [pull_request, push, repository_dispatch]
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        arduino-platform: ["feather_m0", "feather_m4",
+                           "feather_nrf52840_express", "FEATHER_F405",
+                           "feather_esp32"]
+
     runs-on: ubuntu-latest
     
     steps:
@@ -20,7 +27,7 @@ jobs:
       run: bash ci/actions_install.sh
 
     - name: test platforms
-      run: python3 ci/build_platform.py main_platforms
+      run: python3 ci/build_platform.py ${{ matrix.arduino-platform }}
 
     - name: clang
       run: python3 ci/run-clang-format.py -e "ci/*" -e "bin/*" -r . 
