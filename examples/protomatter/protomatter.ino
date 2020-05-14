@@ -107,6 +107,12 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t clockPin   = 27; // Must be on same port as rgbPins
   uint8_t latchPin   = 32;
   uint8_t oePin      = 33;
+#elif defined(ARDUINO_TEENSY40)
+  uint8_t rgbPins[]  = {15, 16, 17, 20, 21, 22}; // A1-2, A6-8 (skip SDA, SCL)
+  uint8_t addrPins[] = {2, 3, 4, 5};
+  uint8_t clockPin   = 23; // A9
+  uint8_t latchPin   = 6;
+  uint8_t oePin      = 9;
 #endif
 
 Adafruit_Protomatter matrix(

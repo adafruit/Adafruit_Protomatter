@@ -999,6 +999,96 @@ IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
 
 #endif // ESP32
 
+// i.MX 1062-SPECIFIC CODE (Teensy 4.0, 4.1) -------------------------------
+
+#if defined(__IMXRT1062__) // (Teensy 4)
+
+#if defined(ARDUINO)
+
+/*
+static struct {
+  uint32_t *base; ///< GPIO base address for pin
+  uint8_t   bit;  ///< GPIO bit number for pin (0-31)
+} _PM_teensyPins[] = {
+  {CORE_PIN0_PORTREG, CORE_PIN0_BIT},
+  {CORE_PIN1_PORTREG, CORE_PIN1_BIT},
+  {CORE_PIN2_PORTREG, CORE_PIN2_BIT},
+  {CORE_PIN3_PORTREG, CORE_PIN3_BIT},
+  {CORE_PIN4_PORTREG, CORE_PIN4_BIT},
+  {CORE_PIN5_PORTREG, CORE_PIN5_BIT},
+  {CORE_PIN6_PORTREG, CORE_PIN6_BIT},
+  {CORE_PIN7_PORTREG, CORE_PIN7_BIT},
+  {CORE_PIN8_PORTREG, CORE_PIN8_BIT},
+  {CORE_PIN9_PORTREG, CORE_PIN9_BIT},
+  {CORE_PIN10_PORTREG, CORE_PIN10_BIT},
+  {CORE_PIN11_PORTREG, CORE_PIN11_BIT},
+  {CORE_PIN12_PORTREG, CORE_PIN12_BIT},
+  {CORE_PIN13_PORTREG, CORE_PIN13_BIT},
+  {CORE_PIN14_PORTREG, CORE_PIN14_BIT},
+  {CORE_PIN15_PORTREG, CORE_PIN15_BIT},
+  {CORE_PIN16_PORTREG, CORE_PIN16_BIT},
+  {CORE_PIN17_PORTREG, CORE_PIN17_BIT},
+  {CORE_PIN18_PORTREG, CORE_PIN18_BIT},
+  {CORE_PIN19_PORTREG, CORE_PIN19_BIT},
+  {CORE_PIN20_PORTREG, CORE_PIN20_BIT},
+  {CORE_PIN21_PORTREG, CORE_PIN21_BIT},
+  {CORE_PIN22_PORTREG, CORE_PIN22_BIT},
+  {CORE_PIN23_PORTREG, CORE_PIN23_BIT},
+  {CORE_PIN24_PORTREG, CORE_PIN24_BIT},
+  {CORE_PIN25_PORTREG, CORE_PIN25_BIT},
+  {CORE_PIN26_PORTREG, CORE_PIN26_BIT},
+  {CORE_PIN27_PORTREG, CORE_PIN27_BIT},
+  {CORE_PIN28_PORTREG, CORE_PIN28_BIT},
+  {CORE_PIN29_PORTREG, CORE_PIN29_BIT},
+  {CORE_PIN30_PORTREG, CORE_PIN30_BIT},
+  {CORE_PIN31_PORTREG, CORE_PIN31_BIT},
+  {CORE_PIN32_PORTREG, CORE_PIN32_BIT},
+  {CORE_PIN33_PORTREG, CORE_PIN33_BIT},
+  {CORE_PIN34_PORTREG, CORE_PIN34_BIT},
+  {CORE_PIN35_PORTREG, CORE_PIN35_BIT},
+  {CORE_PIN36_PORTREG, CORE_PIN36_BIT},
+  {CORE_PIN37_PORTREG, CORE_PIN37_BIT},
+  {CORE_PIN38_PORTREG, CORE_PIN38_BIT},
+  {CORE_PIN39_PORTREG, CORE_PIN39_BIT},
+}
+
+#define _PM_SET_OFFSET    33 ///< 0x84 byte offset = 33 longs
+#define _PM_CLEAR_OFFSET  34 ///< 0x88 byte offset = 34 longs
+#define _PM_TOGGLE_OFFSET 35 ///< 0x8C byte offset = 35 longs
+
+#define _PM_portOutRegister(pin) (void *)_PM_teensyPins[pin].base
+
+#define _PM_portSetRegister(pin) \
+  ((volatile uint32_t *)_PM_teensyPins[pin].base + _PM_SET_OFFSET)
+
+#define _PM_portClearRegister(pin) \
+  ((volatile uint32_t *)_PM_teensyPins[pin].base + _PM_CLEAR_OFFSET)
+
+#define _PM_portToggleRegister(pin) \
+  ((volatile uint32_t *)_PM_teensyPins[pin].base + _PM_TOGGLE_OFFSET)
+*/
+
+
+/*
+Uh oh. From datasheet: "Only 32-bit access is supported"
+Make a test prog (LED blink) using byte or word accesses, see what happens.
+
+CONFIRMED. The byte- and word-size writes are simply ignored (not fatal,
+code continues, just no GPIO action). Well, that's unfortunate. It'll
+require an extra shift operation per PEW, and therefore a custom PEW
+definition, but probably won't have any noticeable impact on performance
+(since there'll likely need to be delay NOPs anyway to avoid outpacing
+the matrix).
+*/
+
+#elif defined(CIRCUITPY)
+
+// Teensy 4 CircuitPython magic goes here.
+
+#endif
+
+#endif // __IMXRT1062__ (Teensy 4)
+
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
 
 #if !defined(_PM_chunkSize)
