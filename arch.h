@@ -1058,6 +1058,14 @@ static const struct {
 #define _PM_CLEAR_OFFSET  34 ///< 0x88 byte offset = 34 longs
 #define _PM_TOGGLE_OFFSET 35 ///< 0x8C byte offset = 35 longs
 
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define _PM_byteOffset(pin) (_PM_teensyPins[pin].bit / 8)
+#define _PM_wordOffset(pin) (_PM_teensyPins[pin].bit / 16)
+#else
+#define _PM_byteOffset(pin) (3 - (_PM_teensyPins[pin].bit / 8))
+#define _PM_wordOffset(pin) (1 - (_PM_teensyPins[pin].bit / 16))
+#endif
+
 #define _PM_portOutRegister(pin) (void *)_PM_teensyPins[pin].base
 
 #define _PM_portSetRegister(pin) \
@@ -1069,7 +1077,63 @@ static const struct {
 #define _PM_portToggleRegister(pin) \
   ((volatile uint32_t *)_PM_teensyPins[pin].base + _PM_TOGGLE_OFFSET)
 
-// Timer stuff here
+// As written, because it's tied to a specific timer right now, the
+// Arduino lib only permits one instance of the Protomatter_core struct,
+// which it sets up when calling begin().
+void *_PM_protoPtr = NULL;
+
+// Code as written works with the Periodic Interrupt Timer directly,
+// rather than using the Teensy IntervalTimer library, reason being we
+// need to be able to poll the current timer value in _PM_timerGetCount(),
+// but that's not available from IntervalTimer, and the timer base address
+// it keeps is a private member (possible alternative is to do dirty pool
+// and access the pointer directly, knowing it's the first element in the
+// IntervalTimer object, but this is fraught with peril).
+
+#define _PM_timerFreq 48000000 // 48 MHz
+#define _PM_timerNum 0         // PIT timer #0 (can be 0-3)
+#define _PM_TIMER_DEFAULT (IMXRT_PIT_CHANNELS + _PM_timerNum) // PIT channel *
+
+// Interrupt service routine for Periodic Interrupt Timer
+static void _PM_timerISR(void) {
+  _PM_row_handler(_PM_protoPtr); // In core.c
+}
+
+// Initialize, but do not start, timer.
+void _PM_timerInit(void *tptr) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+  CCM_CCGR1 |= CCM_CCGR1_PIT(CCM_CCGR_ON); // Enable clock signal to PIT
+  PIT_MCR = 1;                             // Enable PIT
+  timer->TCTRL = 0;      // Disable timer and interrupt
+  timer->LDVAL = 100000; // Timer initial load value
+  // Interrupt is attached but not enabled yet
+  attachInterruptVector(IRQ_PIT, &_PM_timerISR);
+  NVIC_ENABLE_IRQ(IRQ_PIT);
+}
+
+// Set timer period, initialize count value to zero, enable timer.
+inline void _PM_timerStart(void *tptr, uint32_t period) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+  timer->TCTRL = 0; // Disable timer and interrupt
+  timer->LDVAL = period; // Set load value
+  //timer->CVAL = period; // And current value (just in case?)
+  timer->TCTRL = 3; // Enable timer and interrupt
+}
+
+// Return current count value (timer enabled or not).
+// Timer must be previously initialized.
+inline uint32_t _PM_timerGetCount(void *tptr) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+  return (timer->LDVAL - timer->CVAL);
+}
+
+// Disable timer and return current count value.
+// Timer must be previously initialized.
+uint32_t _PM_timerStop(void *tptr) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+  timer->TCTRL = 0; // Disable timer and interrupt
+  return _PM_timerGetCount(tptr);
+}
 
 #elif defined(CIRCUITPY)
 
