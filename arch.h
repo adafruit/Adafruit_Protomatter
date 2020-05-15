@@ -1090,13 +1090,15 @@ void *_PM_protoPtr = NULL;
 // and access the pointer directly, knowing it's the first element in the
 // IntervalTimer object, but this is fraught with peril).
 
-#define _PM_timerFreq 48000000 // 48 MHz
+#define _PM_timerFreq 24000000 // 24 MHz
 #define _PM_timerNum 0         // PIT timer #0 (can be 0-3)
 #define _PM_TIMER_DEFAULT (IMXRT_PIT_CHANNELS + _PM_timerNum) // PIT channel *
 
 // Interrupt service routine for Periodic Interrupt Timer
 static void _PM_timerISR(void) {
+  IMXRT_PIT_CHANNEL_t *timer = _PM_TIMER_DEFAULT;
   _PM_row_handler(_PM_protoPtr); // In core.c
+  timer->TFLG = 1; // Clear timer interrupt
 }
 
 // Initialize, but do not start, timer.
@@ -1117,6 +1119,7 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
   timer->TCTRL = 0; // Disable timer and interrupt
   timer->LDVAL = period; // Set load value
   //timer->CVAL = period; // And current value (just in case?)
+  timer->TFLG = 1; // Clear timer interrupt
   timer->TCTRL = 3; // Enable timer and interrupt
 }
 
