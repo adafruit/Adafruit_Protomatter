@@ -1138,6 +1138,9 @@ uint32_t _PM_timerStop(void *tptr) {
   return _PM_timerGetCount(tptr);
 }
 
+#define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop");
+#define _PM_clockHoldLow asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop");
+
 #elif defined(CIRCUITPY)
 
 // Teensy 4 CircuitPython magic goes here.
