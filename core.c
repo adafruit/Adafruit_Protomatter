@@ -272,6 +272,16 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     // Clock and rgbAndClockMask are 32-bit values
     core->clockMask = _PM_portBitMask(core->clockPin);
     core->rgbAndClockMask = bitMask | core->clockMask;
+#if defined(_PM_portToggleRegister)
+    // TO DO: this ifdef and the one above can probably be wrapped up
+    // in a more cohesive case. Think something similar will be needed
+    // for the byte case. Will need Teensy 4.1 to test.
+    uint32_t elements = screenBytes / 2;
+    uint16_t mask = core->clockMask >> (core->portOffset * 16);
+    for (uint32_t i = 0; i < elements; i++) {
+      ((uint16_t *)core->screenData)[i] = mask;
+    }
+#endif
 #endif
     for (uint8_t i = 0; i < core->parallel * 6; i++) {
       ((uint16_t *)core->rgbMask)[i] = // Pin bitmasks are 16-bit
@@ -335,6 +345,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   core->addrPortToggle = _PM_portToggleRegister(core->addr[0].pin);
   core->singleAddrPort = 1;
 #endif
+  core->prevRow = (1 << core->numAddressLines) - 2;
   for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
        line++, bit <<= 1) {
     core->addr[line].setReg = _PM_portSetRegister(core->addr[line].pin);

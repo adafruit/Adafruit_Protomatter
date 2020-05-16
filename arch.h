@@ -1138,8 +1138,8 @@ uint32_t _PM_timerStop(void *tptr) {
   return _PM_timerGetCount(tptr);
 }
 
-#define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop");
-#define _PM_clockHoldLow asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop");
+#define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+#define _PM_clockHoldLow asm("nop; nop; nop; nop; nop; nop; nop; nop;");
 
 #elif defined(CIRCUITPY)
 
@@ -1359,11 +1359,12 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
 #if defined(_PM_portToggleRegister)
   // No per-chain loop is required; one clock bit handles all chains
   uint32_t offset = 0; // Current position in the 'dest' buffer
+  uint16_t mask =  core->clockMask >> (core->portOffset * 16);
   for (uint8_t row = 0; row < core->numRowPairs; row++) {
     for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
       dest[offset++] = 0; // First element of each plane
       for (uint16_t x = 1; x < bitplaneSize; x++) { // All subsequent items
-        dest[offset++] = core->clockMask;
+        dest[offset++] = mask;
       }
     }
   }
