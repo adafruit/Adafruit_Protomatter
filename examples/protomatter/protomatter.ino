@@ -92,11 +92,12 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t latchPin   = 4;
   uint8_t oePin      = 5;
 #elif defined(NRF52_SERIES)
-  uint8_t rgbPins[]  = {6, 11, A0, A1, A4, A5};
-  uint8_t addrPins[] = {5, 9, 10, 13};
+  // Special nRF52840 FeatherWing pinout
+  uint8_t rgbPins[]  = {6, A5, A1, A0, A4, 11};
+  uint8_t addrPins[] = {10, 5, 13, 9};
   uint8_t clockPin   = 12;
-  uint8_t latchPin   = A2;
-  uint8_t oePin      = A3;
+  uint8_t latchPin   = PIN_SERIAL1_RX;
+  uint8_t oePin      = PIN_SERIAL1_TX;
 #elif defined(ESP32)
   // 'Safe' pins (not overlapping any peripherals):
   // GPIO.out: 4, 12, 13, 14, 15, 21, 27, GPIO.out1: 32, 33
