@@ -1010,7 +1010,7 @@ IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
 
 static const struct {
   volatile uint32_t *base; ///< GPIO base address for pin
-  uint8_t            bit;  ///< GPIO bit number for pin (0-31)
+  uint8_t bit;             ///< GPIO bit number for pin (0-31)
 } _PM_teensyPins[] = {
   {&CORE_PIN0_PORTREG, CORE_PIN0_BIT},
   {&CORE_PIN1_PORTREG, CORE_PIN1_BIT},
