@@ -618,6 +618,10 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
 #if _PM_chunkSize == 1
 #define PEW_UNROLL PEW
+#elif _PM_chunkSize == 2
+#define PEW_UNROLL PEW PEW ///< 2-way PEW unroll
+#elif _PM_chunkSize == 4
+#define PEW_UNROLL PEW PEW PEW PEW ///< 4-way PEW unroll
 #elif _PM_chunkSize == 8
 #define PEW_UNROLL PEW PEW PEW PEW PEW PEW PEW PEW ///< 8-way PEW unroll
 #elif _PM_chunkSize == 16
