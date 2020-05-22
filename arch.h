@@ -1217,6 +1217,14 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     dest += core->bufferSize * (1 - core->activeBuffer);
   }
 
+#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
+  // core->clockMask mask is already an 8-bit value
+  uint8_t clockMask = core->clockMask;
+#else
+  // core->clockMask mask is 32-bit, shift down to 8-bit for this func.
+  uint8_t clockMask = core->clockMask >> (core->portOffset * 8);
+#endif
+
   // No need to clear matrix buffer, loops below do a full overwrite
   // (except for any scanline pad, which was already initialized in the
   // begin() function and won't be touched here).
@@ -1267,7 +1275,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     uint32_t blueBit = initialBlueBit;
     for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
 #if defined(_PM_portToggleRegister)
-      uint8_t prior = core->clockMask; // Set clock bit on 1st out
+      uint8_t prior = clockMask; // Set clock bit on 1st out
 #endif
       for (uint16_t x = 0; x < width; x++) {
         uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
@@ -1287,7 +1295,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
           result |= pinMask[5];
 #if defined(_PM_portToggleRegister)
         dest[x] = result ^ prior;
-        prior = result | core->clockMask; // Set clock bit on next out
+        prior = result | clockMask; // Set clock bit on next out
 #else
         dest[x] = result;
 #endif
@@ -1312,7 +1320,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
       // so idle clock appears LOW -- but really the matrix samples on
       // a rising edge and we could leave it high, but at this stage
       // in development just want the scope "readable."
-      dest[-pad] &= ~core->clockMask; // Negative index is legal & intentional
+      dest[-pad] &= ~clockMask; // Negative index is legal & intentional
 #endif
       dest += bitplaneSize; // Advance one scanline in dest buffer
     }                       // end plane

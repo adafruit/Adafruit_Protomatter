@@ -114,6 +114,12 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t clockPin   = 23; // A9
   uint8_t latchPin   = 6;
   uint8_t oePin      = 9;
+#elif defined(ARDUINO_TEENSY41)
+  uint8_t rgbPins[]  = {26, 27, 38, 20, 21, 22}; // A12-14, A6-A8 (yes that's a 38, NOT 28!)
+  uint8_t addrPins[] = {2, 3, 4, 5};
+  uint8_t clockPin   = 23; // A9
+  uint8_t latchPin   = 6;
+  uint8_t oePin      = 9;
 #endif
 
 // Last arg here enables double-buffering
