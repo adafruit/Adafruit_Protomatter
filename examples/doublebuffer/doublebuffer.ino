@@ -92,11 +92,12 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t latchPin   = 4;
   uint8_t oePin      = 5;
 #elif defined(NRF52_SERIES)
-  uint8_t rgbPins[]  = {6, 11, A0, A1, A4, A5};
-  uint8_t addrPins[] = {5, 9, 10, 13};
+  // Special nRF52840 FeatherWing pinout
+  uint8_t rgbPins[]  = {6, A5, A1, A0, A4, 11};
+  uint8_t addrPins[] = {10, 5, 13, 9};
   uint8_t clockPin   = 12;
-  uint8_t latchPin   = A2;
-  uint8_t oePin      = A3;
+  uint8_t latchPin   = PIN_SERIAL1_RX;
+  uint8_t oePin      = PIN_SERIAL1_TX;
 #elif defined(ESP32)
   // 'Safe' pins (not overlapping any peripherals):
   // GPIO.out: 4, 12, 13, 14, 15, 21, 27, GPIO.out1: 32, 33
@@ -107,6 +108,18 @@ RGB+clock are on different PORTs on nRF52840.
   uint8_t clockPin   = 27; // Must be on same port as rgbPins
   uint8_t latchPin   = 32;
   uint8_t oePin      = 33;
+#elif defined(ARDUINO_TEENSY40)
+  uint8_t rgbPins[]  = {15, 16, 17, 20, 21, 22}; // A1-A3, A6-A8, skips SDA,SCL
+  uint8_t addrPins[] = {2, 3, 4, 5};
+  uint8_t clockPin   = 23; // A9
+  uint8_t latchPin   = 6;
+  uint8_t oePin      = 9;
+#elif defined(ARDUINO_TEENSY41)
+  uint8_t rgbPins[]  = {26, 27, 38, 20, 21, 22}; // A12-14, A6-A8 (yes that's a 38, NOT 28!)
+  uint8_t addrPins[] = {2, 3, 4, 5};
+  uint8_t clockPin   = 23; // A9
+  uint8_t latchPin   = 6;
+  uint8_t oePin      = 9;
 #endif
 
 // Last arg here enables double-buffering

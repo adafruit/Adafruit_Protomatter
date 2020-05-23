@@ -241,7 +241,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // Figure out clockMask and rgbAndClockMask, clear matrix buffers
   if (core->bytesPerElement == 1) {
     core->portOffset = _PM_byteOffset(core->rgbPins[0]);
-#if defined(_PM_portToggleRegister)
+#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
     // Clock and rgbAndClockMask are 8-bit values
     core->clockMask = _PM_portBitMask(core->clockPin) >> (core->portOffset * 8);
     core->rgbAndClockMask =
@@ -258,7 +258,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     }
   } else if (core->bytesPerElement == 2) {
     core->portOffset = _PM_wordOffset(core->rgbPins[0]);
-#if defined(_PM_portToggleRegister)
+#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
     // Clock and rgbAndClockMask are 16-bit values
     core->clockMask =
         _PM_portBitMask(core->clockPin) >> (core->portOffset * 16);
@@ -272,6 +272,16 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     // Clock and rgbAndClockMask are 32-bit values
     core->clockMask = _PM_portBitMask(core->clockPin);
     core->rgbAndClockMask = bitMask | core->clockMask;
+#if defined(_PM_portToggleRegister)
+    // TO DO: this ifdef and the one above can probably be wrapped up
+    // in a more cohesive case. Think something similar will be needed
+    // for the byte case. Will need Teensy 4.1 to test.
+    uint32_t elements = screenBytes / 2;
+    uint16_t mask = core->clockMask >> (core->portOffset * 16);
+    for (uint32_t i = 0; i < elements; i++) {
+      ((uint16_t *)core->screenData)[i] = mask;
+    }
+#endif
 #endif
     for (uint8_t i = 0; i < core->parallel * 6; i++) {
       ((uint16_t *)core->rgbMask)[i] = // Pin bitmasks are 16-bit
@@ -335,6 +345,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   core->addrPortToggle = _PM_portToggleRegister(core->addr[0].pin);
   core->singleAddrPort = 1;
 #endif
+  core->prevRow = (1 << core->numAddressLines) - 2;
   for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
        line++, bit <<= 1) {
     core->addr[line].setReg = _PM_portSetRegister(core->addr[line].pin);
@@ -530,6 +541,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
   // Set timer and enable LED output for data loaded on PRIOR pass:
   _PM_timerStart(core->timer, core->bitZeroPeriod << prevPlane);
+  delayMicroseconds(1);   // Appease Teensy4
   _PM_clearReg(core->oe); // Enable LED output
 
   uint32_t elementsPerLine =
@@ -563,6 +575,9 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 // before setting the clock back low. If undefined, nothing goes there.
 
 #if !defined(PEW) // arch.h can define a custom PEW if needed (e.g. ESP32)
+
+#if !defined(_PM_STRICT_32BIT_IO) // Partial access to 32-bit GPIO OK
+
 #if defined(_PM_portToggleRegister)
 #define PEW                                                                    \
   *toggle = *data++; /* Toggle in new data + toggle clock low */               \
@@ -578,10 +593,35 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   *clear_full = rgbclock; /* Clear RGB data + clock */                         \
   ///< Bitbang one set of RGB data bits to matrix
 #endif
-#endif // PEW
+
+#else // ONLY 32-bit GPIO
+
+#if defined(_PM_portToggleRegister)
+#define PEW                                                                    \
+  *toggle = *data++ << shift; /* Toggle in new data + toggle clock low */      \
+  _PM_clockHoldLow;                                                            \
+  *toggle = clock; /* Toggle clock high */                                     \
+  _PM_clockHoldHigh;
+#else
+#define PEW                                                                    \
+  *set = *data++ << shift; /* Set RGB data high */                             \
+  _PM_clockHoldLow;                                                            \
+  *set = clock; /* Set clock high */                                           \
+  _PM_clockHoldHigh;                                                           \
+  *clear = rgbclock; /* Clear RGB data + clock */                              \
+  ///< Bitbang one set of RGB data bits to matrix
+#endif
+
+#endif // end 32-bit GPIO
+
+#endif // end PEW
 
 #if _PM_chunkSize == 1
 #define PEW_UNROLL PEW
+#elif _PM_chunkSize == 2
+#define PEW_UNROLL PEW PEW ///< 2-way PEW unroll
+#elif _PM_chunkSize == 4
+#define PEW_UNROLL PEW PEW PEW PEW ///< 4-way PEW unroll
 #elif _PM_chunkSize == 8
 #define PEW_UNROLL PEW PEW PEW PEW PEW PEW PEW PEW ///< 8-way PEW unroll
 #elif _PM_chunkSize == 16
@@ -608,6 +648,8 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 // three-function maintenance then.)
 
 IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
+#if !defined(_PM_STRICT_32BIT_IO) // Partial access to 32-bit GPIO OK
+
 #if defined(_PM_portToggleRegister)
   // If here, it was established in begin() that the RGB data bits and
   // clock are all within the same byte of a PORT register, else we'd be
@@ -645,9 +687,37 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   *((volatile uint8_t *)core->clearReg + core->portOffset) =
       core->rgbAndClockMask;
 #endif
+
+#else // ONLY 32-bit GPIO
+
+#if defined(_PM_portToggleRegister)
+  volatile _PM_PORT_TYPE *toggle = (volatile _PM_PORT_TYPE *)core->toggleReg;
+#else
+  volatile _PM_PORT_TYPE *set = (volatile _PM_PORT_TYPE *)core->setReg;
+  volatile _PM_PORT_TYPE *clear = (volatile _PM_PORT_TYPE *)core->clearReg;
+  _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
+#endif
+  _PM_PORT_TYPE clock = core->clockMask; // Clock bit
+  uint8_t shift = core->portOffset * 8;
+  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+
+  // PORT has already been initialized with RGB data + clock bits
+  // all LOW, so we don't need to initialize that state here.
+
+  while (chunks--) {
+    PEW_UNROLL // _PM_chunkSize RGB+clock writes
+  }
+
+#if defined(_PM_portToggleRegister)
+  *((volatile uint32_t *)core->clearReg) = core->rgbAndClockMask;
+#endif
+
+#endif // 32-bit GPIO
 }
 
 IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
+#if !defined(_PM_STRICT_32BIT_IO) // Partial access to 32-bit GPIO OK
+
 #if defined(_PM_portToggleRegister)
   // See notes above -- except now 16-bit word in PORT.
   volatile uint16_t *toggle =
@@ -671,6 +741,27 @@ IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
   *((volatile uint16_t *)core->clearReg + core->portOffset) =
       core->rgbAndClockMask;
 #endif
+
+#else // ONLY 32-bit GPIO
+
+#if defined(_PM_portToggleRegister)
+  volatile _PM_PORT_TYPE *toggle = (volatile _PM_PORT_TYPE *)core->toggleReg;
+#else
+  volatile _PM_PORT_TYPE *set = (volatile _PM_PORT_TYPE *)core->setReg;
+  volatile _PM_PORT_TYPE *clear = (volatile _PM_PORT_TYPE *)core->clearReg;
+  _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
+#endif
+  _PM_PORT_TYPE clock = core->clockMask; // Clock bit
+  uint8_t shift = core->portOffset * 16;
+  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  while (chunks--) {
+    PEW_UNROLL // _PM_chunkSize RGB+clock writes
+  }
+#if defined(_PM_portToggleRegister)
+  *((volatile _PM_PORT_TYPE *)core->clearReg) = core->rgbAndClockMask;
+#endif
+
+#endif // 32-bit GPIO
 }
 
 IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
@@ -690,6 +781,9 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
+#if defined(_PM_STRICT_32BIT_IO)
+  uint8_t shift = 0;
+#endif
   uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
   while (chunks--) {
     PEW_UNROLL // _PM_chunkSize RGB+clock writes
