@@ -1139,8 +1139,13 @@ uint32_t _PM_timerStop(void *tptr) {
 }
 
 #define _PM_clockHoldHigh                                                      \
-  asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
-#define _PM_clockHoldLow asm("nop; nop; nop; nop; nop; nop; nop; nop;");
+  asm("nop; nop; nop; nop; nop; nop; nop;");                                   \
+  asm("nop; nop; nop; nop; nop; nop; nop;");
+#define _PM_clockHoldLow                                                       \
+  asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");                    \
+  asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
+
+#define _PM_chunkSize 1 ///< DON'T unroll loop, Teensy 4 is SO FAST
 
 #elif defined(CIRCUITPY)
 
