@@ -782,6 +782,7 @@ uint32_t _PM_timerStop(void *tptr) {
 #if defined(ARDUINO)
 // Arduino port register lookups go here
 #elif defined(CIRCUITPY)
+#include "timers.h"
 
 #undef _PM_portBitMask
 #define _PM_portBitMask(pin) (1u << ((pin) % 16))
@@ -830,17 +831,16 @@ volatile uint16_t *_PM_portClearRegister(uint32_t pin) {
   return 1 + (uint16_t *)&pin_port(pin / 16)->BSRR;
 }
 
-// Use hard-coded TIM6 (TIM7 is used by PulseOut, other TIM by PWMOut)
+// TODO: was this somehow specific to TIM6?
 #define _PM_timerFreq 42000000
 
 // Because it's tied to a specific timer right now, there can be only
 // one instance of the Protomatter_core struct. The Arduino library
 // sets up this pointer when calling begin().
+// TODO: this is no longer true, should it change?
 void *_PM_protoPtr = NULL;
 
-STATIC TIM_HandleTypeDef t6_handle;
-
-#define _PM_IRQ_HANDLER TIM6_DAC_IRQHandler
+STATIC TIM_HandleTypeDef tim_handle;
 
 // Timer interrupt service routine
 void _PM_IRQ_HANDLER(void) {
@@ -851,20 +851,24 @@ void _PM_IRQ_HANDLER(void) {
 
 // Initialize, but do not start, timer
 void _PM_timerInit(void *tptr) {
-  __HAL_RCC_TIM6_CLK_ENABLE();
+  TIM_TypeDef *tim_instance = (TIM_TypeDef *)tptr;
+  stm_peripherals_timer_reserve(tim_instance);
+  // Set IRQs at max priority and start clock
+  stm_peripherals_timer_preinit(tim_instance, 0, _PM_IRQ_HANDLER);
 
-  t6_handle.Instance = TIM6;
-  t6_handle.Init.Period = 1000; // immediately replaced.
-  t6_handle.Init.Prescaler = 0;
-  t6_handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  t6_handle.Init.CounterMode = TIM_COUNTERMODE_UP;
-  t6_handle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  tim_handle.Instance = tim_instance;
+  tim_handle.Init.Period = 1000; // immediately replaced.
+  tim_handle.Init.Prescaler = 0;
+  tim_handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  tim_handle.Init.CounterMode = TIM_COUNTERMODE_UP;
+  tim_handle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 
-  HAL_TIM_Base_Init(&t6_handle);
+  HAL_TIM_Base_Init(&tim_handle);
 
-  HAL_NVIC_DisableIRQ(TIM6_DAC_IRQn);
-  NVIC_ClearPendingIRQ(TIM6_DAC_IRQn);
-  NVIC_SetPriority(TIM6_DAC_IRQn, 0); // Top priority
+  size_t tim_irq = stm_peripherals_timer_get_irqnum(tim_instance);
+  HAL_NVIC_DisableIRQ(tim_irq);
+  NVIC_ClearPendingIRQ(tim_irq);
+  NVIC_SetPriority(tim_irq, 0); // Top priority
 }
 
 inline void _PM_timerStart(void *tptr, uint32_t period) {
@@ -873,12 +877,12 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
   tim->ARR = period;
   tim->CR1 |= TIM_CR1_CEN;
   tim->DIER |= TIM_DIER_UIE;
-  HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);
+  HAL_NVIC_EnableIRQ(stm_peripherals_timer_get_irqnum(tim));
 }
 
 uint32_t _PM_timerStop(void *tptr) {
-  HAL_NVIC_DisableIRQ(TIM6_DAC_IRQn);
   TIM_TypeDef *tim = tptr;
+  HAL_NVIC_DisableIRQ(stm_peripherals_timer_get_irqnum(tim));
   tim->CR1 &= ~TIM_CR1_CEN;
   tim->DIER &= ~TIM_DIER_UIE;
   return tim->CNT;

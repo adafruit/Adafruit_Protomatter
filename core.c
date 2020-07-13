@@ -541,8 +541,8 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
   // Set timer and enable LED output for data loaded on PRIOR pass:
   _PM_timerStart(core->timer, core->bitZeroPeriod << prevPlane);
-  delayMicroseconds(1);   // Appease Teensy4
-  _PM_clearReg(core->oe); // Enable LED output
+  _PM_delayMicroseconds(1); // Appease Teensy4
+  _PM_clearReg(core->oe);   // Enable LED output
 
   uint32_t elementsPerLine =
       _PM_chunkSize * ((core->width + (_PM_chunkSize - 1)) / _PM_chunkSize);
