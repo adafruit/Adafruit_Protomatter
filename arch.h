@@ -1226,12 +1226,14 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     dest += core->bufferSize * (1 - core->activeBuffer);
   }
 
-#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
+#if defined(_PM_portToggleRegister)
+#if !defined(_PM_STRICT_32BIT_IO)
   // core->clockMask mask is already an 8-bit value
   uint8_t clockMask = core->clockMask;
 #else
   // core->clockMask mask is 32-bit, shift down to 8-bit for this func.
   uint8_t clockMask = core->clockMask >> (core->portOffset * 8);
+#endif
 #endif
 
   // No need to clear matrix buffer, loops below do a full overwrite
