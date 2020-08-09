@@ -118,6 +118,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a8abcc9738c44a9a5e572c32e594d66b9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="arch_8h.html#a8b5a7da03d5e9fbb2ca81ddc85025012">IRAM_ATTR</a> void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8c.html#a8abcc9738c44a9a5e572c32e594d66b9">_PM_row_handler</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
 <tr class="memdesc:a8abcc9738c44a9a5e572c32e594d66b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Matrix "row handler" that's called by the timer interrupt. Handles row address lines and issuing data to matrix.  <a href="#a8abcc9738c44a9a5e572c32e594d66b9">More...</a><br /></td></tr>
 <tr class="separator:a8abcc9738c44a9a5e572c32e594d66b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aebaaf4fd021253415de213bcc8946104"><td class="memItemLeft" align="right" valign="top"><a class="el" href="arch_8h.html#a8b5a7da03d5e9fbb2ca81ddc85025012">IRAM_ATTR</a> void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8c.html#aebaaf4fd021253415de213bcc8946104">_PM_matrix_oe_off</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
+<tr class="memdesc:aebaaf4fd021253415de213bcc8946104"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disables matrix LED output via the OE pin. Sometimes used on lesser bitplanes to switch off sooner than the timer overflow interrupt normally would.  <a href="#aebaaf4fd021253415de213bcc8946104">More...</a><br /></td></tr>
+<tr class="separator:aebaaf4fd021253415de213bcc8946104"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00d7939d31d18e0763fcdf47ad5b298c"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8c.html#a00d7939d31d18e0763fcdf47ad5b298c">_PM_getFrameCount</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
 <tr class="memdesc:a00d7939d31d18e0763fcdf47ad5b298c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current value of frame counter and resets its value to zero. Two calls to this, timed one second apart (or use math with other intervals), can be used to get a rough frames-per-second value for the matrix (since this is difficult to estimate beforehand).  <a href="#a00d7939d31d18e0763fcdf47ad5b298c">More...</a><br /></td></tr>
 <tr class="separator:a00d7939d31d18e0763fcdf47ad5b298c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -143,7 +146,7 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).clearReg) =                                 \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1537</div></div>
+<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).clearReg) =                                 \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1550</div></div>
 </div><!-- fragment -->
 <p>Clear non-RGB-data-or-clock control line (<a class="el" href="struct___p_m__pin.html">_PM_pin</a> type) </p>
 
@@ -164,7 +167,7 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).setReg) =                                   \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1537</div></div>
+<b>Value:</b><div class="fragment"><div class="line">(*(<span class="keyword">volatile</span> <a class="code" href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a> *)((x).setReg) =                                   \</div><div class="line">       ((x).bit))</div><div class="ttc" id="arch_8h_html_ac5bd6ee8eef7d07a9048da3c7e1f23b0"><div class="ttname"><a href="arch_8h.html#ac5bd6ee8eef7d07a9048da3c7e1f23b0">_PM_PORT_TYPE</a></div><div class="ttdeci">#define _PM_PORT_TYPE</div><div class="ttdoc">PORT register size/type. </div><div class="ttdef"><b>Definition:</b> arch.h:1550</div></div>
 </div><!-- fragment -->
 <p>Set non-RGB-data-or-clock control line (<a class="el" href="struct___p_m__pin.html">_PM_pin</a> type) </p>
 
@@ -417,6 +420,32 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Matrix "row handler" that's called by the timer interrupt. Handles row address lines and issuing data to matrix. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">core</td><td>Pointer to <a class="el" href="struct_protomatter__core.html">Protomatter_core</a> structure. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="aebaaf4fd021253415de213bcc8946104"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aebaaf4fd021253415de213bcc8946104">&#9670;&nbsp;</a></span>_PM_matrix_oe_off()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="arch_8h.html#a8b5a7da03d5e9fbb2ca81ddc85025012">IRAM_ATTR</a> void _PM_matrix_oe_off </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *&#160;</td>
+          <td class="paramname"><em>core</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Disables matrix LED output via the OE pin. Sometimes used on lesser bitplanes to switch off sooner than the timer overflow interrupt normally would. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">core</td><td>Pointer to <a class="el" href="struct_protomatter__core.html">Protomatter_core</a> structure. </td></tr>
