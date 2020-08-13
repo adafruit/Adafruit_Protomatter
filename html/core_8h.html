@@ -107,9 +107,6 @@ Functions</h2></td></tr>
 <tr class="memitem:abb462880fa61b8dcc1bee712a9be2f58"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8h.html#abb462880fa61b8dcc1bee712a9be2f58">_PM_row_handler</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
 <tr class="memdesc:abb462880fa61b8dcc1bee712a9be2f58"><td class="mdescLeft">&#160;</td><td class="mdescRight">Matrix "row handler" that's called by the timer interrupt. Handles row address lines and issuing data to matrix.  <a href="#abb462880fa61b8dcc1bee712a9be2f58">More...</a><br /></td></tr>
 <tr class="separator:abb462880fa61b8dcc1bee712a9be2f58"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae649f160f2f2bb7129842188cac868e1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8h.html#ae649f160f2f2bb7129842188cac868e1">_PM_matrix_oe_off</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
-<tr class="memdesc:ae649f160f2f2bb7129842188cac868e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disables matrix LED output via the OE pin. Sometimes used on lesser bitplanes to switch off sooner than the timer overflow interrupt normally would.  <a href="#ae649f160f2f2bb7129842188cac868e1">More...</a><br /></td></tr>
-<tr class="separator:ae649f160f2f2bb7129842188cac868e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00d7939d31d18e0763fcdf47ad5b298c"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="core_8h.html#a00d7939d31d18e0763fcdf47ad5b298c">_PM_getFrameCount</a> (<a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *core)</td></tr>
 <tr class="memdesc:a00d7939d31d18e0763fcdf47ad5b298c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current value of frame counter and resets its value to zero. Two calls to this, timed one second apart (or use math with other intervals), can be used to get a rough frames-per-second value for the matrix (since this is difficult to estimate beforehand).  <a href="#a00d7939d31d18e0763fcdf47ad5b298c">More...</a><br /></td></tr>
 <tr class="separator:a00d7939d31d18e0763fcdf47ad5b298c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -381,32 +378,6 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Matrix "row handler" that's called by the timer interrupt. Handles row address lines and issuing data to matrix. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">core</td><td>Pointer to <a class="el" href="struct_protomatter__core.html">Protomatter_core</a> structure. </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="ae649f160f2f2bb7129842188cac868e1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae649f160f2f2bb7129842188cac868e1">&#9670;&nbsp;</a></span>_PM_matrix_oe_off()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void _PM_matrix_oe_off </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="struct_protomatter__core.html">Protomatter_core</a> *&#160;</td>
-          <td class="paramname"><em>core</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Disables matrix LED output via the OE pin. Sometimes used on lesser bitplanes to switch off sooner than the timer overflow interrupt normally would. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">core</td><td>Pointer to <a class="el" href="struct_protomatter__core.html">Protomatter_core</a> structure. </td></tr>
