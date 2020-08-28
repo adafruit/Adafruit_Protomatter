@@ -383,6 +383,11 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
 // so it won't halt with lit LEDs.
 void _PM_stop(Protomatter_core *core) {
   if ((core)) {
+    // If _PM_begin failed, this will be a NULL pointer.  Stop early,
+    // none of the other "stop" operations make sense
+    if (!core->screenData) {
+       return;
+    }
     while (core->swapBuffers)
       ;                         // Wait for any pending buffer swap
     _PM_timerStop(core->timer); // Halt timer
