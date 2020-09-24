@@ -386,7 +386,7 @@ void _PM_stop(Protomatter_core *core) {
     // If _PM_begin failed, this will be a NULL pointer.  Stop early,
     // none of the other "stop" operations make sense
     if (!core->screenData) {
-       return;
+      return;
     }
     while (core->swapBuffers)
       ;                         // Wait for any pending buffer swap
