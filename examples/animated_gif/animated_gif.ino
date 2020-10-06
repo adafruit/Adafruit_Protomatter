@@ -45,6 +45,8 @@ uint8_t addrPins[] = {17, 18, 19, 20};
 uint8_t clockPin = 14;
 uint8_t latchPin = 15;
 uint8_t oePin = 16;
+#define BACK_BUTTON 2
+#define NEXT_BUTTON 3
 #elif defined(_VARIANT_METRO_M4_)
 uint8_t rgbPins[] = {2, 3, 4, 5, 6, 7};
 uint8_t addrPins[] = {A0, A1, A2, A3};
@@ -324,12 +326,16 @@ void loop() {
   uint32_t now = millis();
   if (playedOut && ((now - GIFstartTime) >= (GIFminimumTime * 1000))) {
     GIFincrement = 1;
-  } else if(!digitalRead(2)) {
-    GIFincrement = -1;      // Back
-    while(!digitalRead(2)); // Wait for release
-  } else if(!digitalRead(3)) {
-    GIFincrement = 1;       // Forward
-    while(!digitalRead(3)); // Wait for release
+#if defined(BACK_BUTTON)
+  } else if(!digitalRead(BACK_BUTTON)) {
+    GIFincrement = -1;                // Back
+    while(!digitalRead(BACK_BUTTON)); // Wait for release
+#endif
+#if defined(NEXT_BUTTON)
+  } else if(!digitalRead(NEXT_BUTTON)) {
+    GIFincrement = 1;                 // Forward
+    while(!digitalRead(NEXT_BUTTON)); // Wait for release
+#endif
   }
 
   if(GIFincrement) {
