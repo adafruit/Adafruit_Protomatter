@@ -1,3 +1,18 @@
+
+#include "esp32.h"
+#include "nrf52.h"
+#include "samd-common.h"
+#include "samd21.h"
+#include "samd51.h"
+#include "stm32.h"
+#include "teensy4.h"
+
+
+
+
+
+
+
 /*!
  * @file arch.h
  *
@@ -17,8 +32,7 @@
 // Establishes some very low-level things specific to each supported device.
 // This should ONLY be included by core.c, nowhere else. Ever.
 
-#if !defined(_PROTOMATTER_ARCH_H_)
-#define _PROTOMATTER_ARCH_H_
+#pragma once
 
 #include <string.h>
 
@@ -1585,5 +1599,3 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
 #ifndef _PM_PORT_TYPE
 #define _PM_PORT_TYPE uint32_t ///< PORT register size/type
 #endif
-
-#endif // _PROTOMATTER_ARCH_H_

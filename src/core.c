@@ -29,8 +29,8 @@
 // things hopefully makes function and variable name collisions much less
 // likely with one's own code.
 
-#include "core.h" // enums and structs
-#include "arch.h" // Do NOT include this in any other source files
+#include "core.h"      // enums and structs
+#include "arch/arch.h" // Do NOT include this in any other source files
 #include <stddef.h>
 #include <string.h>
 
@@ -810,6 +810,401 @@ uint32_t _PM_getFrameCount(Protomatter_core *core) {
   }
   return count;
 }
+
+void _PM_swapbuffer_maybe(Protomatter_core *core) {
+  if (core->doubleBuffer) {
+    core->swapBuffers = 1;
+    // To avoid overwriting data on the matrix, don't return
+    // until the timer ISR has performed the swap at the right time.
+    while (core->swapBuffers)
+      ;
+  }
+}
+
+// CircuitPython happens to use the same internal canvas representation
+// This is all 565 stuff. No reason not to put it in a .c, right?
+
+#if defined(ARDUINO) || defined(CIRCUITPY)
+
+// 16-bit (565) color conversion functions go here (rather than in the
+// Arduino lib .cpp) because knowledge is required of chunksize and the
+// toggle register (or lack thereof), which are only known to this file,
+// not the .cpp or anywhere else
+// However...this file knows nothing of the GFXcanvas16 type (from
+// Adafruit_GFX...another C++ lib), so the .cpp just passes down some
+// pointers and minimal info about the canvas buffer.
+// It's probably not ideal but this is my life now, oh well.
+
+// Different runtime environments (which might not use the 565 canvas
+// format) will need their own conversion functions.
+
+// There are THREE COPIES of the following function -- one each for byte,
+// word and long. If changes are made in any one of them, the others MUST
+// be updated to match! Note that they are not simple duplicates of each
+// other. The byte case, for example, doesn't need to handle parallel
+// matrix chains (matrix data can only be byte-sized if one chain).
+
+// width argument comes from GFX canvas width, which may be less than
+// core's bitWidth (due to padding). height isn't needed, it can be
+// inferred from core->numRowPairs.
+__attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
+                                                    const uint16_t *source,
+                                                    uint16_t width) {
+  const uint16_t *upperSrc = source; // Canvas top half
+  const uint16_t *lowerSrc =
+      source + width * core->numRowPairs;      // " bottom half
+  uint8_t *pinMask = (uint8_t *)core->rgbMask; // Pin bitmasks
+  uint8_t *dest = (uint8_t *)core->screenData;
+  if (core->doubleBuffer) {
+    dest += core->bufferSize * (1 - core->activeBuffer);
+  }
+
+#if defined(_PM_portToggleRegister)
+#if !defined(_PM_STRICT_32BIT_IO)
+  // core->clockMask mask is already an 8-bit value
+  uint8_t clockMask = core->clockMask;
+#else
+  // core->clockMask mask is 32-bit, shift down to 8-bit for this func.
+  uint8_t clockMask = core->clockMask >> (core->portOffset * 8);
+#endif
+#endif
+
+  // No need to clear matrix buffer, loops below do a full overwrite
+  // (except for any scanline pad, which was already initialized in the
+  // begin() function and won't be touched here).
+
+  // Determine matrix bytes per bitplane & row (row pair really):
+
+  uint32_t bitplaneSize =
+      _PM_chunkSize *
+      ((width + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
+  uint8_t pad = bitplaneSize - width;                  // Start-of-plane pad
+
+  // Skip initial scanline padding if present (HUB75 matrices shift data
+  // in from right-to-left, so if we need scanline padding it occurs at
+  // the start of a line, rather than the usual end). Destination pointer
+  // passed in already handles double-buffer math, so we don't need to
+  // handle that here, just the pad...
+  dest += pad;
+
+  uint32_t initialRedBit, initialGreenBit, initialBlueBit;
+  if (core->numPlanes == 6) {
+    // If numPlanes is 6, red and blue are expanded from 5 to 6 bits.
+    // This involves duplicating the MSB of the 5-bit value to the LSB
+    // of its corresponding 6-bit value...or in this case, bitmasks for
+    // red and blue are initially assigned to canvas MSBs, while green
+    // starts at LSB (because it's already 6-bit). Inner loop below then
+    // wraps red & blue after the first bitplane.
+    initialRedBit = 0b1000000000000000;   // MSB red
+    initialGreenBit = 0b0000000000100000; // LSB green
+    initialBlueBit = 0b0000000000010000;  // MSB blue
+  } else {
+    // If numPlanes is 1 to 5, no expansion is needed, and one or all
+    // three color components might be decimated by some number of bits.
+    // The initial bitmasks are set to the components' numPlanesth bit
+    // (e.g. for 5 planes, start at red & blue bit #0, green bit #1,
+    // for 4 planes, everything starts at the next bit up, etc.).
+    uint8_t shiftLeft = 5 - core->numPlanes;
+    initialRedBit = 0b0000100000000000 << shiftLeft;
+    initialGreenBit = 0b0000000001000000 << shiftLeft;
+    initialBlueBit = 0b0000000000000001 << shiftLeft;
+  }
+
+  // This works sequentially-ish through the destination buffer,
+  // reading from the canvas source pixels in repeated passes,
+  // beginning from the least bit.
+  for (uint8_t row = 0; row < core->numRowPairs; row++) {
+    uint32_t redBit = initialRedBit;
+    uint32_t greenBit = initialGreenBit;
+    uint32_t blueBit = initialBlueBit;
+    for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
+#if defined(_PM_portToggleRegister)
+      uint8_t prior = clockMask; // Set clock bit on 1st out
+#endif
+      for (uint16_t x = 0; x < width; x++) {
+        uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
+        uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
+        uint8_t result = 0;
+        if (upperRGB & redBit)
+          result |= pinMask[0];
+        if (upperRGB & greenBit)
+          result |= pinMask[1];
+        if (upperRGB & blueBit)
+          result |= pinMask[2];
+        if (lowerRGB & redBit)
+          result |= pinMask[3];
+        if (lowerRGB & greenBit)
+          result |= pinMask[4];
+        if (lowerRGB & blueBit)
+          result |= pinMask[5];
+#if defined(_PM_portToggleRegister)
+        dest[x] = result ^ prior;
+        prior = result | clockMask; // Set clock bit on next out
+#else
+        dest[x] = result;
+#endif
+      } // end x
+      greenBit <<= 1;
+      if (plane || (core->numPlanes < 6)) {
+        // In most cases red & blue bit scoot 1 left...
+        redBit <<= 1;
+        blueBit <<= 1;
+      } else {
+        // Exception being after bit 0 with 6-plane display,
+        // in which case they're reset to red & blue LSBs
+        // (so 5-bit colors are expanded to 6 bits).
+        redBit = 0b0000100000000000;
+        blueBit = 0b0000000000000001;
+      }
+#if defined(_PM_portToggleRegister)
+      // If using bit-toggle register, erase the toggle bit on the
+      // first element of each bitplane & row pair. The matrix-driving
+      // interrupt functions correspondingly set the clock low before
+      // finishing. This is all done for legibility on oscilloscope --
+      // so idle clock appears LOW -- but really the matrix samples on
+      // a rising edge and we could leave it high, but at this stage
+      // in development just want the scope "readable."
+      dest[-pad] &= ~clockMask; // Negative index is legal & intentional
+#endif
+      dest += bitplaneSize; // Advance one scanline in dest buffer
+    }                       // end plane
+    upperSrc += width;      // Advance one scanline in source buffer
+    lowerSrc += width;
+  } // end row
+}
+
+// Corresponding function for word output -- either 12 RGB bits (2 parallel
+// matrix chains), or 1 chain with RGB bits not in the same byte (but in the
+// same 16-bit word). Some of the comments have been stripped out since it's
+// largely the same operation, but changes are noted.
+void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
+                          uint16_t width) {
+  uint16_t *upperSrc = source;                             // Matrix top half
+  uint16_t *lowerSrc = source + width * core->numRowPairs; // " bottom half
+  uint16_t *pinMask = (uint16_t *)core->rgbMask;           // Pin bitmasks
+  uint16_t *dest = (uint16_t *)core->screenData;
+  if (core->doubleBuffer) {
+    dest += core->bufferSize / core->bytesPerElement * (1 - core->activeBuffer);
+  }
+
+  uint32_t bitplaneSize =
+      _PM_chunkSize *
+      ((width + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
+  uint8_t pad = bitplaneSize - width;                  // Start-of-plane pad
+
+  uint32_t initialRedBit, initialGreenBit, initialBlueBit;
+  if (core->numPlanes == 6) {
+    initialRedBit = 0b1000000000000000;   // MSB red
+    initialGreenBit = 0b0000000000100000; // LSB green
+    initialBlueBit = 0b0000000000010000;  // MSB blue
+  } else {
+    uint8_t shiftLeft = 5 - core->numPlanes;
+    initialRedBit = 0b0000100000000000 << shiftLeft;
+    initialGreenBit = 0b0000000001000000 << shiftLeft;
+    initialBlueBit = 0b0000000000000001 << shiftLeft;
+  }
+
+  // Unlike the 565 byte converter, the word converter DOES clear out the
+  // matrix buffer (because each chain is OR'd into place). If a toggle
+  // register exists, "clear" really means the clock mask is set in all
+  // but the first element on a scanline (per bitplane). If no toggle
+  // register, can just zero everything out.
+#if defined(_PM_portToggleRegister)
+  // No per-chain loop is required; one clock bit handles all chains
+  uint32_t offset = 0; // Current position in the 'dest' buffer
+  uint16_t mask = core->clockMask >> (core->portOffset * 16);
+  for (uint8_t row = 0; row < core->numRowPairs; row++) {
+    for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
+      dest[offset++] = 0; // First element of each plane
+      for (uint16_t x = 1; x < bitplaneSize; x++) { // All subsequent items
+        dest[offset++] = mask;
+      }
+    }
+  }
+#else
+  memset(dest, 0, core->bufferSize);
+#endif
+
+  dest += pad; // Pad value is in 'elements,' not bytes, so this is OK
+
+  // After a set of rows+bitplanes are processed, upperSrc and lowerSrc
+  // have advanced halfway down one matrix. This offset is used after
+  // each chain to advance them to the start/middle of the next matrix.
+  uint32_t halfMatrixOffset = width * core->numPlanes * core->numRowPairs;
+
+  for (uint8_t chain = 0; chain < core->parallel; chain++) {
+    for (uint8_t row = 0; row < core->numRowPairs; row++) {
+      uint32_t redBit = initialRedBit;
+      uint32_t greenBit = initialGreenBit;
+      uint32_t blueBit = initialBlueBit;
+      for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
+#if defined(_PM_portToggleRegister)
+        // Since we're ORing in bits over an existing clock bit,
+        // prior is 0 rather than clockMask as in the byte case.
+        uint16_t prior = 0;
+#endif
+        for (uint16_t x = 0; x < width; x++) {
+          uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
+          uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
+          uint16_t result = 0;
+          if (upperRGB & redBit)
+            result |= pinMask[0];
+          if (upperRGB & greenBit)
+            result |= pinMask[1];
+          if (upperRGB & blueBit)
+            result |= pinMask[2];
+          if (lowerRGB & redBit)
+            result |= pinMask[3];
+          if (lowerRGB & greenBit)
+            result |= pinMask[4];
+          if (lowerRGB & blueBit)
+            result |= pinMask[5];
+            // Main difference here vs byte converter is each chain
+            // ORs new bits into place (vs single-pass overwrite).
+#if defined(_PM_portToggleRegister)
+          dest[x] |= result ^ prior; // Bitwise OR
+          prior = result;
+#else
+          dest[x] |= result; // Bitwise OR
+#endif
+        } // end x
+        greenBit <<= 1;
+        if (plane || (core->numPlanes < 6)) {
+          redBit <<= 1;
+          blueBit <<= 1;
+        } else {
+          redBit = 0b0000100000000000;
+          blueBit = 0b0000000000000001;
+        }
+        dest += bitplaneSize; // Advance one scanline in dest buffer
+      }                       // end plane
+      upperSrc += width;      // Advance one scanline in source buffer
+      lowerSrc += width;
+    }                             // end row
+    pinMask += 6;                 // Next chain's RGB pin masks
+    upperSrc += halfMatrixOffset; // Advance to next matrix start pos
+    lowerSrc += halfMatrixOffset;
+  }
+}
+
+// Corresponding function for long output -- either several parallel chains
+// (up to 5), or 1 chain with RGB bits scattered widely about the PORT.
+// Same deal, comments are pared back, see above functions for explanations.
+void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
+                          uint16_t width) {
+  uint16_t *upperSrc = source;                             // Matrix top half
+  uint16_t *lowerSrc = source + width * core->numRowPairs; // " bottom half
+  uint32_t *pinMask = (uint32_t *)core->rgbMask;           // Pin bitmasks
+  uint32_t *dest = (uint32_t *)core->screenData;
+  if (core->doubleBuffer) {
+    dest += core->bufferSize / core->bytesPerElement * (1 - core->activeBuffer);
+  }
+
+  uint32_t bitplaneSize =
+      _PM_chunkSize *
+      ((width + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
+  uint8_t pad = bitplaneSize - width;                  // Start-of-plane pad
+
+  uint32_t initialRedBit, initialGreenBit, initialBlueBit;
+  if (core->numPlanes == 6) {
+    initialRedBit = 0b1000000000000000;   // MSB red
+    initialGreenBit = 0b0000000000100000; // LSB green
+    initialBlueBit = 0b0000000000010000;  // MSB blue
+  } else {
+    uint8_t shiftLeft = 5 - core->numPlanes;
+    initialRedBit = 0b0000100000000000 << shiftLeft;
+    initialGreenBit = 0b0000000001000000 << shiftLeft;
+    initialBlueBit = 0b0000000000000001 << shiftLeft;
+  }
+
+#if defined(_PM_portToggleRegister)
+  // No per-chain loop is required; one clock bit handles all chains
+  uint32_t offset = 0; // Current position in the 'dest' buffer
+  for (uint8_t row = 0; row < core->numRowPairs; row++) {
+    for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
+      dest[offset++] = 0; // First element of each plane
+      for (uint16_t x = 1; x < bitplaneSize; x++) { // All subsequent items
+        dest[offset++] = core->clockMask;
+      }
+    }
+  }
+#else
+  memset(dest, 0, core->bufferSize);
+#endif
+
+  dest += pad; // Pad value is in 'elements,' not bytes, so this is OK
+
+  uint32_t halfMatrixOffset = width * core->numPlanes * core->numRowPairs;
+
+  for (uint8_t chain = 0; chain < core->parallel; chain++) {
+    for (uint8_t row = 0; row < core->numRowPairs; row++) {
+      uint32_t redBit = initialRedBit;
+      uint32_t greenBit = initialGreenBit;
+      uint32_t blueBit = initialBlueBit;
+      for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
+#if defined(_PM_portToggleRegister)
+        uint32_t prior = 0;
+#endif
+        for (uint16_t x = 0; x < width; x++) {
+          uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
+          uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
+          uint32_t result = 0;
+          if (upperRGB & redBit)
+            result |= pinMask[0];
+          if (upperRGB & greenBit)
+            result |= pinMask[1];
+          if (upperRGB & blueBit)
+            result |= pinMask[2];
+          if (lowerRGB & redBit)
+            result |= pinMask[3];
+          if (lowerRGB & greenBit)
+            result |= pinMask[4];
+          if (lowerRGB & blueBit)
+            result |= pinMask[5];
+            // Main difference here vs byte converter is each chain
+            // ORs new bits into place (vs single-pass overwrite).
+#if defined(_PM_portToggleRegister)
+          dest[x] |= result ^ prior; // Bitwise OR
+          prior = result;
+#else
+          dest[x] |= result; // Bitwise OR
+#endif
+        } // end x
+        greenBit <<= 1;
+        if (plane || (core->numPlanes < 6)) {
+          redBit <<= 1;
+          blueBit <<= 1;
+        } else {
+          redBit = 0b0000100000000000;
+          blueBit = 0b0000000000000001;
+        }
+        dest += bitplaneSize; // Advance one scanline in dest buffer
+      }                       // end plane
+      upperSrc += width;      // Advance one scanline in source buffer
+      lowerSrc += width;
+    }                             // end row
+    pinMask += 6;                 // Next chain's RGB pin masks
+    upperSrc += halfMatrixOffset; // Advance to next matrix start pos
+    lowerSrc += halfMatrixOffset;
+  }
+}
+
+void _PM_convert_565(Protomatter_core *core, uint16_t *source, uint16_t width) {
+  // Destination address is computed in convert function
+  // (based on active buffer value, if double-buffering),
+  // just need to pass in the canvas buffer address and
+  // width in pixels.
+  if (core->bytesPerElement == 1) {
+    _PM_convert_565_byte(core, source, width);
+  } else if (core->bytesPerElement == 2) {
+    _PM_convert_565_word(core, source, width);
+  } else {
+    _PM_convert_565_long(core, source, width);
+  }
+}
+
+#endif // END ARDUINO || CIRCUITPYTHON
+
 
 // Note to future self: I've gone back and forth between implementing all
 // this either as it currently is (with byte, word and long cases for various

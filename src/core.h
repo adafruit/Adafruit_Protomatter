@@ -14,8 +14,7 @@
  *
  */
 
-#ifndef _PROTOMATTER_CORE_H_
-#define _PROTOMATTER_CORE_H_
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -259,5 +258,3 @@ extern void _PM_swapbuffer_maybe(Protomatter_core *core);
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
-#endif // _PROTOMATTER_CORE_H_
