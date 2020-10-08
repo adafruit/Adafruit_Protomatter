@@ -80,8 +80,4 @@ void _PM_IRQ_HANDLER(void) {
 
 #endif
 
-// Code below diverges for SAMD51 vs SAMD21, but is still very similar...
-// If making a change or bug fix in one, check to see if an equivalent
-// change should be made in the other!
-
 #endif // END __SAMD51__ || _SAMD21_

@@ -187,7 +187,13 @@ void span(uint16_t *src, int16_t x, int16_t y, int16_t width) {
   if (x2 >= matrix.width()) {      // Span partially off right of matrix
     width -= (x2 - matrix.width() + 1);
   }
-  memcpy(matrix.getBuffer() + y * matrix.width() + x, src, width * 2);
+  if(matrix.getRotation() == 0) {
+    memcpy(matrix.getBuffer() + y * matrix.width() + x, src, width * 2);
+  } else {
+    while(x <= x2) {
+      matrix.drawPixel(x++, y, *src++);
+    }
+  }
 }
 
 // FUNCTIONS REQUIRED FOR USB MASS STORAGE ---------------------------------

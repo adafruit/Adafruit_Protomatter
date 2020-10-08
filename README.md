@@ -43,10 +43,11 @@ The common ground for architectures to support this library:
 * One or more 32-bit GPIO PORTs with atomic (single-cycle, not
   read-modify-write) bitmask SET and CLEAR registers. A bitmask TOGGLE
   register, if present, may improve performance but is NOT required.
-* Tolerate 8-bit or word-aligned 16-bit accesses within the 32-bit PORT
-  registers (e.g. writing just one of four bytes, rather than the whole
-  32 bits). The library does not use any unaligned accesses (i.e. the
-  "middle word" of a 32-bit register), even if a device tolerates such.
+* There may be performance or storage benefits if the architecture tolerates
+  8-bit or word-aligned 16-bit accesses within the 32-bit PORT registers
+  (e.g. writing just one of four bytes, rather than the whole 32 bits), but
+  this is NOT required. The library does not use any unaligned accesses
+  (i.e. "middle word" of a 32-bit register), even if a device allows such.
 
 # Software Components
 
@@ -56,14 +57,15 @@ This repository currently consists of:
   Adafruit_Protomatter.h, plus the "examples" directory). The Arduino code
   is dependent on the Adafruit_GFX library.
 
-* An underlying C library (files core.c, core.h and arch.h) that might be
-  adaptable to other runtime environments (e.g. CircuitPython).
+* An underlying C library (files core.c, core.h and headers in the arch
+  directory) that might be adaptable to other runtime environments (e.g.
+  CircuitPython).
 
 # Arduino Library
 
-This *might* supersede the RGBmatrixPanel library on non-AVR devices, as the
-older library has painted itself into a few corners. The newer library uses
-a single constructor for all matrix setups, potentially handling parallel
+This will likely supersede the RGBmatrixPanel library on non-AVR devices, as
+the older library has painted itself into a few corners. The newer library
+uses a single constructor for all matrix setups, potentially handling parallel
 chains (not yet fully implemented), various matrix sizes and chain lengths,
 and variable bit depths from 1 to 6 (refresh rate is a function of all of
 these). Note however that it is NOT A DROP-IN REPLACEMENT for RGBmatrixPanel.
@@ -96,15 +98,17 @@ within the same 8-bit byte within the PORT (they do not need to be
 contiguous or sequential within that byte). Other pins (matrix address lines,
 latch and output enable) can reside on any PORT or bit.
 
-When adapting this code to new devices (e.g. nRF52, ESP32) or new runtime
-environments (e.g. CircuitPython), goal is to put all the device- or
-platform-specific code into the arch.h file (or completely separate source
-files, as in the Arduino library .cpp and .h). core.c contains only the
-device-neutral bitbang code and should not have any "#ifdef DEVICE"- or
-"#ifdef ENVIRONMENT"-like lines. Macros for things like getting a PORT
-register address from a pin, or setting up a timer peripheral, all occur
-in arch.h, which is ONLY #included by core.c (to prevent problems like
-multiple instances of ISR functions, which must be singularly declared at
+When adapting this code to new devices (e.g. iMX) or new runtime environments
+(e.g. CircuitPython), goal is to put all the device- or platform-specific
+code into a new header file in the arch directory (or completely separate
+source files, as in the Arduino library .cpp and .h). core.c contains only
+the device-neutral bitbang code and should not have any "#ifdef DEVICE"- or
+"#ifdef ENVIRONMENT"-like lines (exception for the 565 color conversion
+functions, since the internal representation is common to both Arduino and
+CircuitPython. Macros for things like getting a PORT register address from a
+pin, or setting up a timer peripheral, all occur in the arch header files,
+which are ONLY #included by core.c (to prevent problems like multiple
+instances of ISR functions, which must be singularly declared at
 compile-time).
 
 Most macros and functions begin with the prefix **\_PM\_** in order to
