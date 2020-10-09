@@ -99,7 +99,7 @@ volatile uint32_t *_PM_portClearRegister(uint32_t pin) {
 #define _PM_pinInput(pin) nrf_gpio_cfg_input(pin)
 #define _PM_pinHigh(pin) nrf_gpio_pin_set(pin)
 #define _PM_pinLow(pin) nrf_gpio_pin_clear(pin)
-#define _PM_portBitMask(pin) (1u << ((pin) & 31))
+#define _PM_portBitMask(pin) (1u << ((pin)&31))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)

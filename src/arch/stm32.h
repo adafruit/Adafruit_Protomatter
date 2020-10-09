@@ -28,7 +28,7 @@
 #include "timers.h"
 
 #undef _PM_portBitMask
-#define _PM_portBitMask(pin) (1u << ((pin) & 15))
+#define _PM_portBitMask(pin) (1u << ((pin)&15))
 #define _PM_byteOffset(pin) ((pin & 15) / 8)
 #define _PM_wordOffset(pin) ((pin & 15) / 16)
 
