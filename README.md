@@ -39,15 +39,16 @@ help keep up-to-date with any future changes here!
 
 The common ground for architectures to support this library:
 
-* 32-bit device (e.g. ARM core, but potentially ESP32 and others in future)
+* 32-bit device (e.g. ARM core, ESP32 and others)
 * One or more 32-bit GPIO PORTs with atomic (single-cycle, not
   read-modify-write) bitmask SET and CLEAR registers. A bitmask TOGGLE
   register, if present, may improve performance but is NOT required.
 * There may be performance or storage benefits if the architecture tolerates
   8-bit or word-aligned 16-bit accesses within the 32-bit PORT registers
   (e.g. writing just one of four bytes, rather than the whole 32 bits), but
-  this is NOT required. The library does not use any unaligned accesses
-  (i.e. "middle word" of a 32-bit register), even if a device allows such.
+  this is NOT a hardware requirement. Also, the library does not use any
+  unaligned accesses (i.e. "middle word" of a 32-bit register), even if a
+  device tolerates such.
 
 # Software Components
 
@@ -93,7 +94,7 @@ drawing functions.
 
 The C code has the same limitations as the Arduino library: all RGB data
 pins and the clock pin MUST be on the same PORT register, and it's most
-memory efficient (though still a bit gluttonous) if those pins are all
+memory efficient (though still slightly gluttonous) if those pins are all
 within the same 8-bit byte within the PORT (they do not need to be
 contiguous or sequential within that byte). Other pins (matrix address lines,
 latch and output enable) can reside on any PORT or bit.
@@ -105,8 +106,8 @@ source files, as in the Arduino library .cpp and .h). core.c contains only
 the device-neutral bitbang code and should not have any "#ifdef DEVICE"- or
 "#ifdef ENVIRONMENT"-like lines (exception for the 565 color conversion
 functions, since the internal representation is common to both Arduino and
-CircuitPython. Macros for things like getting a PORT register address from a
-pin, or setting up a timer peripheral, all occur in the arch header files,
+CircuitPython). Macros for things like getting a PORT register address from
+a pin, or setting up a timer peripheral, all occur in the arch header files,
 which are ONLY #included by core.c (to prevent problems like multiple
 instances of ISR functions, which must be singularly declared at
 compile-time).

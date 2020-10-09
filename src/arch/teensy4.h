@@ -1,11 +1,28 @@
-// i.MX 1062-SPECIFIC CODE (Teensy 4.0, 4.1) -------------------------------
+/*!
+ * @file teensy4.h
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ * This file contains i.MX 1062 (Teensy 4.x) SPECIFIC CODE.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
+
+#pragma once
 
 #if defined(__IMXRT1062__)
 
 // i.MX only allows full 32-bit aligned writes to GPIO.
 #define _PM_STRICT_32BIT_IO ///< Change core.c behavior for long accesses only
 
-#if defined(ARDUINO)
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 static const struct {
   volatile uint32_t *base; ///< GPIO base address for pin
@@ -146,10 +163,10 @@ uint32_t _PM_timerStop(void *tptr) {
 
 #define _PM_chunkSize 1 ///< DON'T unroll loop, Teensy 4 is SO FAST
 
-#elif defined(CIRCUITPY)
+#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
 // Teensy 4 CircuitPython magic goes here.
 
-#endif
+#endif // END CIRCUITPYTHON ------------------------------------------------
 
 #endif // END __IMXRT1062__ (Teensy 4)

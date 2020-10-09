@@ -36,33 +36,11 @@
 // Arduino-specific wrapper for the Protomatter C library (provides
 // constructor and so forth, builds on Adafruit_GFX). There should
 // not be any device-specific #ifdefs here. See notes in core.c and
-// arch.h regarding portability.
+// arch/arch.h regarding portability.
 
 #include "Adafruit_Protomatter.h" // Also includes core.h & Adafruit_GFX.h
 
 extern Protomatter_core *_PM_protoPtr; ///< In core.c (via arch.h)
-
-// Overall matrix refresh rate (frames/second) is a function of matrix width
-// and chain length, number of address lines, number of bit planes, CPU speed
-// and whether or not a GPIO toggle register is available. There is no "this
-// will run at X-frames-per-second" constant figure. You typically just have
-// to try it out and perhaps trade off some bit planes for refresh rate until
-// the image looks good and stable. Anything over 100 Hz is usually passable,
-// around 250 Hz is where things firm up. And while this could proceed higher
-// in some situations, the tradeoff is that faster rates use progressively
-// more CPU time (because it's timer interrupt based and not using DMA or
-// special peripherals). So a throttle is set here, an approximate maximum
-// frame rate which the software will attempt to avoid exceeding (but may
-// refresh slower than this, and in many cases will...just need to set an
-// upper limit to avoid excessive CPU load). An incredibly long comment block
-// for a single constant, thank you for coming to my TED talk!
-#define _PM_MAX_REFRESH_HZ 250 ///< Upper limit (ish) to matrix refresh rate
-
-// Time (in milliseconds) to pause following any change in address lines
-// (individually or collectively). Some matrices respond slowly there...
-// must pause on change for matrix to catch up. Defined here (rather than
-// arch.h) because it's not architecture-specific.
-#define _PM_ROW_DELAY 8 ///< Delay time between row address line changes (ms)
 
 Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
                                            uint8_t rgbCount, uint8_t *rgbList,
@@ -85,7 +63,7 @@ Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
 }
 
 Adafruit_Protomatter::~Adafruit_Protomatter(void) {
-  _PM_free(&core);
+  _PM_deallocate(&core);
   _PM_protoPtr = NULL;
 }
 

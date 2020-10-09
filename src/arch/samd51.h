@@ -1,8 +1,25 @@
-// SAMD51-SPECIFIC CODE ----------------------------------------------------
+/*!
+ * @file samd51.h
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ * This file contains SAMD51-SPECIFIC CODE.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
 
-#if defined(__SAMD51__)
+#pragma once
 
-#if defined(ARDUINO)
+#if defined(__SAMD51__) || defined(SAMD51) // Arduino, Circuitpy SAMD51 defs
+
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // g_APinDescription[] table and pin indices are Arduino specific:
 #define _PM_portOutRegister(pin)                                               \
@@ -17,9 +34,7 @@
 #define _PM_portToggleRegister(pin)                                            \
   &PORT->Group[g_APinDescription[pin].ulPort].OUTTGL.reg
 
-#elif defined(CIRCUITPY)
-
-#include "hal_gpio.h"
+#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
 #define _PM_portOutRegister(pin) (&PORT->Group[(pin / 32)].OUT.reg)
 
@@ -29,11 +44,15 @@
 
 #define _PM_portToggleRegister(pin) (&PORT->Group[(pin / 32)].OUTTGL.reg)
 
+#define F_CPU (120000000)
+
 #else
 
 // Other port register lookups go here
 
 #endif
+
+// CODE COMMON TO ALL ENVIRONMENTS -----------------------------------------
 
 // Initialize, but do not start, timer
 void _PM_timerInit(void *tptr) {
@@ -193,4 +212,4 @@ uint32_t _PM_timerStop(void *tptr) {
 
 #define _PM_minMinPeriod 160
 
-#endif // END __SAMD51__
+#endif // END __SAMD51__ || SAMD51

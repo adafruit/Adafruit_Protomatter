@@ -1,8 +1,25 @@
-// NRF52-SPECIFIC CODE -----------------------------------------------------
+/*!
+ * @file nrf52.h
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ * This file contains NRF52-SPECIFIC CODE.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
+
+#pragma once
 
 #if defined(NRF52_SERIES)
 
-#if defined(ARDUINO)
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // digitalPinToPort, g_ADigitalPinMap[] are Arduino specific:
 
@@ -58,7 +75,7 @@ void _PM_IRQ_HANDLER(void) {
 }
 #endif
 
-#elif defined(CIRCUITPY)
+#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
 #include "nrf_gpio.h"
 
@@ -82,13 +99,14 @@ volatile uint32_t *_PM_portClearRegister(uint32_t pin) {
 #define _PM_pinInput(pin) nrf_gpio_cfg_input(pin)
 #define _PM_pinHigh(pin) nrf_gpio_pin_set(pin)
 #define _PM_pinLow(pin) nrf_gpio_pin_clear(pin)
-#define _PM_portBitMask(pin) (1u << ((pin) % 32))
+#define _PM_portBitMask(pin) (1u << ((pin) & 31))
 
-#define _PM_byteOffset(pin) ((pin % 32) / 8)
-#define _PM_wordOffset(pin) ((pin % 32) / 16)
-
-#if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
-#error SRSLY
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define _PM_byteOffset(pin) ((pin & 31) / 8)
+#define _PM_wordOffset(pin) ((pin & 31) / 16)
+#else
+#define _PM_byteOffset(pin) (3 - ((pin & 31) / 8))
+#define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
 // CircuitPython implementation is tied to a specific freq (but the counter
@@ -110,11 +128,13 @@ void _PM_IRQ_HANDLER(void) {
   _PM_row_handler(_PM_protoPtr); // In core.c
 }
 
-#else
+#else // END CIRCUITPYTHON -------------------------------------------------
 
-// Non-arduino byte offset macros, timer and ISR work go here.
+// Byte offset macros, timer and ISR work for other environments go here.
 
 #endif
+
+// CODE COMMON TO ALL ENVIRONMENTS -----------------------------------------
 
 void _PM_timerInit(void *tptr) {
   static const struct {

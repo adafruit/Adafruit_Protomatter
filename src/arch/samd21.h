@@ -1,8 +1,25 @@
-// SAMD21-SPECIFIC CODE ----------------------------------------------------
+/*!
+ * @file samd21.h
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ * This file contains SAMD21-SPECIFIC CODE.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
 
-#if defined(_SAMD21_)
+#pragma once
 
-#if defined(ARDUINO)
+#if defined(_SAMD21_) || defined(SAMD21) // Arduino, Circuitpy SAMD21 defs
+
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // g_APinDescription[] table and pin indices are Arduino specific:
 #define _PM_portOutRegister(pin)                                               \
@@ -17,11 +34,14 @@
 #define _PM_portToggleRegister(pin)                                            \
   &PORT_IOBUS->Group[g_APinDescription[pin].ulPort].OUTTGL.reg
 
-#else
+#else // END ARDUINO -------------------------------------------------------
 
-// Non-Arduino port register lookups go here
+// Non-Arduino port register lookups go here, if not already declared
+// in samd-common.h.
 
 #endif
+
+// CODE COMMON TO ALL ENVIRONMENTS -----------------------------------------
 
 // Initialize, but do not start, timer
 void _PM_timerInit(void *tptr) {
@@ -127,4 +147,4 @@ inline uint32_t _PM_timerStop(void *tptr) {
   return count;
 }
 
-#endif // END _SAMD21_
+#endif // END _SAMD21_ || SAMD21

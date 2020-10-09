@@ -1,22 +1,42 @@
-// STM32F4xx SPECIFIC CODE -------------------------------------------------
+/*!
+ * @file stm32.h
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ * This file contains STM32-SPECIFIC CODE.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
 
-#if defined(STM32F4_SERIES)
+#pragma once
 
-#if defined(ARDUINO)
-// Arduino port register lookups go here
-#elif defined(CIRCUITPY)
+#if defined(STM32F4_SERIES) || defined(STM32F405xx) // Arduino, CircuitPy
+
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
+
+// Arduino port register lookups go here, else ones in arch.h are used.
+
+#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
+
 #include "timers.h"
 
 #undef _PM_portBitMask
-#define _PM_portBitMask(pin) (1u << ((pin) % 16))
-#define _PM_byteOffset(pin) ((pin % 16) / 8)
-#define _PM_wordOffset(pin) ((pin % 16) / 16)
+#define _PM_portBitMask(pin) (1u << ((pin) & 15))
+#define _PM_byteOffset(pin) ((pin & 15) / 8)
+#define _PM_wordOffset(pin) ((pin & 15) / 16)
 
 #define _PM_pinOutput(pin_)                                                    \
   do {                                                                         \
     int8_t pin = (pin_);                                                       \
     GPIO_InitTypeDef GPIO_InitStruct = {0};                                    \
-    GPIO_InitStruct.Pin = 1 << (pin % 16);                                     \
+    GPIO_InitStruct.Pin = 1 << (pin & 15);                                     \
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;                                \
     GPIO_InitStruct.Pull = GPIO_NOPULL;                                        \
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;                         \
@@ -26,16 +46,16 @@
   do {                                                                         \
     int8_t pin = (pin_);                                                       \
     GPIO_InitTypeDef GPIO_InitStruct = {0};                                    \
-    GPIO_InitStruct.Pin = 1 << (pin % 16);                                     \
+    GPIO_InitStruct.Pin = 1 << (pin & 15);                                     \
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;                                    \
     GPIO_InitStruct.Pull = GPIO_NOPULL;                                        \
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;                         \
     HAL_GPIO_Init(pin_port(pin / 16), &GPIO_InitStruct);                       \
   } while (0)
 #define _PM_pinHigh(pin)                                                       \
-  HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin % 16), GPIO_PIN_SET)
+  HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin & 15), GPIO_PIN_SET)
 #define _PM_pinLow(pin)                                                        \
-  HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin % 16), GPIO_PIN_RESET)
+  HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin & 15), GPIO_PIN_RESET)
 
 #define _PM_PORT_TYPE uint16_t
 
@@ -116,6 +136,6 @@ uint32_t _PM_timerStop(void *tptr) {
 
 #define _PM_minMinPeriod 140
 
-#endif
+#endif // END CIRCUITPYTHON ------------------------------------------------
 
-#endif // END STM32F4_SERIES
+#endif // END STM32F4_SERIES || STM32F405xx

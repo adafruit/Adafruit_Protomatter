@@ -1,8 +1,25 @@
-// ESP32-SPECIFIC CODE -----------------------------------------------------
+/*!
+ * @file esp32.h
+ *
+ * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ * This file contains ESP32-SPECIFIC CODE.
+ *
+ * Adafruit invests time and resources providing this open source code,
+ * please support Adafruit and open-source hardware by purchasing
+ * products from Adafruit!
+ *
+ * Written by Phil "Paint Your Dragon" Burgess and Jeff Epler for
+ * Adafruit Industries, with contributions from the open source community.
+ *
+ * BSD license, all text here must be included in any redistribution.
+ *
+ */
+
+#pragma once
 
 #if defined(ESP32)
 
-#if defined(ARDUINO)
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 #include "driver/timer.h"
 
@@ -95,12 +112,12 @@ IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
   return _PM_timerGetCount(tptr);
 }
 
-#elif defined(CIRCUITPY)
+#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
 // ESP32 CircuitPython magic goes here. If any of the above Arduino-specific
 // defines, structs or functions are useful as-is, don't copy them, just
 // move them above the ARDUINO check so fixes/changes carry over, thx.
 
-#endif
+#endif // END CIRCUITPYTHON ------------------------------------------------
 
 #endif // END ESP32

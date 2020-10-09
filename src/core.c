@@ -15,7 +15,7 @@
  */
 
 // Device- and environment-neutral core matrix-driving functionality.
-// See notes near top of arch.h regarding assumptions of hardware
+// See notes near top of arch/arch.h regarding assumptions of hardware
 // "common ground." If you find yourself doing an "#ifdef ARDUINO" or
 // "#ifdef _SAMD21_" in this file, STOP. Idea is that the code in this
 // file is neutral and portable (within aforementioned assumptions).
@@ -128,15 +128,15 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
   // the pin bitmasks.
 
   rgbCount *= 6; // Convert parallel count to pin count
-  if ((core->rgbPins = (uint8_t *)_PM_ALLOCATOR(rgbCount * sizeof(uint8_t)))) {
-    if ((core->addr = (_PM_pin *)_PM_ALLOCATOR(addrCount * sizeof(_PM_pin)))) {
+  if ((core->rgbPins = (uint8_t *)_PM_allocate(rgbCount * sizeof(uint8_t)))) {
+    if ((core->addr = (_PM_pin *)_PM_allocate(addrCount * sizeof(_PM_pin)))) {
       memcpy(core->rgbPins, rgbList, rgbCount * sizeof(uint8_t));
       for (uint8_t i = 0; i < addrCount; i++) {
         core->addr[i].pin = addrList[i];
       }
       return PROTOMATTER_OK;
     }
-    _PM_FREE(core->rgbPins);
+    _PM_free(core->rgbPins);
     core->rgbPins = NULL;
   }
   return PROTOMATTER_ERR_MALLOC;
@@ -223,9 +223,9 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
 
   // Allocate matrix buffer(s). Don't worry about the return type...
   // though we might be using words or longs for certain pin configs,
-  // _PM_ALLOCATOR() by definition always aligns to the longest type.
+  // _PM_allocate() by definition always aligns to the longest type.
   if (!(core->screenData =
-            (uint8_t *)_PM_ALLOCATOR(screenBytes + rgbMaskBytes))) {
+            (uint8_t *)_PM_allocate(screenBytes + rgbMaskBytes))) {
     return PROTOMATTER_ERR_MALLOC;
   }
 
@@ -428,16 +428,16 @@ void _PM_resume(Protomatter_core *core) {
 }
 
 // Free memory associated with core structure. Does NOT dealloc struct.
-void _PM_free(Protomatter_core *core) {
+void _PM_deallocate(Protomatter_core *core) {
   if ((core)) {
     _PM_stop(core);
     // TO DO: Set all pins back to inputs here?
     if (core->screenData)
-      _PM_FREE(core->screenData);
+      _PM_free(core->screenData);
     if (core->addr)
-      _PM_FREE(core->addr);
+      _PM_free(core->addr);
     if (core->rgbPins) {
-      _PM_FREE(core->rgbPins);
+      _PM_free(core->rgbPins);
       core->rgbPins = NULL;
     }
   }
@@ -821,10 +821,10 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
   }
 }
 
-// CircuitPython happens to use the same internal canvas representation
-// This is all 565 stuff. No reason not to put it in a .c, right?
-
 #if defined(ARDUINO) || defined(CIRCUITPY)
+
+// Arduino and CircuitPython happen to use the same internal canvas
+// representation.
 
 // 16-bit (565) color conversion functions go here (rather than in the
 // Arduino lib .cpp) because knowledge is required of chunksize and the
@@ -1203,8 +1203,7 @@ void _PM_convert_565(Protomatter_core *core, uint16_t *source, uint16_t width) {
   }
 }
 
-#endif // END ARDUINO || CIRCUITPYTHON
-
+#endif // END ARDUINO || CIRCUITPY
 
 // Note to future self: I've gone back and forth between implementing all
 // this either as it currently is (with byte, word and long cases for various

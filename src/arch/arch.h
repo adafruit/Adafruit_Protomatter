@@ -2,6 +2,9 @@
  * @file arch.h
  *
  * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
+ * This file establishes some very low-level things and includes headers
+ * specific to each supported device. This should ONLY be included by
+ * core.c, nowhere else. Ever.
  *
  * Adafruit invests time and resources providing this open source code,
  * please support Adafruit and open-source hardware by purchasing
@@ -14,9 +17,6 @@
  *
  */
 
-// Establishes some very low-level things specific to each supported device.
-// This should ONLY be included by core.c, nowhere else. Ever.
-
 #pragma once
 
 #include <string.h>
@@ -24,7 +24,7 @@
 /*
 Common ground for architectures to support this library:
 
-- 32-bit device (e.g. ARM core, but potentially others in the future)
+- 32-bit device (e.g. ARM core, ESP32, potentially others in the future)
 - One or more 32-bit GPIO PORTs with atomic bitmask SET and CLEAR registers.
   A TOGGLE register, if present, may improve performance but is NOT required.
 - Tolerate 8-bit or word-aligned 16-bit accesses within the 32-bit PORT
@@ -129,9 +129,17 @@ _PM_clockHoldLow:            Additional code (e.g. NOPs) needed to delay
 _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
                              so bit-angle-modulation time always doubles with
                              each bitplane (else lower bits may be the same).
+_PM_allocate:                Memory allocation function, should return a
+                             pointer to a buffer of requested size, aligned
+                             to the architecture's largest native type.
+                             If not defined, malloc() is used.
+_PM_free:                    Corresponding deallocator for _PM_allocate().
+                             If not defined, free() is used.
 */
 
-#if defined(ARDUINO) // COMPILING IN ARDUINO IDE ---------------------------
+// ENVIRONMENT-SPECIFIC DECLARATIONS ---------------------------------------
+
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 #include <Arduino.h> // Pull in all that stuff.
 
@@ -149,21 +157,9 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 
 #define _PM_delayMicroseconds(us) mp_hal_delay_us(us)
 
-#ifdef SAMD51
-#define __SAMD51__
-#define F_CPU (120000000)
-#endif
-#ifdef SAMD21
-#define _SAMD21_
-#endif
-
-#ifdef STM32F405xx
-#define STM32F4_SERIES (1)
-#endif
-
 // No #else here. In non-Arduino case, declare things in the arch-specific
-// sections below...unless other environments provide device-neutral
-// functions as above, in which case those could go here (w/#elif).
+// files below...unless other environments provide device-neutral functions
+// as above, in which case those could go here (w/#elif).
 
 #endif // END CIRCUITPYTHON ------------------------------------------------
 
@@ -195,18 +191,18 @@ _PM_minMinPeriod:            Mininum value for the "minPeriod" class member,
 #define _PM_minMinPeriod 100 ///< Minimum timer interval for least bit
 #endif
 
-#ifndef _PM_ALLOCATOR
-#define _PM_ALLOCATOR(x) (malloc((x))) ///< Memory alloc call
+#if !defined(_PM_allocate)
+#define _PM_allocate(x) (malloc((x))) ///< Memory alloc call
 #endif
 
-#ifndef _PM_FREE
-#define _PM_FREE(x) (free((x))) ///< Memory free call
+#if !defined(_PM_free)
+#define _PM_free(x) (free((x))) ///< Corresponding memory free call
 #endif
 
-#ifndef IRAM_ATTR
+#if !defined(IRAM_ATTR)
 #define IRAM_ATTR ///< Neutralize ESP32-specific attribute in core.c
 #endif
 
-#ifndef _PM_PORT_TYPE
+#if !defined(_PM_PORT_TYPE)
 #define _PM_PORT_TYPE uint32_t ///< PORT register size/type
 #endif
