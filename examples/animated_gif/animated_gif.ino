@@ -1,6 +1,8 @@
 // Play GIFs from CIRCUITPY drive (USB-accessible filesystem) to LED matrix.
-// As written, runs on 64x32 pixel matrix -- this can be changed by editing
-// the addrPins[] array (height) and/or matrix constructor call (width).
+// Designed for Adafruit MatrixPortal M4, but may run on some other M4 & M0
+// and nRF52 boards (relies on TinyUSB stack). As written, runs on 64x32 pixel
+// matrix, this can be changed by editing the addrPins[] array (height) and/or
+// matrix constructor call (width).
 // Adapted from examples from Larry Bank's AnimatedGIF library and
 // msc_external_flash example in Adafruit_TinyUSB_Arduino.
 // Prerequisite libraries:
@@ -187,7 +189,13 @@ void span(uint16_t *src, int16_t x, int16_t y, int16_t width) {
   if (x2 >= matrix.width()) {      // Span partially off right of matrix
     width -= (x2 - matrix.width() + 1);
   }
-  memcpy(matrix.getBuffer() + y * matrix.width() + x, src, width * 2);
+  if(matrix.getRotation() == 0) {
+    memcpy(matrix.getBuffer() + y * matrix.width() + x, src, width * 2);
+  } else {
+    while(x <= x2) {
+      matrix.drawPixel(x++, y, *src++);
+    }
+  }
 }
 
 // FUNCTIONS REQUIRED FOR USB MASS STORAGE ---------------------------------
@@ -315,8 +323,8 @@ void loop() {
   if(!digitalRead(NEXT_BUTTON)) {
     GIFincrement = 1;                 // Forward
     while(!digitalRead(NEXT_BUTTON)); // Wait for release
-#endif
   }
+#endif
 
   if (GIFincrement) { // Change file?
     if (GIFisOpen) {  // If currently playing,

@@ -1,8 +1,7 @@
 // Arduino-specific header, accompanies Adafruit_Protomatter.cpp.
 // There should not be any device-specific #ifdefs here.
 
-#ifndef _ADAFRUIT_PROTOMATTER_H_
-#define _ADAFRUIT_PROTOMATTER_H_
+#pragma once
 
 #include "core.h"
 #include <Adafruit_GFX.h>
@@ -101,5 +100,3 @@ private:
   void convert_word(uint16_t *dest); // conversion functions
   void convert_long(uint32_t *dest); // for 8/16/32 bit bufs
 };
-
-#endif // _ADAFRUIT_PROTOMATTER_H_

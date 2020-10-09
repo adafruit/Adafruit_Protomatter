@@ -14,8 +14,7 @@
  *
  */
 
-#ifndef _PROTOMATTER_CORE_H_
-#define _PROTOMATTER_CORE_H_
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -190,7 +189,7 @@ extern void _PM_resume(Protomatter_core *core);
           deallocate the structure itself.
   @param  core  Pointer to Protomatter_core structure.
 */
-extern void _PM_free(Protomatter_core *core);
+extern void _PM_deallocate(Protomatter_core *core);
 
 /*!
   @brief  Matrix "row handler" that's called by the timer interrupt.
@@ -238,6 +237,15 @@ extern uint32_t _PM_timerStop(void *tptr);
 extern uint32_t _PM_timerGetCount(void *tptr);
 
 /*!
+  @brief  Pauses until the next vertical blank to avoid 'tearing' animation
+          (if display is double-buffered). If single-buffered, has no effect.
+  @param  core  Pointer to Protomatter_core structure.
+*/
+extern void _PM_swapbuffer_maybe(Protomatter_core *core);
+
+#if defined(ARDUINO) || defined(CIRCUITPY)
+
+/*!
   @brief  Converts image data from GFX16 canvas to the matrices weird
           internal format.
   @param  core    Pointer to Protomatter_core structure.
@@ -249,15 +257,8 @@ extern uint32_t _PM_timerGetCount(void *tptr);
 extern void _PM_convert_565(Protomatter_core *core, uint16_t *source,
                             uint16_t width);
 
-/*!
-  @brief  Pauses until the next vertical blank to avoid 'tearing' animation
-          (if display is double-buffered). If single-buffered, has no effect.
-  @param  core  Pointer to Protomatter_core structure.
-*/
-extern void _PM_swapbuffer_maybe(Protomatter_core *core);
+#endif // END ARDUINO || CIRCUITPY
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
-#endif // _PROTOMATTER_CORE_H_
