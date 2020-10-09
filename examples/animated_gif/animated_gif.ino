@@ -1,6 +1,8 @@
 // Play GIFs from CIRCUITPY drive (USB-accessible filesystem) to LED matrix.
-// As written, runs on 64x32 pixel matrix -- this can be changed by editing
-// the addrPins[] array (height) and/or matrix constructor call (width).
+// Designed for Adafruit MatrixPortal M4, but may run on some other M4 & M0
+// and nRF52 boards (relies on TinyUSB stack). As written, runs on 64x32 pixel
+// matrix, this can be changed by editing the addrPins[] array (height) and/or
+// matrix constructor call (width).
 // Adapted from examples from Larry Bank's AnimatedGIF library and
 // msc_external_flash example in Adafruit_TinyUSB_Arduino.
 // Prerequisite libraries:
@@ -321,8 +323,8 @@ void loop() {
   if(!digitalRead(NEXT_BUTTON)) {
     GIFincrement = 1;                 // Forward
     while(!digitalRead(NEXT_BUTTON)); // Wait for release
-#endif
   }
+#endif
 
   if (GIFincrement) { // Change file?
     if (GIFisOpen) {  // If currently playing,
