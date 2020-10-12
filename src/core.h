@@ -23,6 +23,9 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+#define _PM_DEFAULT_GAMMA 2.6      ///< Exponent for pow() in gamma setting
+#define _PM_DEFAULT_BRIGHTNESS 1.0 ///< Matrix brightness if unspecified
+
 /** Status type returned by some functions. */
 typedef enum {
   PROTOMATTER_OK,         // Everything is hunky-dory!
@@ -65,6 +68,8 @@ typedef struct {
   uint32_t rgbAndClockMask;      ///< PORT bit mask for RGB data + clock
   volatile void *addrPortToggle; ///< See singleAddrPort below
   void *screenData;              ///< Per-bitplane RGB data for matrix
+  uint16_t remap_rb[32];         ///< Gamma or decimation table for red+blue
+  uint16_t remap_g[64];          ///< Gamma or decimation table for green
   _PM_pin latch;                 ///< RGB data latch
   _PM_pin oe;                    ///< !OE (LOW out enable)
   _PM_pin *addr;                 ///< Array of address pins
@@ -197,6 +202,15 @@ extern void _PM_deallocate(Protomatter_core *core);
   @param  core  Pointer to Protomatter_core structure.
 */
 extern void _PM_row_handler(Protomatter_core *core);
+
+/*!
+  @brief  Sometimes called by a timer interrupt to disable matrix output
+          prior to the normal bitplane switchover time (handled by the
+          row handler above). Usually only occurs on the least bitplanes
+          of high-depth setups.
+  @param  core  Pointer to Protomatter_core structure.
+*/
+extern void _PM_matrix_oe_off(Protomatter_core *core);
 
 /*!
   @brief  Returns current value of frame counter and resets its value to

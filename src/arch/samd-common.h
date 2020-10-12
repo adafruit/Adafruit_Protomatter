@@ -51,9 +51,19 @@ void *_PM_protoPtr = NULL;
 
 // Timer interrupt service routine
 void _PM_IRQ_HANDLER(void) {
-  // Clear overflow flag:
-  _PM_TIMER_DEFAULT->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF;
-  _PM_row_handler(_PM_protoPtr); // In core.c
+  Protomatter_core *core = (Protomatter_core *)_PM_protoPtr;
+  Tc *timer = core->timer;
+  if (timer->COUNT16.INTFLAG.bit.MC1) { // Compare match, end bitplane early
+    timer->COUNT16.INTFLAG.bit.MC1 = 1; //   Clear match compare 1
+    _PM_matrix_oe_off(core);            //   Disable LED output, in core.c
+  }
+  // DO NOT 'else' here. It might be possible I think that both interrupt
+  // flags may get set in certain situations, in which case we want both
+  // to be handled (but do the compare match one first).
+  if (timer->COUNT16.INTFLAG.bit.OVF) { // Overflow? New bitplane...
+    timer->COUNT16.INTFLAG.bit.OVF = 1; //   Clear overflow flag
+    _PM_row_handler(core);              //   Load new row, in core.c
+  }
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
@@ -82,11 +92,21 @@ void _PM_IRQ_HANDLER(void) {
 // Protomatter_core struct. This pointer is set up when starting the matrix.
 void *_PM_protoPtr = NULL;
 
-// Timer interrupt service routine
+// Timer interrupt service routine (currently identical to Arduino case above)
 void _PM_IRQ_HANDLER(void) {
-  ((Tc *)(((Protomatter_core *)_PM_protoPtr)->timer))->COUNT16.INTFLAG.reg =
-      TC_INTFLAG_OVF;
-  _PM_row_handler(_PM_protoPtr); // In core.c
+  Protomatter_core *core = (Protomatter_core *)_PM_protoPtr;
+  Tc *timer = core->timer;
+  if (timer->COUNT16.INTFLAG.bit.MC1) { // Compare match, end bitplane early
+    timer->COUNT16.INTFLAG.bit.MC1 = 1; //   Clear match compare 1
+    _PM_matrix_oe_off(core);            //   Disable LED output, in core.c
+  }
+  // DO NOT 'else' here. It might be possible I think that both interrupt
+  // flags may get set in certain situations, in which case we want both
+  // to be handled (but do the compare match one first).
+  if (timer->COUNT16.INTFLAG.bit.OVF) { // Overflow? New bitplane...
+    timer->COUNT16.INTFLAG.bit.OVF = 1; //   Clear overflow flag
+    _PM_row_handler(core);              //   Load new row, in core.c
+  }
 }
 
 #else // END CIRCUITPYTHON -------------------------------------------------
