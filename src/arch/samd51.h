@@ -147,8 +147,8 @@ void _PM_timerInit(void *tptr) {
   while (tc->COUNT16.SYNCBUSY.bit.CTRLB)
     ;
 
-  // Overflow interrupt
-  tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF;
+  // Enable overflow and match-compare-1 interrupts
+  tc->COUNT16.INTENSET.reg = TC_INTENSET_OVF | TC_INTENSET_MC1;
 
   NVIC_DisableIRQ(timer[timerNum].IRQn);
   NVIC_ClearPendingIRQ(timer[timerNum].IRQn);
@@ -168,6 +168,10 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
     ;
   tc->COUNT16.CC[0].reg = period;
   while (tc->COUNT16.SYNCBUSY.bit.CC0)
+    ;
+  // Temporary: set compare match to huge value that never triggers
+  tc->COUNT16.CC[1].reg = 0xFFFF;
+  while (tc->COUNT16.SYNCBUSY.bit.CC1)
     ;
   tc->COUNT16.CTRLA.bit.ENABLE = 1;
   while (tc->COUNT16.SYNCBUSY.bit.STATUS)
