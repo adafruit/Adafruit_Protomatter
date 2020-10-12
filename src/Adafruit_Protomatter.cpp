@@ -50,8 +50,6 @@ Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
                                            void *timer)
     : GFXcanvas16(bitWidth,
                   (2 << min((int)addrCount, 5)) * min((int)rgbCount, 5)) {
-  if (bitDepth > 6)
-    bitDepth = 6; // GFXcanvas16 color limit (565)
 
   // Arguments are passed through to the C _PM_init() function which does
   // some input validation and minor allocation. Return value is ignored
@@ -67,8 +65,9 @@ Adafruit_Protomatter::~Adafruit_Protomatter(void) {
   _PM_protoPtr = NULL;
 }
 
-ProtomatterStatus Adafruit_Protomatter::begin(void) {
+ProtomatterStatus Adafruit_Protomatter::begin(uint8_t brightness) {
   _PM_protoPtr = &core;
+  core.brightness = brightness;
   return _PM_begin(&core);
 }
 

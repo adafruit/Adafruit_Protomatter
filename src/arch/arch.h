@@ -206,3 +206,7 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 #if !defined(_PM_PORT_TYPE)
 #define _PM_PORT_TYPE uint32_t ///< PORT register size/type
 #endif
+
+#if !defined(_PM_MAX_BITPLANES)
+#define _PM_MAX_BITPLANES 6 ///< RGB bit depth handled by architecture
+#endif

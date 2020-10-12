@@ -23,9 +23,6 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-#define _PM_DEFAULT_GAMMA 2.6      ///< Exponent for pow() in gamma setting
-#define _PM_DEFAULT_BRIGHTNESS 1.0 ///< Matrix brightness if unspecified
-
 /** Status type returned by some functions. */
 typedef enum {
   PROTOMATTER_OK,         // Everything is hunky-dory!
@@ -85,6 +82,7 @@ typedef struct {
   uint8_t portOffset;            ///< Active 8- or 16-bit pos. in PORT
   uint8_t numPlanes;             ///< Display bitplanes (1 to 6)
   uint8_t numRowPairs;           ///< Addressable row pairs
+  uint8_t brightness;            ///< Max brightness (if supported by arch)
   bool doubleBuffer;             ///< 2X buffers for clean switchover
   bool singleAddrPort;           ///< If 1, all addr lines on same PORT
   volatile uint8_t activeBuffer; ///< Index of currently-displayed buf

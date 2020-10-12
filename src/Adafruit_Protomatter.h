@@ -67,6 +67,9 @@ public:
   /*!
     @brief  Start a Protomatter matrix display running -- initialize
             pins, timer and interrupt into existence.
+    @param  brightness  Initial matrix brightness setting,
+                        0 = minimum (off), 255 = maximum (default if unset).
+                        May not be supported by all architectures.
     @return A ProtomatterStatus status, one of:
             PROTOMATTER_OK if everything is good.
             PROTOMATTER_ERR_PINS if data and/or clock pins are split
@@ -76,7 +79,17 @@ public:
             PROTOMATTER_ERR_ARG if a bad value was passed to the
             constructor.
   */
-  ProtomatterStatus begin(void);
+  ProtomatterStatus begin(uint8_t brightness=255);
+
+  /*!
+    @brief  Change brightness of an already-running matrix.
+            May not be supported by all architectures.
+    @param  brightness  Brightness setting, 0 = minimum (off),
+                        255 = maximum (default if unset).
+  */
+  void setBrightness(uint8_t brightness = 255) {
+    core.brightness = brightness;
+  }
 
   /*!
     @brief Process data from GFXcanvas16 to the matrix framebuffer's

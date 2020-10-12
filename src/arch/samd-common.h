@@ -20,6 +20,10 @@
 #if defined(__SAMD51__) || defined(SAMD51) || defined(_SAMD21_) ||             \
     defined(SAMD21)
 
+// SETTINGS COMMON TO ALL ENVIRONMENTS -------------------------------------
+
+#define _PM_MAX_BITPLANES 16 ///< RGB bit depth handled by architecture
+
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // g_APinDescription[] table and pin indices are Arduino specific:
@@ -53,10 +57,12 @@ void *_PM_protoPtr = NULL;
 void _PM_IRQ_HANDLER(void) {
   Protomatter_core *core = (Protomatter_core *)_PM_protoPtr;
   Tc *timer = core->timer;
+#if 0
   if (timer->COUNT16.INTFLAG.bit.MC1) { // Compare match, end bitplane early
     timer->COUNT16.INTFLAG.bit.MC1 = 1; //   Clear match compare 1
     _PM_matrix_oe_off(core);            //   Disable LED output, in core.c
   }
+#endif
   // DO NOT 'else' here. It might be possible I think that both interrupt
   // flags may get set in certain situations, in which case we want both
   // to be handled (but do the compare match one first).
