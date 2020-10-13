@@ -54,6 +54,11 @@
 
 // CODE COMMON TO ALL ENVIRONMENTS -----------------------------------------
 
+// Note that the SAMD21 and SAMD51 functions are nearly but not actually
+// identical -- the registers involved are different between the two.
+// If any additions or bug fixes are made in one, check the other to see if
+// similar changes should be made there.
+
 // Initialize, but do not start, timer
 void _PM_timerInit(void *tptr) {
   static const struct {
