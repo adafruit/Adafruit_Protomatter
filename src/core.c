@@ -351,13 +351,27 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     }
   }
 
+  // TO DO: this now needs to evolve for gamma correction.
+  // There's now two periods, the 'top' and the 'match' value for
+  // each plane. top can't be less than minMinPeriod, but match
+  // can. There may be several planes (least bits) that all have
+  // the same top value, but different match values.
+  // Match will always be powers-of-two, top will be whatever it
+  // takes to get the frame rate.
+
   // Estimate minimum bitplane #0 period for _PM_MAX_REFRESH_HZ rate.
   uint32_t minPeriodPerFrame = _PM_timerFreq / _PM_MAX_REFRESH_HZ;
   uint32_t minPeriodPerLine = minPeriodPerFrame / core->numRowPairs;
   core->minPeriod = minPeriodPerLine / ((1 << core->numPlanes) - 1);
+#if 0
   if (core->minPeriod < _PM_minMinPeriod) {
     core->minPeriod = _PM_minMinPeriod;
   }
+#else
+  if (core->minPeriod < 1) {
+    core->minPeriod = 1;
+  }
+#endif
   // Actual frame rate may be lower than this...it's only an estimate
   // and does not factor in things like address line selection delays
   // or interrupt overhead. That's OK, just don't want to exceed this
@@ -365,7 +379,11 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // Make a wild guess for the initial bit-zero interval. It's okay
   // that this is off, code adapts to actual timer results pretty quick.
 
+#if 0
   core->bitZeroPeriod = core->width * 5; // Initial guesstimate
+#else
+  core->bitZeroPeriod = core->minPeriod;
+#endif
 
   core->activeBuffer = 0;
 
@@ -511,7 +529,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   // setBit(latch) that follows. Reason being, bit set/clear operations
   // on ESP32 aren't truly atomic, and if those two pins are on the same
   // port (quite common) the second setBit will be ignored. The nonsense
-  // clearReg is used to sync up the two setBit operations. See also the
+  // clearBit is used to sync up the two setBit operations. See also the
   // ESP32-specific PEW define in arch.h, same deal.
   _PM_clearBit(core->latch);
 
@@ -606,6 +624,68 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
     // If match time is 0, don't enable LEDs, just run for bitplane time.
     _PM_timerStart(core->timer, top, 0xFFFF);
   }
+
+  /* --------------------------------------------------------------------
+  So, I'm at an impasse here. Going to push the code and take a moment to
+  regroup. At present, the library WILL allow more than 6 bitplanes and
+  WILL attempt to apply gamma correction and brightness, but this WILL
+  NOT LOOK CORRECT on the matrix (though maybe a marginal improvement vs.
+  the prior 6-bit limit).
+
+  Issue at the moment is timer/counter interrupt handling on SAMD. This
+  function we're in is called from a timer ISR. The single timer ISR
+  handles two different situations -- timer overflow (in which case this
+  function is called, loading new data to the matrix) and timer match
+  (disabling the matrix OE, different function). It used to ONLY handle
+  the overflow case, because we had few enough bitplanes that the timer
+  match wasn't required ... but gamma correction and brightness will
+  both require it.
+
+  On SAMD, timer/counters have a single interrupt handler. There are
+  multiple interrupt flags for different situations (overflow vs match),
+  but both go to a single interrupt handler...and, therefore, it can't
+  interrupt itself. Thus the compare-match CAN'T trigger until the
+  overflow interrupt (which is issuing data to the matrix) completes...
+  and this totally throws off the least-bit timing, and this ruins gamma
+  correction.
+
+  There are several possible workarounds:
+
+  1) Use a TCC rather than a TC peripheral. These have distinct
+     interrupts for overflow vs. compare match, and one should be able
+     to interrupt the other. This would require identifying a "safe" TCC
+     to use for Arduino, and I don't know how CircuitPython doles out
+     TCCs as opposed to TCs. Also, the timer setup and interrupt code
+     would need to change as the peripheral registers are different.
+     Possible, but messy. Also, unsure of applicability to other devices.
+
+  2) Use hardware PWM for the matrix OE line, and don't use the compare
+     match interrupt. Since the WHOLE GOAL of Protomatter was to avoid
+     tying ourselves to specific pin numbers and use mundane GPIO
+     wherever possible (exception for the RGB+clock constrtaints), this
+     option is OFF THE TABLE.
+
+  3) Do the matrix data-loading while OE is OFF, rather than the current
+     strategy of loading the next bitplane while the prior plane is ON
+     (which is done to maximize matrix brightness -- it's off as little
+     as possible). Larger matrices, or longer matrix chains, will incur
+     more off time, with a corresponding impact on brightness. We're
+     realistically talking some small percentage though...maybe 10%,
+     amd given how bright these are at full-blast, that's probably
+     acceptable. Getting this to work WELL though -- balancing a desired
+     refresh rate against an acceptable CPU load -- this will require an
+     empirical step of determining how many timer cycles are needed to
+     shift out a known number of bits (or alternately, number of bits per
+     cycle), which will need to be repeated for each architecture (and on
+     SAMD, each clock speed). This is the MOST LIKELY approach to be
+     used, just accepting the slight brightness hit and the collecting
+     timing data step. (A "golden option" here would be to issue data
+     during OE off on least bitplanes, switching to during OE on for
+     higher (longer duration) bitplanes...but this would require some
+     extra math to figure out the refresh rate throttling, weird handling
+     of the current-bitplane counter, and all-around hurts my brain, so
+     I'm skipping it for now.)
+  ----------------------------------------------------------------------- */
 
   uint32_t elementsPerLine =
       _PM_chunkSize * ((core->width + (_PM_chunkSize - 1)) / _PM_chunkSize);
