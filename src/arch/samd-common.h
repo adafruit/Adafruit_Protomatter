@@ -91,17 +91,18 @@ void *_PM_protoPtr = NULL;
 void _PM_IRQ_HANDLER(void) {
   Protomatter_core *core = (Protomatter_core *)_PM_protoPtr;
   Tc *timer = core->timer;
-  // If compare-match interrupt, end bitplane early...
-  if (timer->COUNT16.INTFLAG.bit.MC1) {
-    timer->COUNT16.INTFLAG.reg = TC_INTFLAG_MC1; // Clear interrupt flag
-    _PM_matrix_oe_off(core);                     // Disable LEDs (core.c)
-  }
-  // DON'T 'else' here -- it's possible both flags might be set, in which
-  // case both should be handled in the order here.
-  // If overflow interrupt, new bitplane and/or row...
+  // If overflow flag is set, clear both the overflow AND match-compare
+  // bits (sometimes both are set if the two trigger in close proximity),
+  // handle the overflow case (load new row in core.c), don't bother with
+  // the match compare now, it's unneeded.
   if (timer->COUNT16.INTFLAG.bit.OVF) {
-    timer->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF; // Clear interrupt flag
-    _PM_row_handler(core);                       // Load new row (core.c)
+    timer->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF | TC_INTFLAG_MC1;
+    _PM_row_handler(core);
+  } else {
+    // Otherwise, must be the match-compare bit only. Clear just the MC1
+    // flag (but not OVF) and disable the LEDs early (in core.c).
+    timer->COUNT16.INTFLAG.reg = TC_INTFLAG_MC1;
+    _PM_matrix_oe_off(core);
   }
 }
 
