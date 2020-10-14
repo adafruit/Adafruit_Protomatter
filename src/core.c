@@ -507,11 +507,11 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   // ESP32 requires this next line, but not wanting to put arch-specific
   // ifdefs in this code...it's a trivial operation so just do it.
   // Latch is already clear at this point, but we go through the motions
-  // to clear it again in order to sync up the setReg(OE) above with the
-  // setReg(latch) that follows. Reason being, bit set/clear operations
+  // to clear it again in order to sync up the setBit(OE) above with the
+  // setBit(latch) that follows. Reason being, bit set/clear operations
   // on ESP32 aren't truly atomic, and if those two pins are on the same
-  // port (quite common) the second setReg will be ignored. The nonsense
-  // clearReg is used to sync up the two setReg operations. See also the
+  // port (quite common) the second setBit will be ignored. The nonsense
+  // clearReg is used to sync up the two setBit operations. See also the
   // ESP32-specific PEW define in arch.h, same deal.
   _PM_clearBit(core->latch);
 
