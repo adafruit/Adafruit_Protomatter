@@ -1,4 +1,5 @@
 /*!
+p
  * @file core.c
  *
  * Part of Adafruit's Protomatter library for HUB75-style RGB LED matrices.
@@ -100,8 +101,8 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
     rgbCount = 5; // Max 5 in parallel (32-bit PORT)
   if (addrCount > 5)
     addrCount = 5; // Max 5 address lines (A-E)
-  if (bitDepth > _PM_MAX_BITPLANES)
-    bitDepth = _PM_MAX_BITPLANES; // Varies with architecture & environment
+  if (bitDepth > _PM_maxBitplanes)
+    bitDepth = _PM_maxBitplanes; // Varies with architecture & environment
 
 #if defined(_PM_TIMER_DEFAULT)
   // If NULL timer was passed in (the default case for the constructor),
@@ -469,8 +470,8 @@ void _PM_resume(Protomatter_core *core) {
     core->swapBuffers = 0;
     core->frameCount = 0;
 
-    _PM_timerInit(core->timer);        // Configure timer
-    _PM_timerStart(core->timer, 1000); // Start timer
+    _PM_timerInit(core->timer);                // Configure timer
+    _PM_timerStart(core->timer, 1000, 0xFFFF); // Start timer
   }
 }
 
@@ -592,9 +593,25 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   // now while the next plane data is loaded.
 
   // Set timer and enable LED output for data loaded on PRIOR pass:
-  _PM_timerStart(core->timer, core->bitZeroPeriod << prevPlane);
-  _PM_delayMicroseconds(1); // Appease Teensy4
-  _PM_clearBit(core->oe);   // Enable LED output
+  uint32_t top = core->bitZeroPeriod << prevPlane;
+  uint32_t match = top * (core->brightness + 1) / 256;
+#if 1
+  // This is kind of not good -- the '12' figure is arch specific and an
+  // empirical kludge. See what can be done about the double interrupts.
+  if ((top - match) < 12) { // Don't trigger too close together
+#else
+  if (top == match) { // Don't need match interrupt
+#endif
+    match = 0xFFFF;
+  }
+  if (match > 0) {
+    _PM_timerStart(core->timer, top, match);
+    _PM_delayMicroseconds(1); // Appease Teensy4
+    _PM_clearBit(core->oe);   // Enable LED output
+  } else {
+    // If match time is 0, don't enable LEDs, just run for bitplane time.
+    _PM_timerStart(core->timer, top, 0xFFFF);
+  }
 
   uint32_t elementsPerLine =
       _PM_chunkSize * ((core->width + (_PM_chunkSize - 1)) / _PM_chunkSize);

@@ -20,39 +20,6 @@
 #if defined(__SAMD51__) || defined(SAMD51) || defined(_SAMD21_) ||             \
     defined(SAMD21)
 
-// SETTINGS COMMON TO ALL ENVIRONMENTS -------------------------------------
-
-#define _PM_MAX_BITPLANES 16 ///< RGB bit depth handled by architecture
-
-// Arduino and CircuitPython implementations both rely on a 48 MHz timer.
-// In Arduino the timer # is fixed, in CircuitPython it's dynamically
-// allocated from a timer pool. If that's not the case in other
-// enviromnents, this will need to be broken out into each section.
-#define _PM_timerFreq 48000000
-
-// As currently implemented, there can be only one instance of the
-// Protomatter_core struct. This pointer is initialized when starting
-// the matrix (in the environment-specific code -- e.g. matrix.begin()
-// in the Arduino library).
-void *_PM_protoPtr = NULL;
-
-// Timer interrupt service routine
-void _PM_IRQ_HANDLER(void) {
-  Protomatter_core *core = (Protomatter_core *)_PM_protoPtr;
-  Tc *timer = core->timer;
-  if (timer->COUNT16.INTFLAG.bit.MC1) { // Compare match, end bitplane early
-    timer->COUNT16.INTFLAG.bit.MC1 = 1; //   Clear match compare 1
-    _PM_matrix_oe_off(core);            //   Disable LED output, in core.c
-  }
-  // DO NOT 'else' here. It might be possible I think that both interrupt
-  // flags may get set in certain situations, in which case we want both
-  // to be handled (but do the compare match one first).
-  if (timer->COUNT16.INTFLAG.bit.OVF) { // Overflow? New bitplane...
-    timer->COUNT16.INTFLAG.bit.OVF = 1; //   Clear overflow flag
-    _PM_row_handler(core);              //   Load new row, in core.c
-  }
-}
-
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // g_APinDescription[] table and pin indices are Arduino specific:
@@ -99,5 +66,56 @@ void _PM_IRQ_HANDLER(void) {
 // Byte offset macros, timer and ISR work for other environments go here.
 
 #endif
+
+// SETTINGS COMMON TO ALL ENVIRONMENTS -------------------------------------
+// Keep this down here because there's environment-specific defines above.
+
+#define _PM_maxBitplanes 16 ///< RGB bit depth handled by architecture
+
+// Arduino and CircuitPython implementations both rely on a 48 MHz timer.
+// In Arduino the timer # is fixed, in CircuitPython it's dynamically
+// allocated from a timer pool. If that's not the case in other
+// enviromnents, this will need to be broken out into each section.
+#define _PM_timerFreq 48000000
+
+// As currently implemented, there can be only one instance of the
+// Protomatter_core struct. This pointer is initialized when starting
+// the matrix (in the environment-specific code -- e.g. matrix.begin()
+// in the Arduino library).
+void *_PM_protoPtr = NULL;
+
+// Timer interrupt service routine. _PM_IRQ_HANDLER *must* be defined by
+// environment (as with Arduino above) to trigger as an interrupt, else
+// this is a function that must be invoked by interrupt function elsewhere
+// (as with CircuitPython).
+void _PM_IRQ_HANDLER(void) {
+  Protomatter_core *core = (Protomatter_core *)_PM_protoPtr;
+  Tc *timer = core->timer;
+#if 0
+  if (timer->COUNT16.INTFLAG.bit.MC1) { // Compare match, end bitplane early
+    timer->COUNT16.INTFLAG.bit.MC1 = 1; //   Clear match compare 1
+    _PM_matrix_oe_off(core);            //   Disable LED output, in core.c
+  }
+  // DO NOT 'else' here. It might be possible I think that both interrupt
+  // flags may get set in certain situations, in which case we want both
+  // to be handled (but do the compare match one first).
+  if (timer->COUNT16.INTFLAG.bit.OVF) { // Overflow? New bitplane...
+    timer->COUNT16.INTFLAG.bit.OVF = 1; //   Clear overflow flag
+    _PM_row_handler(core);              //   Load new row, in core.c
+  }
+#else
+  uint32_t bits = timer->COUNT16.INTFLAG.reg;
+  timer->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF | TC_INTFLAG_MC1;
+  if (bits & TC_INTFLAG_MC1) { // Compare match, end bitplane early
+    _PM_matrix_oe_off(core);    //   Disable LED output, in core.c
+  }
+  // DO NOT 'else' here. It might be possible I think that both interrupt
+  // flags may get set in certain situations, in which case we want both
+  // to be handled (but do the compare match one first).
+  if (bits & TC_INTFLAG_OVF) { // Overflow? New bitplane...
+    _PM_row_handler(core);      //   Load new row, in core.c
+  }
+#endif
+}
 
 #endif // END SAMD51/SAMD21

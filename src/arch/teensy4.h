@@ -130,11 +130,11 @@ void _PM_timerInit(void *tptr) {
 }
 
 // Set timer period, initialize count value to zero, enable timer.
-inline void _PM_timerStart(void *tptr, uint32_t period) {
+inline void _PM_timerStart(void *tptr, uint32_t top, uint32_t match) {
   IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
   timer->TCTRL = 0;      // Disable timer and interrupt
-  timer->LDVAL = period; // Set load value
-  // timer->CVAL = period; // And current value (just in case?)
+  timer->LDVAL = top; // Set load value
+  // timer->CVAL = top; // And current value (just in case?)
   timer->TFLG = 1;  // Clear timer interrupt
   timer->TCTRL = 3; // Enable timer and interrupt
 }

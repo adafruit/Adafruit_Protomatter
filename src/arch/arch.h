@@ -83,7 +83,11 @@ Timer-related macros/functions:
 _PM_timerFreq:               A numerical constant - the source clock rate
                              (in Hz) that's fed to the timer peripheral.
 _PM_timerInit(void*):        Initialize (but do not start) timer.
-_PM_timerStart(void*,count): (Re)start timer for a given timer-tick interval.
+_PM_timerStart(void*,a,b):   (Re)start timer for a given timer-tick interval,
+                             'a' is the top/overflow period (when the timer
+                             rolls over to zero), 'b' is a second shorter
+                             period that can be used to de-assert the OE
+                             line early (pass 0xFFFF to ignore).
 _PM_timerStop(void*):        Stop timer, return current timer counter value.
 _PM_timerGetCount(void*):    Get current timer counter value (whether timer
                              is running or stopped).
@@ -207,6 +211,6 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 #define _PM_PORT_TYPE uint32_t ///< PORT register size/type
 #endif
 
-#if !defined(_PM_MAX_BITPLANES)
-#define _PM_MAX_BITPLANES 6 ///< RGB bit depth handled by architecture
+#if !defined(_PM_maxBitplanes)
+#define _PM_maxBitplanes 6 ///< RGB bit depth handled by architecture
 #endif

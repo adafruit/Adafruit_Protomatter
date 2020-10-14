@@ -114,10 +114,10 @@ void _PM_timerInit(void *tptr) {
   NVIC_SetPriority(tim_irq, 0); // Top priority
 }
 
-inline void _PM_timerStart(void *tptr, uint32_t period) {
+inline void _PM_timerStart(void *tptr, uint32_t top, uint32_t match) {
   TIM_TypeDef *tim = tptr;
   tim->SR = 0;
-  tim->ARR = period;
+  tim->ARR = top;
   tim->CR1 |= TIM_CR1_CEN;
   tim->DIER |= TIM_DIER_UIE;
   HAL_NVIC_EnableIRQ(stm_peripherals_timer_get_irqnum(tim));

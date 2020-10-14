@@ -183,11 +183,11 @@ void _PM_timerInit(void *tptr) {
   NVIC_EnableIRQ(timer[timerNum].IRQn);
 }
 
-inline void _PM_timerStart(void *tptr, uint32_t period) {
+inline void _PM_timerStart(void *tptr, uint32_t top, uint32_t match) {
   volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
   tc->TASKS_STOP = 1;  // Stop timer
   tc->TASKS_CLEAR = 1; // Reset to 0
-  tc->CC[0] = period;
+  tc->CC[0] = top;
   tc->TASKS_START = 1; // Start timer
 }
 

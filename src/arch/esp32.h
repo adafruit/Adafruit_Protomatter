@@ -90,9 +90,10 @@ void _PM_timerInit(void *tptr) {
 }
 
 // Set timer period, initialize count value to zero, enable timer.
-IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
+IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t top,
+                                     uint32_t match) {
   hw_timer_t *timer = *(hw_timer_t **)tptr;
-  timerAlarmWrite(timer, period, true);
+  timerAlarmWrite(timer, top, true);
   timerAlarmEnable(timer);
   timerStart(timer);
 }

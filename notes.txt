@@ -1,0 +1,22 @@
+Code is now in the 'src' folder.
+arch.h has been split out into multiple files (one per architecture),
+in the 'arch' folder. There's still an arch.h file, but it mostly
+#includes the device-specific headers and then defaults any undefined
+items at the end.
+
+A few functions have been renamed:
+
+_PM_free(Protomatter_core *) is now _PM_deallocate(Protomatter_core *)
+_PM_setReg(bit) is now _PM_setBit(bit)
+_PM_clearReg(bit) is now _PM_clearBit(bit)
+_PM_ALLOCATOR(size) is now _PM_allocate(size)
+_PM_FREE(addr) is now _PM_free(addr)
+
+_PM_timerStart() now accepts two tick intervals. First is the overflow
+interval (when the per-bitplane switchover occurs), as before. Second is
+when the matrix OE line is de-asserted, if this needs to occur before the
+overflow interval (e.g. when brightness scaling or for gamma correction).
+Most architectures will ignore the second value for now because the
+necessary interrupt changes have not been made yet. Only SAMD51 uses it.
+If the second interval arg is omitted, the early OE de-assert does not
+occur, and the normal brief OE de-assert occurs in the bitplane switchover.

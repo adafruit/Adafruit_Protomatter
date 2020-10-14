@@ -70,6 +70,7 @@ public:
     @param  brightness  Initial matrix brightness setting,
                         0 = minimum (off), 255 = maximum (default if unset).
                         May not be supported by all architectures.
+                        See setBrightness() notes.
     @return A ProtomatterStatus status, one of:
             PROTOMATTER_OK if everything is good.
             PROTOMATTER_ERR_PINS if data and/or clock pins are split
@@ -79,17 +80,19 @@ public:
             PROTOMATTER_ERR_ARG if a bad value was passed to the
             constructor.
   */
-  ProtomatterStatus begin(uint8_t brightness=255);
+  ProtomatterStatus begin(uint8_t brightness = 255);
 
   /*!
     @brief  Change brightness of an already-running matrix.
             May not be supported by all architectures.
+            Brightness value is a linear scaling of the duty cycle,
+            NOT perceptual brightness -- a ~50% value here (127) will
+            halve the LEDs' duty cycle, but will likely appear more
+            than half as bright as 100%.
     @param  brightness  Brightness setting, 0 = minimum (off),
                         255 = maximum (default if unset).
   */
-  void setBrightness(uint8_t brightness = 255) {
-    core.brightness = brightness;
-  }
+  void setBrightness(uint8_t brightness = 255) { core.brightness = brightness; }
 
   /*!
     @brief Process data from GFXcanvas16 to the matrix framebuffer's

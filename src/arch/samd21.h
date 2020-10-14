@@ -118,17 +118,21 @@ void _PM_timerInit(void *tptr) {
 // Set timer period, initialize count value to zero, enable timer.
 // Timer must be initialized to 16-bit mode using the init function
 // above, but must be inactive before calling this.
-inline void _PM_timerStart(void *tptr, uint32_t period) {
+// 'top' is the timer rollover period, 'match' is a compare-match value
+// that can be used to de-assert the matrix OE line early (e.g. for
+// brightness or gamma correction).
+// This does not test the args for validity! Calling func should handle.
+// It's OK if match exceeds top; interrupt simply doesn't happen then.
+inline void _PM_timerStart(void *tptr, uint32_t top, uint32_t match) {
   Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
   tc->COUNT16.COUNT.reg = 0;
   while (tc->COUNT16.STATUS.bit.SYNCBUSY)
     ;
-  tc->COUNT16.CC[0].reg = period;
+  tc->COUNT16.CC[0].reg = top;
   while (tc->COUNT16.STATUS.bit.SYNCBUSY)
     ;
-  // Temporary: set compare match to huge value that never triggers
-  tc->COUNT16.CC[1].reg = 0xFFFF;
-  while (tc->COUNT16.SYNCBUSY.bit.CC1)
+  tc->COUNT16.CC[1].reg = match;
+  while (tc->COUNT16.STATUS.bit.SYNCBUSY)
     ;
   tc->COUNT16.CTRLA.bit.ENABLE = 1;
   while (tc->COUNT16.STATUS.bit.SYNCBUSY)

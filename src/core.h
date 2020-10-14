@@ -226,9 +226,12 @@ extern uint32_t _PM_getFrameCount(Protomatter_core *core);
   @param  tptr    Pointer to timer/counter peripheral OR a struct
                   encapsulating information about a timer/counter
                   periph (architecture-dependent).
-  @param  period  Timer 'top' / rollover value.
+  @param  top     Timer 'top' / rollover value.
+  @param  match   Timer 'match' value, can be used to de-assert the matrix
+                  OE line before the 'top' interval (e.g. for brightness or
+                  gamma correction), or pass 0xFFFFFFFF to ignore.
 */
-extern void _PM_timerStart(void *tptr, uint32_t period);
+extern void _PM_timerStart(void *tptr, uint32_t top, uint32_t match);
 
 /*!
   @brief  Stop timer/counter peripheral.
