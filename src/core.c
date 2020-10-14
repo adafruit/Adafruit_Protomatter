@@ -595,13 +595,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   // Set timer and enable LED output for data loaded on PRIOR pass:
   uint32_t top = core->bitZeroPeriod << prevPlane;
   uint32_t match = top * (core->brightness + 1) / 256;
-#if 1
-  // This is kind of not good -- the '12' figure is arch specific and an
-  // empirical kludge. See what can be done about the double interrupts.
-  if ((top - match) < 12) { // Don't trigger too close together
-#else
   if (top == match) { // Don't need match interrupt
-#endif
     match = 0xFFFF;
   }
   if (match > 0) {

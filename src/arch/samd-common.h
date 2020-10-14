@@ -91,31 +91,18 @@ void *_PM_protoPtr = NULL;
 void _PM_IRQ_HANDLER(void) {
   Protomatter_core *core = (Protomatter_core *)_PM_protoPtr;
   Tc *timer = core->timer;
-#if 0
-  if (timer->COUNT16.INTFLAG.bit.MC1) { // Compare match, end bitplane early
-    timer->COUNT16.INTFLAG.bit.MC1 = 1; //   Clear match compare 1
-    _PM_matrix_oe_off(core);            //   Disable LED output, in core.c
+  // If compare-match interrupt, end bitplane early...
+  if (timer->COUNT16.INTFLAG.bit.MC1) {
+    timer->COUNT16.INTFLAG.reg = TC_INTFLAG_MC1; // Clear interrupt flag
+    _PM_matrix_oe_off(core);                     // Disable LEDs (core.c)
   }
-  // DO NOT 'else' here. It might be possible I think that both interrupt
-  // flags may get set in certain situations, in which case we want both
-  // to be handled (but do the compare match one first).
-  if (timer->COUNT16.INTFLAG.bit.OVF) { // Overflow? New bitplane...
-    timer->COUNT16.INTFLAG.bit.OVF = 1; //   Clear overflow flag
-    _PM_row_handler(core);              //   Load new row, in core.c
+  // DON'T 'else' here -- it's possible both flags might be set, in which
+  // case both should be handled in the order here.
+  // If overflow interrupt, new bitplane and/or row...
+  if (timer->COUNT16.INTFLAG.bit.OVF) {
+    timer->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF; // Clear interrupt flag
+    _PM_row_handler(core);                       // Load new row (core.c)
   }
-#else
-  uint32_t bits = timer->COUNT16.INTFLAG.reg;
-  timer->COUNT16.INTFLAG.reg = TC_INTFLAG_OVF | TC_INTFLAG_MC1;
-  if (bits & TC_INTFLAG_MC1) { // Compare match, end bitplane early
-    _PM_matrix_oe_off(core);    //   Disable LED output, in core.c
-  }
-  // DO NOT 'else' here. It might be possible I think that both interrupt
-  // flags may get set in certain situations, in which case we want both
-  // to be handled (but do the compare match one first).
-  if (bits & TC_INTFLAG_OVF) { // Overflow? New bitplane...
-    _PM_row_handler(core);      //   Load new row, in core.c
-  }
-#endif
 }
 
 #endif // END SAMD51/SAMD21
