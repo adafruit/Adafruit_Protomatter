@@ -1,39 +1,46 @@
 /* ----------------------------------------------------------------------
 "Pixel dust" Protomatter library example. As written, this is
 SPECIFICALLY FOR THE ADAFRUIT MATRIXPORTAL M4 with 64x32 pixel matrix.
-(see "pixeldust_64x64" example for a 64x64 matrix), but could be adapted
-to other Protomatter-capable boards with an attached LIS3DH accelerometer.
+Change "HEIGHT" below for 64x64 matrix. Could also be adapted to other
+Protomatter-capable boards with an attached LIS3DH accelerometer.
 
 PLEASE SEE THE "simple" EXAMPLE FOR AN INTRODUCTORY SKETCH,
 or "doublebuffer" for animation basics.
 ------------------------------------------------------------------------- */
 
-#include <Wire.h>               // For I2C communication
-#include <Adafruit_LIS3DH.h>
-#include <Adafruit_PixelDust.h> // For simulation
-#include <Adafruit_Protomatter.h>
+#include <Wire.h>                 // For I2C communication
+#include <Adafruit_LIS3DH.h>      // For accelerometer
+#include <Adafruit_PixelDust.h>   // For sand simulation
+#include <Adafruit_Protomatter.h> // For RGB matrix
 
-#define WIDTH   64 // Display width in pixels
-#define HEIGHT  32 // Display height in pixels
+#define HEIGHT  32 // Matrix height (pixels) - SET TO 64 FOR 64x64 MATRIX!
+#define WIDTH   64 // Matrix width (pixels)
 #define MAX_FPS 45 // Maximum redraw rate, frames/second
 
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
+#if HEIGHT == 64 // 64-pixel tall matrices have 5 address lines:
+uint8_t addrPins[] = {17, 18, 19, 20, 21};
+#else            // 32-pixel tall matrices have 4 address lines:
 uint8_t addrPins[] = {17, 18, 19, 20};
+#endif
+
+// Remaining pins are the same for all matrix sizes. These values
+// are for MatrixPortal M4. See "simple" example for other boards.
+uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
 uint8_t clockPin   = 14;
 uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
 
-Adafruit_LIS3DH accel = Adafruit_LIS3DH();
-
 Adafruit_Protomatter matrix(
-  WIDTH, 4, 1, rgbPins, 4, addrPins, clockPin, latchPin, oePin, true);
+  WIDTH, 4, 1, rgbPins, sizeof(addrPins), addrPins,
+  clockPin, latchPin, oePin, true);
+
+Adafruit_LIS3DH accel = Adafruit_LIS3DH();
 
 #define N_COLORS   8
 #define BOX_HEIGHT 8
 #define N_GRAINS (BOX_HEIGHT*N_COLORS*8)
 uint16_t colors[N_COLORS];
 
-// Sand object, last 2 args are accelerometer scaling and grain elasticity
 Adafruit_PixelDust sand(WIDTH, HEIGHT, N_GRAINS, 1, 128, false);
 
 uint32_t prevTime = 0; // Used for frames-per-second throttle
@@ -50,19 +57,18 @@ void err(int x) {
 }
 
 void setup(void) {
-  uint8_t i, j, bytes;
   Serial.begin(115200);
   //while (!Serial) delay(10);
 
   ProtomatterStatus status = matrix.begin();
   Serial.printf("Protomatter begin() status: %d\n", status);
 
-  if  (!sand.begin()) {
+  if (!sand.begin()) {
     Serial.println("Couldn't start sand");
     err(1000); // Slow blink = malloc error
   }
 
-  if  (!accel.begin(0x19)) {
+  if (!accel.begin(0x19)) {
     Serial.println("Couldn't find accelerometer");
     err(250);  // Fast bink = I2C error
   }
