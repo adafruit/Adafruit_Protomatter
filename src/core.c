@@ -422,6 +422,16 @@ void _PM_resume(Protomatter_core *core) {
     core->swapBuffers = 0;
     core->frameCount = 0;
 
+    for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
+         line++, bit <<= 1) {
+      _PM_pinOutput(core->addr[line].pin);
+      if (core->prevRow & bit) {
+        _PM_pinHigh(core->addr[line].pin);
+      } else {
+        _PM_pinLow(core->addr[line].pin);
+      }
+    }
+
     _PM_timerInit(core->timer);        // Configure timer
     _PM_timerStart(core->timer, 1000); // Start timer
   }
