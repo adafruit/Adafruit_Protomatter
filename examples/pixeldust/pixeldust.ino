@@ -1,7 +1,21 @@
+/* ----------------------------------------------------------------------
+"Pixel dust" Protomatter library example. As written, this is
+SPECIFICALLY FOR THE ADAFRUIT MATRIXPORTAL M4 with 64x32 pixel matrix.
+(see "pixeldust_64x64" example for a 64x64 matrix), but could be adapted
+to other Protomatter-capable boards with an attached LIS3DH accelerometer.
+
+PLEASE SEE THE "simple" EXAMPLE FOR AN INTRODUCTORY SKETCH,
+or "doublebuffer" for animation basics.
+------------------------------------------------------------------------- */
+
 #include <Wire.h>               // For I2C communication
 #include <Adafruit_LIS3DH.h>
 #include <Adafruit_PixelDust.h> // For simulation
-#include "Adafruit_Protomatter.h"
+#include <Adafruit_Protomatter.h>
+
+#define WIDTH   64 // Display width in pixels
+#define HEIGHT  32 // Display height in pixels
+#define MAX_FPS 45 // Maximum redraw rate, frames/second
 
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
 uint8_t addrPins[] = {17, 18, 19, 20};
@@ -12,14 +26,9 @@ uint8_t oePin      = 16;
 Adafruit_LIS3DH accel = Adafruit_LIS3DH();
 
 Adafruit_Protomatter matrix(
-  64, 4, 1, rgbPins, 4, addrPins, clockPin, latchPin, oePin, true);
+  WIDTH, 4, 1, rgbPins, 4, addrPins, clockPin, latchPin, oePin, true);
 
-
-#define WIDTH        64 // Display width in pixels
-#define HEIGHT       32 // Display height in pixels
-#define MAX_FPS      45 // Maximum redraw rate, frames/second
-
-#define N_COLORS 8
+#define N_COLORS   8
 #define BOX_HEIGHT 8
 #define N_GRAINS (BOX_HEIGHT*N_COLORS*8)
 uint16_t colors[N_COLORS];
@@ -27,8 +36,7 @@ uint16_t colors[N_COLORS];
 // Sand object, last 2 args are accelerometer scaling and grain elasticity
 Adafruit_PixelDust sand(WIDTH, HEIGHT, N_GRAINS, 1, 128, false);
 
-
-uint32_t        prevTime   = 0;      // Used for frames-per-second throttle
+uint32_t prevTime = 0; // Used for frames-per-second throttle
 
 // SETUP - RUNS ONCE AT PROGRAM START --------------------------------------
 
@@ -59,7 +67,7 @@ void setup(void) {
     err(250);  // Fast bink = I2C error
   }
   accel.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!
-  
+
   //sand.randomize(); // Initialize random sand positions
 
   // Set up initial sand coordinates, in 8x8 blocks
@@ -76,19 +84,20 @@ void setup(void) {
   }
   Serial.printf("%d total pixels\n", n);
 
-  colors[0] = color565(64, 64, 64);   // Dark Gray
-  colors[1] = color565(120, 79, 23);   // Brown
-  colors[2] = color565(228,  3,  3);   // Red
-  colors[3] = color565(255,140,  0);   // Orange
-  colors[4] = color565(255,237,  0);   // Yellow
-  colors[5] = color565(  0,128, 38);   // Green
-  colors[6] = color565(  0, 77,255);   // Blue
-  colors[7] = color565(117,  7,135); // Purple  
+  colors[0] = color565(64, 64, 64);  // Dark Gray
+  colors[1] = color565(120, 79, 23); // Brown
+  colors[2] = color565(228,  3,  3); // Red
+  colors[3] = color565(255,140,  0); // Orange
+  colors[4] = color565(255,237,  0); // Yellow
+  colors[5] = color565(  0,128, 38); // Green
+  colors[6] = color565(  0, 77,255); // Blue
+  colors[7] = color565(117,  7,135); // Purple
 }
 
 uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
   return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
 }
+
 // MAIN LOOP - RUNS ONCE PER FRAME OF ANIMATION ----------------------------
 
 void loop() {
@@ -99,7 +108,7 @@ void loop() {
   uint32_t t;
   while(((t = micros()) - prevTime) < (1000000L / MAX_FPS));
   prevTime = t;
-  
+
   // Read accelerometer...
   sensors_event_t event;
   accel.getEvent(&event);
@@ -112,7 +121,7 @@ void loop() {
 
   // Run one frame of the simulation
   sand.iterate(xx, yy, zz);
-  
+
   //sand.iterate(-accel.y, accel.x, accel.z);
 
   // Update pixel data in LED driver
@@ -126,6 +135,4 @@ void loop() {
     //Serial.printf("(%d, %d)\n", x, y);
   }
   matrix.show(); // Copy data to matrix buffers
-  
-
 }
