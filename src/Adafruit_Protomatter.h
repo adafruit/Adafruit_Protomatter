@@ -94,6 +94,21 @@ public:
   */
   uint32_t getFrameCount(void);
 
+  /*!
+    @brief  Converts 24-bit color (8 bits red, green, blue) used in a lot
+            a lot of existing graphics code down to the "565" color format
+            used by Adafruit_GFX. Might get further quantized by matrix if
+            using less than 6-bit depth.
+    @param  red    Red brightness, 0 (min) to 255 (max).
+    @param  green  Green brightness, 0 (min) to 255 (max).
+    @param  blue   Blue brightness, 0 (min) to 255 (max).
+    @return Packed 16-bit (uint16_t) color value suitable for GFX drawing
+            functions.
+  */
+  uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
+    return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
+  }
+
 private:
   Protomatter_core core;             // Underlying C struct
   void convert_byte(uint8_t *dest);  // GFXcanvas16-to-matrix

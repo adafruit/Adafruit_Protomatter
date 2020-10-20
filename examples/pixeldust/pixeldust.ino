@@ -90,18 +90,14 @@ void setup(void) {
   }
   Serial.printf("%d total pixels\n", n);
 
-  colors[0] = color565(64, 64, 64);  // Dark Gray
-  colors[1] = color565(120, 79, 23); // Brown
-  colors[2] = color565(228,  3,  3); // Red
-  colors[3] = color565(255,140,  0); // Orange
-  colors[4] = color565(255,237,  0); // Yellow
-  colors[5] = color565(  0,128, 38); // Green
-  colors[6] = color565(  0, 77,255); // Blue
-  colors[7] = color565(117,  7,135); // Purple
-}
-
-uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
-  return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
+  colors[0] = matrix.color565(64, 64, 64);  // Dark Gray
+  colors[1] = matrix.color565(120, 79, 23); // Brown
+  colors[2] = matrix.color565(228,  3,  3); // Red
+  colors[3] = matrix.color565(255,140,  0); // Orange
+  colors[4] = matrix.color565(255,237,  0); // Yellow
+  colors[5] = matrix.color565(  0,128, 38); // Green
+  colors[6] = matrix.color565(  0, 77,255); // Blue
+  colors[7] = matrix.color565(117,  7,135); // Purple
 }
 
 // MAIN LOOP - RUNS ONCE PER FRAME OF ANIMATION ----------------------------

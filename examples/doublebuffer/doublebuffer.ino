@@ -131,9 +131,9 @@ void setup(void) {
   textY = matrix.height() / 2 - (y1 + h / 2); // Center text vertically
 
   // Set up the colors of the bouncy balls.
-  ballcolor[0] = color565(0, 20, 0); // Dark green
-  ballcolor[1] = color565(0, 0, 20); // Dark blue
-  ballcolor[2] = color565(20, 0, 0); // ark red
+  ballcolor[0] = matrix.color565(0, 20, 0); // Dark green
+  ballcolor[1] = matrix.color565(0, 0, 20); // Dark blue
+  ballcolor[2] = matrix.color565(20, 0, 0); // ark red
 }
 
 // LOOP - RUNS REPEATEDLY AFTER SETUP --------------------------------------
@@ -173,14 +173,4 @@ void loop(void) {
   matrix.show();
 
   delay(20); // 20 milliseconds = ~50 frames/second
-}
-
-// Utility function converts 24-bit color (8 bits red, green, blue) used in
-// a lot of existing graphics code down to the "565" color format used by
-// Adafruit_GFX. Might get further quantized by matrix if using less than
-// 6-bit depth.
-uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
-  return ((red   & 0b11111000) << 8) |
-         ((green & 0b11111100) << 3) |
-         ( blue                >> 3);
 }

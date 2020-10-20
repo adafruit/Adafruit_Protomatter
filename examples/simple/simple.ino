@@ -145,33 +145,24 @@ void setup(void) {
   // Make four color bars (red, green, blue, white) with brightness ramp:
   for(int x=0; x<matrix.width(); x++) {
     uint8_t level = x * 256 / matrix.width(); // 0-255 brightness
-    matrix.drawPixel(x, matrix.height() - 4, color565(level, 0, 0));
-    matrix.drawPixel(x, matrix.height() - 3, color565(0, level, 0));
-    matrix.drawPixel(x, matrix.height() - 2, color565(0, 0, level));
-    matrix.drawPixel(x, matrix.height() - 1, color565(level, level, level));
+    matrix.drawPixel(x, matrix.height() - 4, matrix.color565(level, 0, 0));
+    matrix.drawPixel(x, matrix.height() - 3, matrix.color565(0, level, 0));
+    matrix.drawPixel(x, matrix.height() - 2, matrix.color565(0, 0, level));
+    matrix.drawPixel(x, matrix.height() - 1,
+                     matrix.color565(level, level, level));
   }
   // You'll notice the ramp looks smoother as bit depth increases
   // (second argument to the matrix constructor call above setup()).
 
   // Simple shapes and text, showing GFX library calls:
-  matrix.drawCircle(12, 10, 9, color565(255, 0, 0));               // Red
-  matrix.drawRect(14, 6, 17, 17, color565(0, 255, 0));             // Green
-  matrix.drawTriangle(32, 9, 41, 27, 23, 27, color565(0, 0, 255)); // Blue
+  matrix.drawCircle(12, 10, 9, matrix.color565(255, 0, 0));
+  matrix.drawRect(14, 6, 17, 17, matrix.color565(0, 255, 0));
+  matrix.drawTriangle(32, 9, 41, 27, 23, 27, matrix.color565(0, 0, 255));
   matrix.println("ADAFRUIT"); // Default text color is white
 
   // AFTER DRAWING, A show() CALL IS REQUIRED TO UPDATE THE MATRIX!
 
   matrix.show(); // Copy data to matrix buffers
-}
-
-// Utility function converts 24-bit color (8 bits red, green, blue) used in
-// a lot of existing graphics code down to the "565" color format used by
-// Adafruit_GFX. Might get further quantized by matrix if using less than
-// 6-bit depth.
-uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
-  return ((red   & 0b11111000) << 8) |
-         ((green & 0b11111100) << 3) |
-         ( blue                >> 3);
 }
 
 // LOOP - RUNS REPEATEDLY AFTER SETUP --------------------------------------
