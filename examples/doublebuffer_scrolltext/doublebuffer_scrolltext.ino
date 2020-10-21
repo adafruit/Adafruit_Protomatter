@@ -129,6 +129,10 @@ void setup(void) {
   matrix.getTextBounds(str, 0, 0, &x1, &y1, &w, &h); // How big is it?
   textMin = -w; // All text is off left edge when it reaches this point
   textY = matrix.height() / 2 - (y1 + h / 2); // Center text vertically
+  // Note: when making scrolling text like this, the setTextWrap(false)
+  // call is REQUIRED (to allow text to go off the edge of the matrix),
+  // AND it must be BEFORE the getTextBounds() call (or else that will
+  // return the bounds of "wrapped" text).
 
   // Set up the colors of the bouncy balls.
   ballcolor[0] = matrix.color565(0, 20, 0); // Dark green
