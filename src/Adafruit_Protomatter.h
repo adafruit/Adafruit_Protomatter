@@ -85,6 +85,16 @@ public:
   void show(void);
 
   /*!
+    @brief Disable (but do not deallocate) a Protomatter matrix.
+  */
+  void stop(void) { _PM_stop(&core); }
+
+  /*!
+    @brief Resume a previously-stopped matrix.
+  */
+  void resume(void) { _PM_resume(&core); }
+
+  /*!
     @brief  Returns current value of frame counter and resets its value
             to zero. Two calls to this, timed one second apart (or use
             math with other intervals), can be used to get a rough

@@ -1,9 +1,8 @@
 // Play GIFs from CIRCUITPY drive (USB-accessible filesystem) to LED matrix.
 // ***DESIGNED FOR ADAFRUIT MATRIXPORTAL M4***, but may run on some other
 // M4 & M0 and nRF52 boards (relies on TinyUSB stack). As written, runs on
-// 64x32 pixel matrix, this can be changed by editing the addrPins[] array
-// (height) and/or matrix constructor call (width). See the "simple" example
-// for a run-down on matrix configuration.
+// 64x32 pixel matrix, this can be changed by editing the WIDTH and HEIGHT
+// definitions. See the "simple" example for a run-down on matrix config.
 // Adapted from examples from Larry Bank's AnimatedGIF library and
 // msc_external_flash example in Adafruit_TinyUSB_Arduino.
 // Prerequisite libraries:
@@ -26,6 +25,10 @@
 
 char GIFpath[] = "/gifs";     // Absolute path to GIFs on CIRCUITPY drive
 uint16_t GIFminimumTime = 10; // Min. repeat time (seconds) until next GIF
+#define WIDTH  64             // Matrix width in pixels
+#define HEIGHT 32             // Matrix height in pixels
+// Maximim matrix height is 32px on most boards, 64 on MatrixPortal if the
+// 'E' jumper is set.
 
 // FLASH FILESYSTEM STUFF --------------------------------------------------
 
@@ -47,7 +50,7 @@ Adafruit_USBD_MSC usb_msc; // USB mass storage object
 
 #if defined(_VARIANT_MATRIXPORTAL_M4_)
 uint8_t rgbPins[] = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20};
+uint8_t addrPins[] = {17, 18, 19, 20, 21}; // 16/32/64 pixels tall
 uint8_t clockPin = 14;
 uint8_t latchPin = 15;
 uint8_t oePin = 16;
@@ -55,20 +58,26 @@ uint8_t oePin = 16;
 #define NEXT_BUTTON 3
 #elif defined(_VARIANT_METRO_M4_)
 uint8_t rgbPins[] = {2, 3, 4, 5, 6, 7};
-uint8_t addrPins[] = {A0, A1, A2, A3};
+uint8_t addrPins[] = {A0, A1, A2, A3}; // 16 or 32 pixels tall
 uint8_t clockPin = A4;
 uint8_t latchPin = 10;
 uint8_t oePin = 9;
 #elif defined(_VARIANT_FEATHER_M4_)
 uint8_t rgbPins[] = {6, 5, 9, 11, 10, 12};
-uint8_t addrPins[] = {A5, A4, A3, A2};
+uint8_t addrPins[] = {A5, A4, A3, A2}; // 16 or 32 pixels tall
 uint8_t clockPin = 13;
 uint8_t latchPin = 0;
 uint8_t oePin = 1;
 #endif
+#if HEIGHT == 16
+#define NUM_ADDR_PINS 3
+#elif HEIGHT == 32
+#define NUM_ADDR_PINS 4
+#elif HEIGHT == 64
+#define NUM_ADDR_PINS 5
+#endif
 
-// Matrix width is first arg here, height is inferred from addrPins[]
-Adafruit_Protomatter matrix(64, 6, 1, rgbPins, sizeof addrPins, addrPins,
+Adafruit_Protomatter matrix(WIDTH, 6, 1, rgbPins, NUM_ADDR_PINS, addrPins,
                             clockPin, latchPin, oePin, true);
 
 // ANIMATEDGIF LIBRARY STUFF -----------------------------------------------
@@ -333,7 +342,6 @@ void loop() {
       GIFisOpen = false;
     }
     GIFindex += GIFincrement; // Fwd or back 1 file
-    GIFincrement = 0;         // Reset increment flag
     int num_files = numFiles(GIFpath, "GIF");
     if(GIFindex >= num_files) GIFindex = 0;         // 'Wrap around' file index
     else if(GIFindex < 0) GIFindex = num_files - 1; // both directions
@@ -352,15 +360,17 @@ void loop() {
         yPos = (matrix.height() - GIF.getCanvasHeight()) / 2;
         GIFisOpen = true;
         GIFstartTime = millis();
+        GIFincrement = 0; // Reset increment flag
       }
     }
   } else if(GIFisOpen) {
-    if (GIF.playFrame(true, NULL)) {
+    if (GIF.playFrame(true, NULL) >= 0) { // Auto resets to start if needed
       matrix.show();
-    } else if ((millis() - GIFstartTime) < (GIFminimumTime * 1000)) {
-      GIF.reset(); // Minimum time hasn't elapsed yet, repeat this GIF
+      if ((millis() - GIFstartTime) >= (GIFminimumTime * 1000)) {
+        GIFincrement = 1; // Minimum time has elapsed, proceed to next GIF
+      }
     } else {
-      GIFincrement = 1; // Minimum time has elapsed, proceed to next GIF
+      GIFincrement = 1; // Decode error, proceed to next GIF
     }
   }
 }
