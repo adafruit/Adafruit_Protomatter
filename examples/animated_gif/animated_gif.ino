@@ -89,7 +89,7 @@ int16_t xPos = 0, yPos = 0; // Top-left pixel coord of GIF in matrix space
 // FILE ACCESS FUNCTIONS REQUIRED BY ANIMATED GIF LIB ----------------------
 
 // Pass in ABSOLUTE PATH of GIF file to open
-void *GIFOpenFile(char *filename, int32_t *pSize) {
+void *GIFOpenFile(const char *filename, int32_t *pSize) {
   GIFfile = filesys.open(filename);
   if (GIFfile) {
     *pSize = GIFfile.size();
