@@ -11,7 +11,8 @@
             library. Subclass of Adafruit_GFX's GFXcanvas16 to allow all
             the drawing operations.
 */
-class Adafruit_Protomatter_Chain : public GFXcanvas16 {
+class Adafruit_Protomatter_Chain : public GFXcanvas16
+{
 public:
   /*!
     @brief  Adafruit_Protomatter constructor.
@@ -61,9 +62,9 @@ public:
                           use a default timer ID (also arch-dependent).
   */
   Adafruit_Protomatter_Chain(uint16_t displayWidth, uint16_t displayHeight, uint16_t bitWidth, uint8_t bitDepth, uint8_t rgbCount,
-                       uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList,
-                       uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-                       bool doubleBuffer, void *timer = NULL);
+                             uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList,
+                             uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
+                             bool doubleBuffer, void *timer = NULL);
 
   ~Adafruit_Protomatter_Chain(void);
 
@@ -118,7 +119,8 @@ public:
     @return Packed 16-bit (uint16_t) color value suitable for GFX drawing
             functions.
   */
-  uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
+  uint16_t color565(uint8_t red, uint8_t green, uint8_t blue)
+  {
     return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
   }
 
@@ -129,7 +131,7 @@ private:
   */
   void correctBuffer();
 
-  Protomatter_core core;             // Underlying C struct
+  Protomatter_core core; // Underlying C struct
   uint16_t *correctedBuffer;
   uint16_t bWidth;
   void convert_byte(uint8_t *dest);  // GFXcanvas16-to-matrix
