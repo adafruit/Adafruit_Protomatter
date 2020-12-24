@@ -43,21 +43,18 @@
 
 extern Protomatter_core *_PM_protoPtr; ///< In core.c (via arch.h)
 
-Adafruit_Protomatter_Chain::Adafruit_Protomatter_Chain(uint16_t displayWidth, uint16_t displayHeight, uint16_t bitWidth, uint8_t bitDepth,
-                                                       uint8_t rgbCount, uint8_t *rgbList,
-                                                       uint8_t addrCount, uint8_t *addrList,
-                                                       uint8_t clockPin, uint8_t latchPin,
-                                                       uint8_t oePin, bool doubleBuffer,
-                                                       void *timer)
-    : GFXcanvas16(displayWidth, displayHeight)
-{
+Adafruit_Protomatter_Chain::Adafruit_Protomatter_Chain(
+    uint16_t displayWidth, uint16_t displayHeight, uint16_t bitWidth,
+    uint8_t bitDepth, uint8_t rgbCount, uint8_t *rgbList, uint8_t addrCount,
+    uint8_t *addrList, uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
+    bool doubleBuffer, void *timer)
+    : GFXcanvas16(displayWidth, displayHeight) {
   if (bitDepth > 6)
     bitDepth = 6; // GFXcanvas16 color limit (565)
 
   bWidth = bitWidth;
   uint32_t bytes = displayWidth * displayHeight * 2;
-  if ((correctedBuffer = (uint16_t *)malloc(bytes)))
-  {
+  if ((correctedBuffer = (uint16_t *)malloc(bytes))) {
     memset(correctedBuffer, 0, bytes);
   }
 
@@ -70,16 +67,14 @@ Adafruit_Protomatter_Chain::Adafruit_Protomatter_Chain(uint16_t displayWidth, ui
                  addrList, clockPin, latchPin, oePin, doubleBuffer, timer);
 }
 
-Adafruit_Protomatter_Chain::~Adafruit_Protomatter_Chain(void)
-{
+Adafruit_Protomatter_Chain::~Adafruit_Protomatter_Chain(void) {
   _PM_deallocate(&core);
   _PM_protoPtr = NULL;
   if (correctedBuffer)
     free(correctedBuffer);
 }
 
-ProtomatterStatus Adafruit_Protomatter_Chain::begin(void)
-{
+ProtomatterStatus Adafruit_Protomatter_Chain::begin(void) {
   _PM_protoPtr = &core;
   return _PM_begin(&core);
 }
@@ -87,15 +82,13 @@ ProtomatterStatus Adafruit_Protomatter_Chain::begin(void)
 // Transfer data from GFXcanvas16 to the matrix framebuffer's weird
 // internal format. The actual conversion functions referenced below
 // are in core.c, reasoning is explained there.
-void Adafruit_Protomatter_Chain::show(void)
-{
+void Adafruit_Protomatter_Chain::show(void) {
   correctBuffer();
   _PM_convert_565(&core, correctedBuffer, bWidth);
   _PM_swapbuffer_maybe(&core);
 }
 
-void Adafruit_Protomatter_Chain::correctBuffer()
-{
+void Adafruit_Protomatter_Chain::correctBuffer() {
   int16_t displayWidth = width();
   int16_t displayHeight = height();
 
@@ -105,15 +98,16 @@ void Adafruit_Protomatter_Chain::correctBuffer()
 
   // Loop through the entire display
   // Map the pixels from the display to the correct pixels on the matricies
-  for (int row = 0; row < (displayHeight / 2); row++)
-  {
-    for (int col = 0; col < displayWidth; col++)
-    {
+  for (int row = 0; row < (displayHeight / 2); row++) {
+    for (int col = 0; col < displayWidth; col++) {
       uint16_t *upperSource = upperdisplay + (row * displayWidth) + col;
       uint16_t *lowerSource = lowerdisplay + (row * displayWidth) + col;
 
-      uint16_t *upperDest = correctedBuffer + ((displayHeight / 2 - row) * displayWidth * 2) - (displayWidth + col + 1);
-      uint16_t *lowerDest = correctedBuffer + (2 * row * displayWidth) + displayWidth + col;
+      uint16_t *upperDest = correctedBuffer +
+                            ((displayHeight / 2 - row) * displayWidth * 2) -
+                            (displayWidth + col + 1);
+      uint16_t *lowerDest =
+          correctedBuffer + (2 * row * displayWidth) + displayWidth + col;
 
       *upperDest = *upperSource;
       *lowerDest = *lowerSource;
@@ -125,7 +119,6 @@ void Adafruit_Protomatter_Chain::correctBuffer()
 // Two calls to this, timed one second apart (or use math with other
 // intervals), can be used to get a rough frames-per-second value for
 // the matrix (since this is difficult to estimate beforehand).
-uint32_t Adafruit_Protomatter_Chain::getFrameCount(void)
-{
+uint32_t Adafruit_Protomatter_Chain::getFrameCount(void) {
   return _PM_getFrameCount(_PM_protoPtr);
 }
