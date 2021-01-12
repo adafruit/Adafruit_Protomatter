@@ -47,7 +47,7 @@ Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
                                            uint8_t addrCount, uint8_t *addrList,
                                            uint8_t clockPin, uint8_t latchPin,
                                            uint8_t oePin, bool doubleBuffer,
-                                           void *timer)
+                                           int8_t tile, void *timer)
     : GFXcanvas16(bitWidth,
                   (2 << min((int)addrCount, 5)) * min((int)rgbCount, 5)) {
   if (bitDepth > 6)
@@ -59,7 +59,8 @@ Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
   // The class begin() function checks rgbPins for NULL to determine
   // whether to proceed or indicate an error.
   (void)_PM_init(&core, bitWidth, bitDepth, rgbCount, rgbList, addrCount,
-                 addrList, clockPin, latchPin, oePin, doubleBuffer, timer);
+                 addrList, clockPin, latchPin, oePin, doubleBuffer, tile,
+                 timer);
 }
 
 Adafruit_Protomatter::~Adafruit_Protomatter(void) {

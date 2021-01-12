@@ -86,17 +86,19 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
                            uint8_t bitDepth, uint8_t rgbCount, uint8_t *rgbList,
                            uint8_t addrCount, uint8_t *addrList,
                            uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-                           bool doubleBuffer, void *timer) {
+                           bool doubleBuffer, int8_t tile, void *timer) {
   if (!core)
     return PROTOMATTER_ERR_ARG;
 
+  // bitDepth is NOT constrained here, handle in calling function
+  // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
+  // but might be more or less elsewhere)
   if (rgbCount > 5)
     rgbCount = 5; // Max 5 in parallel (32-bit PORT)
   if (addrCount > 5)
     addrCount = 5; // Max 5 address lines (A-E)
-    // bitDepth is NOT constrained here, handle in calling function
-    // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
-    // but might be more or less elsewhere)
+  if (!tile)
+    tile = 1; // Can't have zero vertical tiling. Single matrix is 1.
 
 #if defined(_PM_TIMER_DEFAULT)
   // If NULL timer was passed in (the default case for the constructor),
@@ -110,7 +112,9 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
 #endif
 
   core->timer = timer;
-  core->width = bitWidth; // Total matrix chain length in bits
+  core->width = bitWidth; // Matrix chain width in bits (NOT including V tile)
+  core->tile = tile;      // Matrix chain vertical tiling
+  core->chainBits = bitWidth * abs(tile); // Total matrix chain bits
   core->numPlanes = bitDepth;
   core->parallel = rgbCount;
   core->numAddressLines = addrCount;
@@ -211,7 +215,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
 
   // Planning for screen data allocation...
   core->numRowPairs = 1 << core->numAddressLines;
-  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
   uint16_t columns = chunks * _PM_chunkSize; // Padded matrix width
   uint32_t screenBytes =
       columns * core->numRowPairs * core->numPlanes * core->bytesPerElement;
@@ -317,7 +321,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // Make a wild guess for the initial bit-zero interval. It's okay
   // that this is off, code adapts to actual timer results pretty quick.
 
-  core->bitZeroPeriod = core->width * 5; // Initial guesstimate
+  core->bitZeroPeriod = core->chainBits * 5; // Initial guesstimate
 
   core->activeBuffer = 0;
 
@@ -401,7 +405,7 @@ void _PM_stop(Protomatter_core *core) {
       _PM_pinLow(core->rgbPins[i]);
     }
     // Clock out bits (just need to toggle clock with RGBs held low)
-    for (uint32_t i = 0; i < core->width; i++) {
+    for (uint32_t i = 0; i < core->chainBits; i++) {
       _PM_pinHigh(core->clockPin);
       _PM_clockHoldHigh;
       _PM_pinLow(core->clockPin);
@@ -560,7 +564,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   _PM_clearReg(core->oe);   // Enable LED output
 
   uint32_t elementsPerLine =
-      _PM_chunkSize * ((core->width + (_PM_chunkSize - 1)) / _PM_chunkSize);
+      _PM_chunkSize * ((core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize);
   uint32_t srcOffset = elementsPerLine *
                        (core->numPlanes * core->row + core->plane) *
                        core->bytesPerElement;
@@ -684,7 +688,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
-  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
 
   // PORT has already been initialized with RGB data + clock bits
   // all LOW, so we don't need to initialize that state here.
@@ -714,7 +718,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
   uint8_t shift = core->portOffset * 8;
-  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
 
   // PORT has already been initialized with RGB data + clock bits
   // all LOW, so we don't need to initialize that state here.
@@ -747,7 +751,7 @@ IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
-  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
   while (chunks--) {
     PEW_UNROLL // _PM_chunkSize RGB+clock writes
   }
@@ -768,7 +772,7 @@ IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
   uint8_t shift = core->portOffset * 16;
-  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
   while (chunks--) {
     PEW_UNROLL // _PM_chunkSize RGB+clock writes
   }
@@ -799,7 +803,7 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
 #if defined(_PM_STRICT_32BIT_IO)
   uint8_t shift = 0;
 #endif
-  uint8_t chunks = (core->width + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
   while (chunks--) {
     PEW_UNROLL // _PM_chunkSize RGB+clock writes
   }

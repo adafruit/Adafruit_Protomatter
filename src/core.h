@@ -72,7 +72,8 @@ typedef struct {
   uint32_t bitZeroPeriod;        ///< Bitplane 0 timer period
   uint32_t minPeriod;            ///< Plane 0 timer period for ~250Hz
   volatile uint32_t frameCount;  ///< For estimating refresh rate
-  uint16_t width;                ///< Matrix chain width in bits
+  uint16_t width;                ///< Matrix chain width only in bits
+  uint16_t chainBits;            ///< Matrix chain width*tiling in bits
   uint8_t bytesPerElement;       ///< Using 8, 16 or 32 bits of PORT?
   uint8_t clockPin;              ///< RGB clock pin identifier
   uint8_t parallel;              ///< Number of concurrent matrix outs
@@ -80,6 +81,7 @@ typedef struct {
   uint8_t portOffset;            ///< Active 8- or 16-bit pos. in PORT
   uint8_t numPlanes;             ///< Display bitplanes (1 to 6)
   uint8_t numRowPairs;           ///< Addressable row pairs
+  int8_t tile;                   ///< Vertical tiling repetitions
   bool doubleBuffer;             ///< 2X buffers for clean switchover
   bool singleAddrPort;           ///< If 1, all addr lines on same PORT
   volatile uint8_t activeBuffer; ///< Index of currently-displayed buf
@@ -135,6 +137,14 @@ typedef struct {
   @param  doubleBuffer  If true, two matrix buffers are allocated,
                         so changing display contents doesn't introduce
                         artifacts mid-conversion. Requires ~2X RAM.
+  @param  tile          If multiple matrices are chained and stacked
+                        vertically (rather than or in addition to
+                        horizontally), the number of vertical tiles is
+                        specified here. Positive values indicate a
+                        "progressive" arrangement (always left-to-right),
+                        negative for a "serpentine" arrangement (alternating
+                        180 degree orientation). Horizontal tiles are implied
+                        in the 'bitWidth' argument.
   @param  timer         Pointer to timer peripheral or timer-related
                         struct (architecture-dependent), or NULL to
                         use a default timer ID (also arch-dependent).
@@ -152,7 +162,7 @@ extern ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
                                   uint8_t *rgbList, uint8_t addrCount,
                                   uint8_t *addrList, uint8_t clockPin,
                                   uint8_t latchPin, uint8_t oePin,
-                                  bool doubleBuffer, void *timer);
+                                  bool doubleBuffer, int8_t tile, void *timer);
 
 /*!
   @brief  Allocate display buffers and populate additional elements of a

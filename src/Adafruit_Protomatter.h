@@ -54,6 +54,14 @@ public:
     @param  doubleBuffer  If true, two matrix buffers are allocated,
                           so changing display contents doesn't introduce
                           artifacts mid-conversion. Requires ~2X RAM.
+    @param  tile          If multiple matrices are chained and stacked
+                          vertically (rather than or in addition to
+                          horizontally), the number of vertical tiles is
+                          specified here. Positive values indicate a
+                          "progressive" arrangement (always left-to-right),
+                          negative for a "serpentine" arrangement (alternating
+                          180 degree orientation). Horizontal tiles are implied
+                          in the 'bitWidth' argument.
     @param  timer         Pointer to timer peripheral or timer-related
                           struct (architecture-dependent), or NULL to
                           use a default timer ID (also arch-dependent).
@@ -61,7 +69,7 @@ public:
   Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth, uint8_t rgbCount,
                        uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList,
                        uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-                       bool doubleBuffer, void *timer = NULL);
+                       bool doubleBuffer, int8_t tile = 1, void *timer = NULL);
   ~Adafruit_Protomatter(void);
 
   /*!
