@@ -843,11 +843,10 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
 // 16-bit (565) color conversion functions go here (rather than in the
 // Arduino lib .cpp) because knowledge is required of chunksize and the
 // toggle register (or lack thereof), which are only known to this file,
-// not the .cpp or anywhere else
-// However...this file knows nothing of the GFXcanvas16 type (from
-// Adafruit_GFX...another C++ lib), so the .cpp just passes down some
-// pointers and minimal info about the canvas buffer.
-// It's probably not ideal but this is my life now, oh well.
+// not the .cpp or anywhere else. However...this file knows nothing of
+// the GFXcanvas16 type (from Adafruit_GFX...another C++ lib), so the
+// .cpp just passes down some pointers and minimal info about the canvas
+// buffer. It's probably not ideal but this is my life now, oh well.
 
 // Different runtime environments (which might not use the 565 canvas
 // format) will need their own conversion functions.
@@ -860,13 +859,11 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
 
 // width argument comes from GFX canvas width, which may be less than
 // core's bitWidth (due to padding). height isn't needed, it can be
-// inferred from core->numRowPairs.
+// inferred from core->numRowPairs and core->tile.
 __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
                                                     const uint16_t *source,
                                                     uint16_t width) {
-  const uint16_t *upperSrc = source; // Canvas top half
-  const uint16_t *lowerSrc =
-      source + width * core->numRowPairs;      // " bottom half
+  uint16_t *upperSrc, *lowerSrc;               // Canvas scanline pointers
   uint8_t *pinMask = (uint8_t *)core->rgbMask; // Pin bitmasks
   uint8_t *dest = (uint8_t *)core->screenData;
   if (core->doubleBuffer) {
@@ -889,10 +886,11 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
 
   // Determine matrix bytes per bitplane & row (row pair really):
 
+  // Size of 1 plane of row pair (across full chain / tile set)
   uint32_t bitplaneSize =
       _PM_chunkSize *
-      ((width + (_PM_chunkSize - 1)) / _PM_chunkSize); // 1 plane of row pair
-  uint8_t pad = bitplaneSize - width;                  // Start-of-plane pad
+      ((core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize);
+  uint8_t pad = bitplaneSize - core->chainBits; // Plane-start pad
 
   // Skip initial scanline padding if present (HUB75 matrices shift data
   // in from right-to-left, so if we need scanline padding it occurs at
@@ -924,6 +922,30 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     initialBlueBit = 0b0000000000000001 << shiftLeft;
   }
 
+  int16_t xStart, xEnd, xInc;
+  int32_t srcInc;
+
+// Should tile loop be outermost or inside the row loop?
+for (uint8_t tile = 0; tile < abs(core->tile); tile++) {
+  if ((tile & 1) && (core->tile < 0)) {
+    // Special handling for serpentine tiles
+    xStart = width - 1;
+    xEnd = -1;
+    xInc = -1;
+// Tiles are pushed lowest first!
+    lowerSrc = source + (abs(core->tile) - 1 - tile) * width * core->numRowPairs * 2 - width;
+    upperSrc = lowerSrc - width * core->numRowPairs;
+    srcInc = -width;
+  } else {
+    // Progressive tile
+    xStart = 0;
+    xEnd = width;
+    xInc = 1;
+    upperSrc = source + abs(core->tile - 1 - tile) * width * core->numRowPairs * 2; // Top row
+    lowerSrc = upperSrc + width * core->numRowPairs;          // Bottom row
+    srcInc = width;
+  }
+
   // This works sequentially-ish through the destination buffer,
   // reading from the canvas source pixels in repeated passes,
   // beginning from the least bit.
@@ -935,7 +957,8 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
 #if defined(_PM_portToggleRegister)
       uint8_t prior = clockMask; // Set clock bit on 1st out
 #endif
-      for (uint16_t x = 0; x < width; x++) {
+//      for (uint16_t x = 0; x < width; x++) {
+      for(int16_t x = xStart; x != xEnd; x += xInc) {
         uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
         uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
         uint8_t result = 0;
@@ -982,9 +1005,10 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
 #endif
       dest += bitplaneSize; // Advance one scanline in dest buffer
     }                       // end plane
-    upperSrc += width;      // Advance one scanline in source buffer
-    lowerSrc += width;
+    upperSrc += srcInc;     // Advance one scanline in source buffer
+    lowerSrc += srcInc;
   } // end row
+} // end tile
 }
 
 // Corresponding function for word output -- either 12 RGB bits (2 parallel

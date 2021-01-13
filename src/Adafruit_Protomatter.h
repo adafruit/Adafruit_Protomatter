@@ -127,6 +127,23 @@ public:
     return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
   }
 
+  /*!
+    @brief   Convert hue, saturation and value into a packed 16-bit RGB color
+             that can be passed to GFX drawing functions.
+    @param   hue  An unsigned 16-bit value, 0 to 65535, representing one full
+                  loop of the color wheel, which allows 16-bit hues to "roll
+                  over" while still doing the expected thing (and allowing
+                  more precision than the wheel() function that was common to
+                  older graphics examples).
+    @param   sat  Saturation, 8-bit value, 0 (min or pure grayscale) to 255
+                  (max or pure hue). Default of 255 if unspecified.
+    @param   val  Value (brightness), 8-bit value, 0 (min / black / off) to
+                  255 (max or full brightness). Default of 255 if unspecified.
+    @return  Packed 16-bit '565' RGB color. Result is linearly but not
+             perceptually correct (no gamma correction).
+  */
+  uint16_t colorHSV(uint16_t hue, uint8_t sat = 255, uint8_t val = 255);
+
 private:
   Protomatter_core core;             // Underlying C struct
   void convert_byte(uint8_t *dest);  // GFXcanvas16-to-matrix
