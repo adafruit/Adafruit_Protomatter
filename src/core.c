@@ -863,7 +863,6 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
 __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
                                                     const uint16_t *source,
                                                     uint16_t width) {
-  uint16_t *upperSrc, *lowerSrc;               // Canvas scanline pointers
   uint8_t *pinMask = (uint8_t *)core->rgbMask; // Pin bitmasks
   uint8_t *dest = (uint8_t *)core->screenData;
   if (core->doubleBuffer) {
@@ -922,30 +921,6 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     initialBlueBit = 0b0000000000000001 << shiftLeft;
   }
 
-  int16_t xStart, xEnd, xInc;
-  int32_t srcInc;
-
-// Should tile loop be outermost or inside the row loop?
-for (uint8_t tile = 0; tile < abs(core->tile); tile++) {
-  if ((tile & 1) && (core->tile < 0)) {
-    // Special handling for serpentine tiles
-    xStart = width - 1;
-    xEnd = -1;
-    xInc = -1;
-// Tiles are pushed lowest first!
-    lowerSrc = source + (abs(core->tile) - 1 - tile) * width * core->numRowPairs * 2 - width;
-    upperSrc = lowerSrc - width * core->numRowPairs;
-    srcInc = -width;
-  } else {
-    // Progressive tile
-    xStart = 0;
-    xEnd = width;
-    xInc = 1;
-    upperSrc = source + abs(core->tile - 1 - tile) * width * core->numRowPairs * 2; // Top row
-    lowerSrc = upperSrc + width * core->numRowPairs;          // Bottom row
-    srcInc = width;
-  }
-
   // This works sequentially-ish through the destination buffer,
   // reading from the canvas source pixels in repeated passes,
   // beginning from the least bit.
@@ -957,30 +932,55 @@ for (uint8_t tile = 0; tile < abs(core->tile); tile++) {
 #if defined(_PM_portToggleRegister)
       uint8_t prior = clockMask; // Set clock bit on 1st out
 #endif
-//      for (uint16_t x = 0; x < width; x++) {
-      for(int16_t x = xStart; x != xEnd; x += xInc) {
-        uint16_t upperRGB = upperSrc[x]; // Pixel in upper half
-        uint16_t lowerRGB = lowerSrc[x]; // Pixel in lower half
-        uint8_t result = 0;
-        if (upperRGB & redBit)
-          result |= pinMask[0];
-        if (upperRGB & greenBit)
-          result |= pinMask[1];
-        if (upperRGB & blueBit)
-          result |= pinMask[2];
-        if (lowerRGB & redBit)
-          result |= pinMask[3];
-        if (lowerRGB & greenBit)
-          result |= pinMask[4];
-        if (lowerRGB & blueBit)
-          result |= pinMask[5];
+      uint8_t *d2 = dest;
+
+      // Work from bottom tile to top, because data is issued in that order
+      for (int8_t tile = abs(core->tile) - 1; tile >= 0; tile-- ) {
+        uint16_t *upperSrc, *lowerSrc; // Canvas scanline pointers
+        int16_t srcIdx;
+        int8_t  srcInc;
+
+        // Source pointer to tile's upper-left pixel
+        uint16_t *srcTileUL = source + tile * width * core->numRowPairs * 2;
+        if ((tile & 1) && (core->tile < 0)) {
+          // Special handling for serpentine tiles
+          lowerSrc = srcTileUL + width * (core->numRowPairs - 1 - row);
+          upperSrc = lowerSrc + width * core->numRowPairs;
+          srcIdx = width - 1; // Work right to left
+          srcInc = -1;
+        } else {
+          // Progressive tile
+          upperSrc = srcTileUL + width * row; // Top row
+          lowerSrc = upperSrc + width * core->numRowPairs; // Bottom row
+          srcIdx = 0; // Work left to right
+          srcInc = 1;
+        }
+
+        for (uint16_t x = 0; x < width; x++, srcIdx += srcInc) {
+          uint16_t upperRGB = upperSrc[srcIdx]; // Pixel in upper half
+          uint16_t lowerRGB = lowerSrc[srcIdx]; // Pixel in lower half
+          uint8_t result = 0;
+          if (upperRGB & redBit)
+            result |= pinMask[0];
+          if (upperRGB & greenBit)
+            result |= pinMask[1];
+          if (upperRGB & blueBit)
+            result |= pinMask[2];
+          if (lowerRGB & redBit)
+            result |= pinMask[3];
+          if (lowerRGB & greenBit)
+            result |= pinMask[4];
+          if (lowerRGB & blueBit)
+            result |= pinMask[5];
 #if defined(_PM_portToggleRegister)
-        dest[x] = result ^ prior;
-        prior = result | clockMask; // Set clock bit on next out
+          *d2++ = result ^ prior;
+          prior = result | clockMask; // Set clock bit on next out
 #else
-        dest[x] = result;
+          *d2++ = result;
 #endif
-      } // end x
+        } // end x
+      } // end tile
+
       greenBit <<= 1;
       if (plane || (core->numPlanes < 6)) {
         // In most cases red & blue bit scoot 1 left...
@@ -1005,10 +1005,7 @@ for (uint8_t tile = 0; tile < abs(core->tile); tile++) {
 #endif
       dest += bitplaneSize; // Advance one scanline in dest buffer
     }                       // end plane
-    upperSrc += srcInc;     // Advance one scanline in source buffer
-    lowerSrc += srcInc;
   } // end row
-} // end tile
 }
 
 // Corresponding function for word output -- either 12 RGB bits (2 parallel
