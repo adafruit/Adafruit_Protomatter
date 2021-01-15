@@ -2,7 +2,9 @@
 "Tiled" Protomatter library example sketch. Demonstrates use of multiple
 RGB LED matrices as a single larger drawing surface. This example is
 written for two 64x32 matrices (tiled into a 64x64 display) but can be
-adapted to others.
+adapted to others. If using MatrixPortal, larger multi-panel tilings like
+this should be powered from a separate 5V DC supply, not the USB port
+(this example works OK because the graphics are very minimal).
 
 PLEASE SEE THE "simple" EXAMPLE FOR AN INTRODUCTORY SKETCH.
 ------------------------------------------------------------------------- */
@@ -75,21 +77,22 @@ supported boards.
 /* ----------------------------------------------------------------------
 Matrix initialization is explained EXTENSIVELY in "simple" example sketch!
 It's very similar here, but we're passing an extra argument to define the
-matrix tiling: -2 means there are two matrices arranged in a "serpentine"
-path (the second matrix is rotated 180 degrees relative to the first, and
-positioned below). A positive 2 would mean a "progressive" path (both
-matrices are oriented the same way), but this requires longer cables.
+matrix tiling along the vertical axis: -2 means there are two matrices
+(or rows of matrices) arranged in a "serpentine" path (the second matrix
+is rotated 180 degrees relative to the first, and positioned below).
+A positive 2 would indicate a "progressive" path (both matrices are
+oriented the same way), but usually requires longer cables.
 ------------------------------------------------------------------------- */
 
 Adafruit_Protomatter matrix(
-  64,          // Width of matrix in pixels
+  64,          // Width of matrix (or matrices, if tiled horizontally)
   6,           // Bit depth, 1-6
   1, rgbPins,  // # of matrix chains, array of 6 RGB pins for each
   4, addrPins, // # of address pins (height is inferred), array of pins
   clockPin, latchPin, oePin, // Other matrix control pins
   false,       // No double-buffering here (see "doublebuffer" example)
-  -2);         // Two matrices tiled vertically in "serpentine" path
-
+  -2);         // Row tiling: two rows in "serpentine" path
+  
 // SETUP - RUNS ONCE AT PROGRAM START --------------------------------------
 
 void setup(void) {
@@ -105,9 +108,9 @@ void setup(void) {
   }
 
   // Since this program has no animation, all the drawing can be done
-  // here in setup() rather than loop():
-
-  // TO DO: add HSV color wheel here
+  // here in setup() rather than loop(). It's just a few basic shapes
+  // that span across the matrices...nothing showy, the goal of this
+  // sketch is just to demonstrate tiling basics.
 
   matrix.drawLine(0, 0, matrix.width() - 1, matrix.height() - 1,
     matrix.color565(255, 0, 0)); // Red line
@@ -116,9 +119,6 @@ void setup(void) {
   int radius = min(matrix.width(), matrix.height()) / 2;
   matrix.drawCircle(matrix.width() / 2, matrix.height() / 2, radius,
     matrix.color565(0, 255, 0)); // Green circle
-
-  // You'll notice the colors look smoother as bit depth increases
-  // (second argument to the matrix constructor call above setup()).
 
   // AFTER DRAWING, A show() CALL IS REQUIRED TO UPDATE THE MATRIX!
 

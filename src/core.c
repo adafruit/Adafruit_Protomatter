@@ -887,8 +887,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
 
   // Size of 1 plane of row pair (across full chain / tile set)
   uint32_t bitplaneSize =
-      _PM_chunkSize *
-      ((core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize);
+      _PM_chunkSize * ((core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize);
   uint8_t pad = bitplaneSize - core->chainBits; // Plane-start pad
 
   // Skip initial scanline padding if present (HUB75 matrices shift data
@@ -932,13 +931,13 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
 #if defined(_PM_portToggleRegister)
       uint8_t prior = clockMask; // Set clock bit on 1st out
 #endif
-      uint8_t *d2 = dest;
+      uint8_t *d2 = dest; // Incremented per-pixel across all tiles
 
       // Work from bottom tile to top, because data is issued in that order
-      for (int8_t tile = abs(core->tile) - 1; tile >= 0; tile-- ) {
+      for (int8_t tile = abs(core->tile) - 1; tile >= 0; tile--) {
         uint16_t *upperSrc, *lowerSrc; // Canvas scanline pointers
         int16_t srcIdx;
-        int8_t  srcInc;
+        int8_t srcInc;
 
         // Source pointer to tile's upper-left pixel
         uint16_t *srcTileUL = source + tile * width * core->numRowPairs * 2;
@@ -950,9 +949,9 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
           srcInc = -1;
         } else {
           // Progressive tile
-          upperSrc = srcTileUL + width * row; // Top row
+          upperSrc = srcTileUL + width * row;              // Top row
           lowerSrc = upperSrc + width * core->numRowPairs; // Bottom row
-          srcIdx = 0; // Work left to right
+          srcIdx = 0;                                      // Left to right
           srcInc = 1;
         }
 
@@ -979,7 +978,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
           *d2++ = result;
 #endif
         } // end x
-      } // end tile
+      }   // end tile
 
       greenBit <<= 1;
       if (plane || (core->numPlanes < 6)) {
@@ -1005,13 +1004,14 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
 #endif
       dest += bitplaneSize; // Advance one scanline in dest buffer
     }                       // end plane
-  } // end row
+  }                         // end row
 }
 
 // Corresponding function for word output -- either 12 RGB bits (2 parallel
 // matrix chains), or 1 chain with RGB bits not in the same byte (but in the
 // same 16-bit word). Some of the comments have been stripped out since it's
 // largely the same operation, but changes are noted.
+// WORD OUTPUT DOES NOT YET SUPPORT ROW TILING.
 void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
                           uint16_t width) {
   uint16_t *upperSrc = source;                             // Matrix top half
@@ -1125,6 +1125,7 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
 // Corresponding function for long output -- either several parallel chains
 // (up to 5), or 1 chain with RGB bits scattered widely about the PORT.
 // Same deal, comments are pared back, see above functions for explanations.
+// LONG OUTPUT DOES NOT YET SUPPORT ROW TILING.
 void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
                           uint16_t width) {
   uint16_t *upperSrc = source;                             // Matrix top half
