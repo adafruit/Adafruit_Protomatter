@@ -54,6 +54,14 @@ public:
     @param  doubleBuffer  If true, two matrix buffers are allocated,
                           so changing display contents doesn't introduce
                           artifacts mid-conversion. Requires ~2X RAM.
+    @param  tile          If multiple matrices are chained and stacked
+                          vertically (rather than or in addition to
+                          horizontally), the number of vertical tiles is
+                          specified here. Positive values indicate a
+                          "progressive" arrangement (always left-to-right),
+                          negative for a "serpentine" arrangement (alternating
+                          180 degree orientation). Horizontal tiles are implied
+                          in the 'bitWidth' argument.
     @param  timer         Pointer to timer peripheral or timer-related
                           struct (architecture-dependent), or NULL to
                           use a default timer ID (also arch-dependent).
@@ -61,7 +69,7 @@ public:
   Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth, uint8_t rgbCount,
                        uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList,
                        uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-                       bool doubleBuffer, void *timer = NULL);
+                       bool doubleBuffer, int8_t tile = 1, void *timer = NULL);
   ~Adafruit_Protomatter(void);
 
   /*!
@@ -118,6 +126,23 @@ public:
   uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
     return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
   }
+
+  /*!
+    @brief   Convert hue, saturation and value into a packed 16-bit RGB color
+             that can be passed to GFX drawing functions.
+    @param   hue  An unsigned 16-bit value, 0 to 65535, representing one full
+                  loop of the color wheel, which allows 16-bit hues to "roll
+                  over" while still doing the expected thing (and allowing
+                  more precision than the wheel() function that was common to
+                  older graphics examples).
+    @param   sat  Saturation, 8-bit value, 0 (min or pure grayscale) to 255
+                  (max or pure hue). Default of 255 if unspecified.
+    @param   val  Value (brightness), 8-bit value, 0 (min / black / off) to
+                  255 (max or full brightness). Default of 255 if unspecified.
+    @return  Packed 16-bit '565' RGB color. Result is linearly but not
+             perceptually correct (no gamma correction).
+  */
+  uint16_t colorHSV(uint16_t hue, uint8_t sat = 255, uint8_t val = 255);
 
 private:
   Protomatter_core core;             // Underlying C struct

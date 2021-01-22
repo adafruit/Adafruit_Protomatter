@@ -245,6 +245,40 @@ P0.05 5/SCK    P0.13 13/A12   P0.21 21       P0.29          P1.05
 P0.06          P0.14 14/A6    P0.22 22/SCL   P0.30          P1.06
 P0.07          P0.15 15/A8    P0.23 23/SDA   P0.31          P1.07 39/A3 (in)
 
+GRAND CENTRAL M4: (___ = byte boundaries)
+PA00            PB00 D12        PC00 A3        PD00
+PA01            PB01 D13 (LED)  PC01 A4        PD01
+PA02 A0         PB02 D9         PC02 A5        PD02
+PA03 84 (AREF)  PB03 A2         PC03 A6        PD03
+PA04 A13        PB04 A7         PC04 D48       PD04
+PA05 A1         PB05 A8         PC05 D49       PD05
+PA06 A14        PB06 A9         PC06 D46       PD06
+PA07 A15 ______ PB07 A10 ______ PC07 D47 _____ PD07 __________
+PA08            PB08 A11        PC08           PD08 D51 (SCK)
+PA09            PB09 A12        PC09           PD09 D52 (MOSI)
+PA10            PB10            PC10 D45       PD10 D53
+PA11            PB11            PC11 D44       PD11 D50 (MISO)
+PA12 D26        PB12 D18        PC12 D41       PD12 D22
+PA13 D27        PB13 D19        PC13 D40       PD13
+PA14 D28        PB14 D39        PC14 D43       PD14
+PA15 D23 ______ PB15 D38 ______ PC15 D42 _____ PD15 __________
+PA16 D37        PB16 D14        PC16 D25       PD16
+PA17 D36        PB17 D15        PC17 D24       PD17
+PA18 D35        PB18 D8         PC18 D2        PD18
+PA19 D34        PB19 D29        PC19 D3        PD19
+PA20 D33        PB20 D20 (SDA)  PC20 D4        PD20 D6
+PA21 D32        PB21 D21 (SCL)  PC21 D5        PD21 D7
+PA22 D31        PB22 D10        PC22 D16       PD22
+PA23 D30 ______ PB23 D11 ______ PC23 D17 _____ PD23 __________
+PA24            PB24 D1
+PA25            PB25 D0
+PA26            PB26
+PA27            PB27
+PA28            PB28
+PA29            PB29
+PA30            PB30 96 (SWO)
+PA31 __________ PB31 95 (SD CD) ______________________________
+
 RGB MATRIX FEATHERWING NOTES:
 R1  D6    A   A5
 G1  D5    B   A4
