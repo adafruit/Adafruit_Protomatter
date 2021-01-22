@@ -1060,12 +1060,6 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
 
   dest += pad; // Pad value is in 'elements,' not bytes, so this is OK
 
-  // After a set of rows+bitplanes are processed, upperSrc and lowerSrc
-  // have advanced halfway down one matrix. This offset is used after
-  // each chain to advance them to the start/middle of the next matrix.
-  uint32_t halfMatrixOffset =
-      core->chainBits * core->numPlanes * core->numRowPairs;
-
   for (uint8_t chain = 0; chain < core->parallel; chain++) {
     for (uint8_t row = 0; row < core->numRowPairs; row++) {
       uint32_t redBit = initialRedBit;
@@ -1188,8 +1182,6 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
 #endif
 
   dest += pad; // Pad value is in 'elements,' not bytes, so this is OK
-
-  uint32_t halfMatrixOffset = width * core->numPlanes * core->numRowPairs;
 
   for (uint8_t chain = 0; chain < core->parallel; chain++) {
     for (uint8_t row = 0; row < core->numRowPairs; row++) {
