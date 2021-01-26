@@ -936,12 +936,12 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
 
       // Work from bottom tile to top, because data is issued in that order
       for (int8_t tile = abs(core->tile) - 1; tile >= 0; tile--) {
-        uint16_t *upperSrc, *lowerSrc; // Canvas scanline pointers
+        const uint16_t *upperSrc, *lowerSrc; // Canvas scanline pointers
         int16_t srcIdx;
         int8_t srcInc;
 
         // Source pointer to tile's upper-left pixel
-        uint16_t *srcTileUL = source + tile * width * core->numRowPairs * 2;
+        const uint16_t *srcTileUL = source + tile * width * core->numRowPairs * 2;
         if ((tile & 1) && (core->tile < 0)) {
           // Special handling for serpentine tiles
           lowerSrc = srcTileUL + width * (core->numRowPairs - 1 - row);
