@@ -32,6 +32,7 @@
 #include "core.h"      // enums and structs
 #include "arch/arch.h" // Do NOT include this in any other source files
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 // Overall matrix refresh rate (frames/second) is a function of matrix width
