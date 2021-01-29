@@ -60,7 +60,7 @@ void *_PM_protoPtr = NULL;
 // 'pin' here is GPXX # -- that might change in Arduino implementation
 #define _PM_portBitMask(pin) (1UL << pin)
 // Same for these -- using GPXX #, but Arduino might assign different order
-#define _PM_pinOutput(pin) gpio_set_dir(pin, GPIO_OUT)
+#define _PM_pinOutput(pin) { gpio_init(pin); gpio_set_dir(pin, GPIO_OUT); }
 #define _PM_pinLow(pin) gpio_clr_mask(1UL << pin)
 #define _PM_pinHigh(pin) gpio_set_mask(1UL << pin)
 
