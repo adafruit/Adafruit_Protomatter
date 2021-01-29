@@ -114,7 +114,7 @@ uint32_t _PM_timerStop(void *tptr) {
 
 #endif // END PICO_BOARD
 
-#define _PM_chunkSize 1 ///< DON'T unroll loop
+#define _PM_chunkSize 8
 
 
 

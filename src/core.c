@@ -628,7 +628,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   _PM_clockHoldLow;                                                            \
   *set = clock; /* Set clock high */                                           \
   _PM_clockHoldHigh;                                                           \
-  *clear = rgbclock; /* Clear RGB data + clock */                              \
+  *clear_full = rgbclock; /* Clear RGB data + clock */                         \
   ///< Bitbang one set of RGB data bits to matrix
 #endif
 
@@ -714,7 +714,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   volatile _PM_PORT_TYPE *toggle = (volatile _PM_PORT_TYPE *)core->toggleReg;
 #else
   volatile _PM_PORT_TYPE *set = (volatile _PM_PORT_TYPE *)core->setReg;
-  volatile _PM_PORT_TYPE *clear = (volatile _PM_PORT_TYPE *)core->clearReg;
+  volatile _PM_PORT_TYPE *clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
@@ -768,7 +768,7 @@ IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
   volatile _PM_PORT_TYPE *toggle = (volatile _PM_PORT_TYPE *)core->toggleReg;
 #else
   volatile _PM_PORT_TYPE *set = (volatile _PM_PORT_TYPE *)core->setReg;
-  volatile _PM_PORT_TYPE *clear = (volatile _PM_PORT_TYPE *)core->clearReg;
+  volatile _PM_PORT_TYPE *clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
