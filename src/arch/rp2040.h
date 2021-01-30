@@ -13,6 +13,14 @@
  *
  * BSD license, all text here must be included in any redistribution.
  *
+ * RP2040 NOTES: This initial implementation does NOT use PIO. That's normal
+ * for Protomatter, which was written for simple GPIO + timer interrupt for
+ * broadest portability. While not optimal, it's not necessarily pessimal
+ * either...no worse than any other platform where we're not taking
+ * advantage of device-specific DMA or peripherals. Would require changes
+ * to the 'blast' functions or possibly the whole _PM_row_handler() (both
+ * currently in core.c).
+ *
  */
 
 #pragma once
@@ -43,8 +51,8 @@
 #endif
 
 // Arduino implementation is tied to a specific timer & freq:
-#define _PM_ALARM_NUM 0
-#define _PM_IRQ_HANDLER TIMER_IRQ_0
+#define _PM_ALARM_NUM 1
+#define _PM_IRQ_HANDLER TIMER_IRQ_1
 #define _PM_timerFreq 1000000
 #define _PM_TIMER_DEFAULT NULL
 
@@ -81,21 +89,20 @@ void _PM_timerInit(void *tptr) {
 // Unlike timers on other devices, on RP2040 you don't reset a counter to
 // zero at the start of a cycle. To emulate that behavior (for determining
 // elapsed times), the timer start time must be saved somewhere...
-static uint64_t _PM_timerSave;
+static uint32_t _PM_timerSave;
 
 // Set timer period and enable timer.
 inline void _PM_timerStart(void *tptr, uint32_t period) {
-  _PM_timerSave = timer_hw->timerawl; // Time at start
-  uint64_t target = _PM_timerSave + period; // Time at end
-  timer_hw->alarm[_PM_ALARM_NUM] = (uint32_t)target;
-
   irq_set_enabled(_PM_IRQ_HANDLER, true); // Enable alarm IRQ
+  _PM_timerSave = timer_hw->timerawl; // Time at start
+  uint32_t target = _PM_timerSave + period; // Time at end
+  timer_hw->alarm[_PM_ALARM_NUM] = target;
 }
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
 inline uint32_t _PM_timerGetCount(void *tptr) {
-  return (uint32_t)(timer_hw->timerawl - _PM_timerSave);
+  return timer_hw->timerawl - _PM_timerSave;
 }
 
 // Disable timer and return current count value.
@@ -108,26 +115,12 @@ uint32_t _PM_timerStop(void *tptr) {
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
 // RP2040 CircuitPython magic goes here.
-// Put anything common to Arduino & CircuitPython above the platform ifdefs.
+// Put anything common to Arduino & CircuitPython ABOVE the platform ifdefs.
 
 #endif // END CIRCUITPYTHON ------------------------------------------------
 
-#endif // END PICO_BOARD
-
 #define _PM_chunkSize 8
+#define _PM_clockHoldLow asm("nop; nop;");
+#define _PM_minMinPeriod 8
 
-
-
-
-
-
-#if 0
-
-#define _PM_clockHoldHigh                                                      \
-  asm("nop; nop; nop; nop; nop; nop; nop;");                                   \
-  asm("nop; nop; nop; nop; nop; nop; nop;");
-#define _PM_clockHoldLow                                                       \
-  asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");                    \
-  asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
-
-#endif // 0
+#endif // END PICO_BOARD
