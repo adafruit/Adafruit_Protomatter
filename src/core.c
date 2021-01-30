@@ -322,8 +322,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // Make a wild guess for the initial bit-zero interval. It's okay
   // that this is off, code adapts to actual timer results pretty quick.
 
-  //core->bitZeroPeriod = core->chainBits * 5; // Initial guesstimate
-  core->bitZeroPeriod = _PM_minMinPeriod * 2; // Initial guesstimate
+  core->bitZeroPeriod = core->chainBits * 5; // Initial guesstimate
 
   core->activeBuffer = 0;
 
