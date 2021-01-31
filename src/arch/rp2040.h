@@ -15,12 +15,12 @@
  *
  * RP2040 NOTES: This initial implementation does NOT use PIO. That's normal
  * for Protomatter, which was written for simple GPIO + timer interrupt for
- * broadest portability (using PWM as a timer in this case). While not
- * entirely optimal, it's not pessimal either...no worse than any other
- * platform where we're not taking advantage of device-specific DMA or
- * peripherals. Would require changes to the 'blast' functions or possibly
- * the whole _PM_row_handler() (both currently in core.c). CPU load is just
- * a few percent for a 64x32 matrix @ 6-bit depth.
+ * broadest portability. While not entirely optimal, it's not pessimal
+ * either...no worse than any other platform where we're not taking
+ * advantage of device-specific DMA or peripherals. Would require changes to
+ * the 'blast' functions or possibly the whole _PM_row_handler() (both
+ * currently in core.c). CPU load is just a few percent for a 64x32
+ * matrix @ 6-bit depth, so I'm not losing sleep over this.
  *
  */
 
@@ -31,6 +31,7 @@
 
 #include "../../hardware_pwm/include/hardware/pwm.h"
 #include "hardware/irq.h"
+#include "hardware/timer.h"
 #include "pico/stdlib.h" // For sio_hw, etc.
 
 // RP2040 only allows full 32-bit aligned writes to GPIO.
@@ -38,6 +39,11 @@
 
 // TEMPORARY: FORCING ARDUINO COMPILATION FOR INITIAL C TESTING
 #define ARDUINO
+
+// Enable this to use PWM for bitplane timing, else a timer alarm is used.
+// PWM has finer resolution, but alarm is adequate -- this is more about
+// which peripheral we'd rather use, as both are finite resources.
+#define _PM_CLOCK_PWM
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
@@ -50,11 +56,28 @@
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
+#if defined(_PM_CLOCK_PWM)
+
 // Arduino implementation is tied to a specific PWM slice & frequency
 #define _PM_PWM_SLICE 0
 #define _PM_PWM_DIV 3 // ~41.6 MHz, similar to SAMD
 #define _PM_timerFreq (125000000 / _PM_PWM_DIV)
 #define _PM_TIMER_DEFAULT NULL
+
+#else // Use alarm for timing
+
+// Arduino implementation is tied to a specific timer alarm & frequency
+#define _PM_ALARM_NUM 1
+#define _PM_IRQ_HANDLER TIMER_IRQ_1
+#define _PM_timerFreq 1000000
+#define _PM_TIMER_DEFAULT NULL
+
+// Unlike timers on other devices, on RP2040 you don't reset a counter to
+// zero at the start of a cycle. To emulate that behavior (for determining
+// elapsed times), the timer start time must be saved somewhere...
+static volatile uint32_t _PM_timerSave;
+
+#endif
 
 // Because it's tied to a specific timer right now, there can be only
 // one instance of the Protomatter_core struct. The Arduino library
@@ -78,14 +101,21 @@ void *_PM_protoPtr = NULL;
 
 #define _PM_delayMicroseconds(n) sleep_us(n)
 
+#if defined(_PM_CLOCK_PWM) // Use PWM for timing
 static void _PM_PWM_ISR(void) {
   pwm_clear_irq(_PM_PWM_SLICE);  // Reset PWM wrap interrupt
   _PM_row_handler(_PM_protoPtr); // In core.c
 }
+#else // Use timer alarm for timing
+static void _PM_timerISR(void) {
+  hw_clear_bits(&timer_hw->intr, 1u << _PM_ALARM_NUM); // Clear alarm flag
+  _PM_row_handler(_PM_protoPtr);                       // In core.c
+}
+#endif
 
 // Initialize, but do not start, timer.
 void _PM_timerInit(void *tptr) {
-
+#if defined(_PM_CLOCK_PWM)
   // Enable PWM wrap interrupt
   pwm_clear_irq(_PM_PWM_SLICE);
   pwm_set_irq_enabled(_PM_PWM_SLICE, true);
@@ -96,25 +126,44 @@ void _PM_timerInit(void *tptr) {
   pwm_config config = pwm_get_default_config();
   pwm_config_set_clkdiv_int(&config, _PM_PWM_DIV);
   pwm_init(_PM_PWM_SLICE, &config, true);
+#else
+  timer_hw->alarm[_PM_ALARM_NUM] = timer_hw->timerawl; // Clear any timer
+  hw_set_bits(&timer_hw->inte, 1u << _PM_ALARM_NUM);
+  irq_set_exclusive_handler(_PM_IRQ_HANDLER, _PM_timerISR); // Set IRQ handler
+#endif
 }
 
 // Set timer period and enable timer.
 inline void _PM_timerStart(void *tptr, uint32_t period) {
+#if defined(_PM_CLOCK_PWM)
   pwm_set_counter(_PM_PWM_SLICE, 0);
   pwm_set_wrap(_PM_PWM_SLICE, period);
   pwm_set_enabled(_PM_PWM_SLICE, true);
+#else
+  irq_set_enabled(_PM_IRQ_HANDLER, true);                   // Enable alarm IRQ
+  _PM_timerSave = timer_hw->timerawl;                       // Time at start
+  timer_hw->alarm[_PM_ALARM_NUM] = _PM_timerSave + period;  // Time at end
+#endif
 }
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
 inline uint32_t _PM_timerGetCount(void *tptr) {
+#if defined(_PM_CLOCK_PWM)
   return pwm_get_counter(_PM_PWM_SLICE);
+#else
+  return timer_hw->timerawl - _PM_timerSave;
+#endif
 }
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
 uint32_t _PM_timerStop(void *tptr) {
+#if defined(_PM_CLOCK_PWM)
   pwm_set_enabled(_PM_PWM_SLICE, false);
+#else
+  irq_set_enabled(_PM_IRQ_HANDLER, false); // Disable alarm IRQ
+#endif
   return _PM_timerGetCount(tptr);
 }
 
@@ -127,6 +176,10 @@ uint32_t _PM_timerStop(void *tptr) {
 
 #define _PM_chunkSize 8
 #define _PM_clockHoldLow asm("nop; nop;");
+#if defined(_PM_CLOCK_PWM)
 #define _PM_minMinPeriod 100
+#else
+#define _PM_minMinPeriod 8
+#endif
 
 #endif // END PICO_BOARD
