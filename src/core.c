@@ -579,7 +579,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   if (prevPlane == 0) {
     // Determine number of timer cycles needed to issue the data
     uint32_t elapsed = _PM_timerGetCount(core->timer);
-    core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed) / 8;
+    core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed + 4) / 8;
     if (core->bitZeroPeriod < core->minPeriod) {
       core->bitZeroPeriod = core->minPeriod;
     }
