@@ -315,14 +315,11 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   if (core->minPeriod < _PM_minMinPeriod) {
     core->minPeriod = _PM_minMinPeriod;
   }
+  core->bitZeroPeriod = core->minPeriod;
   // Actual frame rate may be lower than this...it's only an estimate
   // and does not factor in things like address line selection delays
   // or interrupt overhead. That's OK, just don't want to exceed this
   // rate, as it'll eat all the CPU cycles.
-  // Make a wild guess for the initial bit-zero interval. It's okay
-  // that this is off, code adapts to actual timer results pretty quick.
-
-  core->bitZeroPeriod = core->minPeriod * (core->chainBits + 31) / 32;
 
   core->activeBuffer = 0;
 
@@ -570,16 +567,20 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
   // 'plane' data is now loaded, will be shown on NEXT pass
 
-  // On one plane (regardless of number of planes), take note of the
-  // elapsed timer value at this point...that's the number of cycles
-  // required to issue (not necessarily display) the data for one bitplane.
-  // It's filtered slightly to avoid jitter. The resulting value (or the
-  // minimum plane timing, whichever is greater) is used for timing each
-  // subsequent bitplane.
+  // On one plane (regardless of number of planes), take note of the elapsed
+  // timer value at this point...that's the number of cycles required to
+  // issue (not necessarily display) the data for one bitplane, and the
+  // minimum value that should be allowed for bitplane 0. It's filtered
+  // slightly to avoid jitter.
   if (prevPlane == 0) {
     // Determine number of timer cycles needed to issue the data
     uint32_t elapsed = _PM_timerGetCount(core->timer);
-    core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed + 4) / 8;
+    core->minPeriod = ((core->minPeriod * 7) + elapsed + 4) / 8;
+    if (core->minPeriod < _PM_minMinPeriod) {
+      core->minPeriod = _PM_minMinPeriod;
+    }
+    // If the bit 0 period falls below this, increase it to match.
+    // Refresh rate will decrease slightly to match.
     if (core->bitZeroPeriod < core->minPeriod) {
       core->bitZeroPeriod = core->minPeriod;
     }
