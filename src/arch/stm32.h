@@ -123,6 +123,11 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
   HAL_NVIC_EnableIRQ(stm_peripherals_timer_get_irqnum(tim));
 }
 
+inline uint32_t _PM_timerGetCount(void *tptr) {
+  TIM_TypeDef *tim = tptr;
+  return tim->CNT;
+}
+
 uint32_t _PM_timerStop(void *tptr) {
   TIM_TypeDef *tim = tptr;
   HAL_NVIC_DisableIRQ(stm_peripherals_timer_get_irqnum(tim));
