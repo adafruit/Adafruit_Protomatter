@@ -27,7 +27,7 @@
 #pragma once
 
 // TO DO: PUT A *PROPER* RP2040 CHECK HERE
-#if defined(PICO_BOARD)
+#if defined(PICO_BOARD) || defined(__RP2040__)
 
 #include "../../hardware_pwm/include/hardware/pwm.h"
 #include "hardware/irq.h"
@@ -38,12 +38,16 @@
 #define _PM_STRICT_32BIT_IO ///< Change core.c behavior for long accesses only
 
 // TEMPORARY: FORCING ARDUINO COMPILATION FOR INITIAL C TESTING
+#if !defined(CIRCUITPY)
 #define ARDUINO
+#endif
 
 // Enable this to use PWM for bitplane timing, else a timer alarm is used.
 // PWM has finer resolution, but alarm is adequate -- this is more about
 // which peripheral we'd rather use, as both are finite resources.
-#define _PM_CLOCK_PWM
+#ifndef _PM_CLOCK_PWM
+#define _PM_CLOCK_PWM (1)
+#endif
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
@@ -56,7 +60,7 @@
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
-#if defined(_PM_CLOCK_PWM)
+#if _PM_CLOCK_PWM
 
 // Arduino implementation is tied to a specific PWM slice & frequency
 #define _PM_PWM_SLICE 0
@@ -72,6 +76,41 @@
 #define _PM_timerFreq 1000000
 #define _PM_TIMER_DEFAULT NULL
 
+#endif
+
+#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
+
+// 'pin' here is GPXX #
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define _PM_byteOffset(pin) ((pin & 31) / 8)
+#define _PM_wordOffset(pin) ((pin & 31) / 16)
+#else
+#define _PM_byteOffset(pin) (3 - ((pin & 31) / 8))
+#define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
+#endif
+
+#if _PM_CLOCK_PWM
+
+int _PM_pwm_slice;
+// Arduino implementation is tied to a specific PWM slice & frequency
+#define _PM_PWM_SLICE (_PM_pwm_slice & 0xff)
+#define _PM_PWM_DIV 3 // ~41.6 MHz, similar to SAMD
+#define _PM_timerFreq (125000000 / _PM_PWM_DIV)
+#define _PM_TIMER_DEFAULT NULL
+
+#else // Use alarm for timing
+
+// Arduino implementation is tied to a specific timer alarm & frequency
+#define _PM_ALARM_NUM 1
+#define _PM_IRQ_HANDLER TIMER_IRQ_1
+#define _PM_timerFreq 1000000
+#define _PM_TIMER_DEFAULT NULL
+
+#endif
+
+#endif
+
+#if !_PM_CLOCK_PWM
 // Unlike timers on other devices, on RP2040 you don't reset a counter to
 // zero at the start of a cycle. To emulate that behavior (for determining
 // elapsed times), the timer start time must be saved somewhere...
@@ -99,9 +138,11 @@ void *_PM_protoPtr = NULL;
 #define _PM_pinLow(pin) gpio_clr_mask(1UL << pin)
 #define _PM_pinHigh(pin) gpio_set_mask(1UL << pin)
 
+#ifndef _PM_delayMicroseconds
 #define _PM_delayMicroseconds(n) sleep_us(n)
+#endif
 
-#if defined(_PM_CLOCK_PWM) // Use PWM for timing
+#if _PM_CLOCK_PWM // Use PWM for timing
 static void _PM_PWM_ISR(void) {
   pwm_clear_irq(_PM_PWM_SLICE);  // Reset PWM wrap interrupt
   _PM_row_handler(_PM_protoPtr); // In core.c
@@ -115,7 +156,7 @@ static void _PM_timerISR(void) {
 
 // Initialize, but do not start, timer.
 void _PM_timerInit(void *tptr) {
-#if defined(_PM_CLOCK_PWM)
+#if _PM_CLOCK_PWM
   // Enable PWM wrap interrupt
   pwm_clear_irq(_PM_PWM_SLICE);
   pwm_set_irq_enabled(_PM_PWM_SLICE, true);
@@ -135,7 +176,7 @@ void _PM_timerInit(void *tptr) {
 
 // Set timer period and enable timer.
 inline void _PM_timerStart(void *tptr, uint32_t period) {
-#if defined(_PM_CLOCK_PWM)
+#if _PM_CLOCK_PWM
   pwm_set_counter(_PM_PWM_SLICE, 0);
   pwm_set_wrap(_PM_PWM_SLICE, period);
   pwm_set_enabled(_PM_PWM_SLICE, true);
@@ -149,7 +190,7 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
 inline uint32_t _PM_timerGetCount(void *tptr) {
-#if defined(_PM_CLOCK_PWM)
+#if _PM_CLOCK_PWM
   return pwm_get_counter(_PM_PWM_SLICE);
 #else
   return timer_hw->timerawl - _PM_timerSave;
@@ -159,7 +200,7 @@ inline uint32_t _PM_timerGetCount(void *tptr) {
 // Disable timer and return current count value.
 // Timer must be previously initialized.
 uint32_t _PM_timerStop(void *tptr) {
-#if defined(_PM_CLOCK_PWM)
+#if _PM_CLOCK_PWM
   pwm_set_enabled(_PM_PWM_SLICE, false);
 #else
   irq_set_enabled(_PM_IRQ_HANDLER, false); // Disable alarm IRQ
@@ -167,16 +208,9 @@ uint32_t _PM_timerStop(void *tptr) {
   return _PM_timerGetCount(tptr);
 }
 
-#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
-
-// RP2040 CircuitPython magic goes here.
-// Put anything common to Arduino & CircuitPython ABOVE the platform ifdefs.
-
-#endif // END CIRCUITPYTHON ------------------------------------------------
-
 #define _PM_chunkSize 8
 #define _PM_clockHoldLow asm("nop; nop;");
-#if defined(_PM_CLOCK_PWM)
+#if _PM_CLOCK_PWM
 #define _PM_minMinPeriod 100
 #else
 #define _PM_minMinPeriod 8
