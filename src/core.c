@@ -315,14 +315,11 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   if (core->minPeriod < _PM_minMinPeriod) {
     core->minPeriod = _PM_minMinPeriod;
   }
+  core->bitZeroPeriod = core->minPeriod;
   // Actual frame rate may be lower than this...it's only an estimate
   // and does not factor in things like address line selection delays
   // or interrupt overhead. That's OK, just don't want to exceed this
   // rate, as it'll eat all the CPU cycles.
-  // Make a wild guess for the initial bit-zero interval. It's okay
-  // that this is off, code adapts to actual timer results pretty quick.
-
-  core->bitZeroPeriod = core->chainBits * 5; // Initial guesstimate
 
   core->activeBuffer = 0;
 
@@ -483,22 +480,9 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   _PM_clearReg(core->latch);
 
   _PM_setReg(core->latch);
-  // Stop timer, save count value at stop
-  uint32_t elapsed = _PM_timerStop(core->timer);
+  (void)_PM_timerStop(core->timer);
   uint8_t prevPlane = core->plane; // Save that plane # for later timing
   _PM_clearReg(core->latch);       // (split to add a few cycles)
-
-  // If plane 0 just finished being displayed (plane 1 was loaded on prior
-  // pass, or there's only one plane...I know, it's confusing), take note
-  // of the elapsed timer value, for subsequent bitplane timing (each
-  // plane period is double the previous). Value is filtered slightly to
-  // avoid jitter.
-  if ((prevPlane == 1) || (core->numPlanes == 1)) {
-    core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed) / 8;
-    if (core->bitZeroPeriod < core->minPeriod) {
-      core->bitZeroPeriod = core->minPeriod;
-    }
-  }
 
   if (prevPlane == 0) { // Plane 0 just finished loading
 #if defined(_PM_portToggleRegister)
@@ -582,6 +566,30 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   }
 
   // 'plane' data is now loaded, will be shown on NEXT pass
+
+  // On one plane (regardless of number of planes), take note of the elapsed
+  // timer value at this point...that's the number of cycles required to
+  // issue (not necessarily display) the data for one bitplane, and the
+  // minimum value that should be allowed for bitplane 0. It's filtered
+  // slightly to avoid jitter.
+  // Please see notes-to-self at end of file. This is garbage. It's not
+  // harmful just sitting here, but it doesn't do what was originally
+  // intended and should either be removed (along with some associated
+  // variables) or be revised, which would require work in all of the
+  // arch-specific files.
+  if (prevPlane == 0) {
+    // Determine number of timer cycles needed to issue the data
+    uint32_t elapsed = _PM_timerGetCount(core->timer);
+    core->minPeriod = ((core->minPeriod * 7) + elapsed + 4) / 8;
+    if (core->minPeriod < _PM_minMinPeriod) {
+      core->minPeriod = _PM_minMinPeriod;
+    }
+    // If the bit 0 period falls below this, increase it to match.
+    // Refresh rate will decrease slightly to match.
+    if (core->bitZeroPeriod < core->minPeriod) {
+      core->bitZeroPeriod = core->minPeriod;
+    }
+  }
 }
 
 // Innermost data-stuffing loop functions
@@ -628,7 +636,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   _PM_clockHoldLow;                                                            \
   *set = clock; /* Set clock high */                                           \
   _PM_clockHoldHigh;                                                           \
-  *clear = rgbclock; /* Clear RGB data + clock */                              \
+  *clear_full = rgbclock; /* Clear RGB data + clock */                         \
   ///< Bitbang one set of RGB data bits to matrix
 #endif
 
@@ -714,7 +722,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   volatile _PM_PORT_TYPE *toggle = (volatile _PM_PORT_TYPE *)core->toggleReg;
 #else
   volatile _PM_PORT_TYPE *set = (volatile _PM_PORT_TYPE *)core->setReg;
-  volatile _PM_PORT_TYPE *clear = (volatile _PM_PORT_TYPE *)core->clearReg;
+  volatile _PM_PORT_TYPE *clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
@@ -768,7 +776,7 @@ IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
   volatile _PM_PORT_TYPE *toggle = (volatile _PM_PORT_TYPE *)core->toggleReg;
 #else
   volatile _PM_PORT_TYPE *set = (volatile _PM_PORT_TYPE *)core->setReg;
-  volatile _PM_PORT_TYPE *clear = (volatile _PM_PORT_TYPE *)core->clearReg;
+  volatile _PM_PORT_TYPE *clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
@@ -1276,18 +1284,64 @@ void _PM_convert_565(Protomatter_core *core, uint16_t *source, uint16_t width) {
 
 #endif // END ARDUINO || CIRCUITPY
 
-// Note to future self: I've gone back and forth between implementing all
-// this either as it currently is (with byte, word and long cases for various
-// steps), or using a uint32_t[64] table for expanding RGB bit combos to PORT
-// bit combos. The latter would certainly simplify the code a ton, and the
-// additional table lookup step wouldn't significantly impact performance,
-// especially going forward with faster processors (the SAMD51 code already
-// requires a few NOPs in the innermost loop to avoid outpacing the matrix).
-// BUT, the reason this is NOT currently done is that it only allows for a
-// single matrix chain (doing parallel chains would require either an
-// impractically large lookup table, or adding together multiple tables'
-// worth of bitmasks, which would slow things down in the vital inner loop).
-// Although parallel matrix chains aren't yet 100% implemented in this code
-// right now, I wanted to leave that possibility for the future, as a way to
-// handle larger matrix combos, because long chains will slow down the
-// refresh rate.
+/* NOTES TO FUTURE SELF ----------------------------------------------------
+
+ON BYTES, WORDS and LONGS:
+I've gone back and forth between implementing all this either as it
+currently is (with byte, word and long cases for various steps), or using
+a uint32_t[64] table for expanding RGB bit combos to PORT bit combos.
+The latter would certainly simplify the code a ton, and the additional
+table lookup step wouldn't significantly impact performance, especially
+going forward with faster processors (several devices already require a
+few NOPs in the innermost loop to avoid outpacing the matrix).
+BUT, the reason this is NOT currently done is that it only allows for a
+single matrix chain (doing parallel chains would require either an
+impractically large lookup table, or adding together multiple tables'
+worth of bitmasks, which would slow things down in the vital inner loop).
+Although parallel matrix chains aren't yet 100% implemented in this code
+right now, I wanted to leave that possibility for the future, as a way to
+handle larger matrix combos, because long chains will slow down the
+refresh rate.
+
+ON BITPLANE TIMING:
+The library uses bit-angle modulation (vs PWM) for pixel brightness --
+each successive bitplane is shown for 2X as long as the previous plane.
+The least-bit (bitplane 0) interval is calculated in _PM_init() using
+matrix size, bit depth and _PM_MAX_REFRESH_HZ.
+There are vestiges of code in here for something that doesn't work, and
+hasn't reared its head as a problem, but might be a desirable feature in
+the future, though this would require changes in most if not all arch-
+specific files. What the code was originally planning to do was, if it
+takes longer than the least-bit interval to issue the data for one
+bitplane (which would result in the least-bit being disproportionally
+bright, throwing off the grayscale appearance), it would adaptively
+adjust the least-bit time upward (reducing the refresh rate, but
+maintaining the powers-of-two bitplane timings)...but, if that's a
+temporary situation (e.g. due to other interrupts or something), would
+also adaptively adjust the time back downward when possible (but never
+exceeding _PM_MAX_REFRESH_HZ, because that would just waste CPU time from
+other tasks with little to no benefit to the display). That was the idea
+but IT NEVER ACTUALLY GOT IMPLEMENTED THIS WAY due to various reasons.
+To make this work requires changes to the timers and interrupts, unique
+to each architecture. What it should be doing is configuring the timers
+to roll over at MAX (e.g. 65535 for a 16-bit timer), and set the bitplane
+timing with a compare-match interrupt, NOT a rollover interrupt. This
+allows the counter to keep running post-interrupt, so the data-issuing
+time (if greater than the least-bit time) can be correctly gauged, and
+timing adjusted if necessary (as it is, the timer stops or rolls over at
+the least-bit time, so the value read will never exceed that value).
+Additionally, since we're getting into tiling and longer matrix chains
+now, most or all architectures should use slower timer/counter clocks
+so they don't risk overflowing on higher bitplanes (changing the clock
+dividers per-plane is NOT used because the implementation varies too
+much between architectures -- instead a fixed divider is used, and the
+counter limit is doubled each bitplane). The timer/counter clock does
+NOT affect the data-issuing time, it's strictly for gauging the powers-
+of-two timing intervals, and therefore doesn't really need to be as
+high-res as currently implemented...even a 1 MHz clock can suffice.
+UPDATE: actually that's not entirely true, the code can work with the
+timers as they are, no rewrite needed...trick is to check the data-
+issuing time on the last (longest) bitplane, since the timer will
+certainly still be running, and use that for fine-tuning the least-bit
+duration.
+*/

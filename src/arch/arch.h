@@ -167,6 +167,7 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 
 #include "esp32.h"
 #include "nrf52.h"
+#include "rp2040.h"
 #include "samd-common.h"
 #include "samd21.h"
 #include "samd51.h"
