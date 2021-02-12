@@ -1339,4 +1339,9 @@ counter limit is doubled each bitplane). The timer/counter clock does
 NOT affect the data-issuing time, it's strictly for gauging the powers-
 of-two timing intervals, and therefore doesn't really need to be as
 high-res as currently implemented...even a 1 MHz clock can suffice.
+UPDATE: actually that's not entirely true, the code can work with the
+timers as they are, no rewrite needed...trick is to check the data-
+issuing time on the last (longest) bitplane, since the timer will
+certainly still be running, and use that for fine-tuning the least-bit
+duration.
 */
