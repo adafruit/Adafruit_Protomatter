@@ -92,7 +92,6 @@
 #if _PM_CLOCK_PWM
 
 int _PM_pwm_slice;
-// Arduino implementation is tied to a specific PWM slice & frequency
 #define _PM_PWM_SLICE (_PM_pwm_slice & 0xff)
 #define _PM_PWM_DIV 3 // ~41.6 MHz, similar to SAMD
 #define _PM_timerFreq (125000000 / _PM_PWM_DIV)
@@ -100,7 +99,7 @@ int _PM_pwm_slice;
 
 #else // Use alarm for timing
 
-// Arduino implementation is tied to a specific timer alarm & frequency
+// Currently tied to a specific timer alarm & frequency
 #define _PM_ALARM_NUM 1
 #define _PM_IRQ_HANDLER TIMER_IRQ_1
 #define _PM_timerFreq 1000000
