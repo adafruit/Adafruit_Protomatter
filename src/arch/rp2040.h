@@ -49,6 +49,12 @@
 #define _PM_CLOCK_PWM (1)
 #endif
 
+#if _PM_CLOCK_PWM // Use PWM for timing
+static void _PM_PWM_ISR(void);
+#else // Use timer alarm for timing
+static void _PM_timerISR(void);
+#endif
+
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // 'pin' here is GPXX # -- that might change in Arduino implementation
@@ -75,6 +81,26 @@
 #define _PM_IRQ_HANDLER TIMER_IRQ_1
 #define _PM_timerFreq 1000000
 #define _PM_TIMER_DEFAULT NULL
+
+// Initialize, but do not start, timer.
+void _PM_timerInit(void *tptr) {
+#if _PM_CLOCK_PWM
+  // Enable PWM wrap interrupt
+  pwm_clear_irq(_PM_PWM_SLICE);
+  pwm_set_irq_enabled(_PM_PWM_SLICE, true);
+  irq_set_exclusive_handler(PWM_IRQ_WRAP, _PM_PWM_ISR);
+  irq_set_enabled(PWM_IRQ_WRAP, true);
+
+  // Config but do not start PWM
+  pwm_config config = pwm_get_default_config();
+  pwm_config_set_clkdiv_int(&config, _PM_PWM_DIV);
+  pwm_init(_PM_PWM_SLICE, &config, true);
+#else
+  timer_hw->alarm[_PM_ALARM_NUM] = timer_hw->timerawl; // Clear any timer
+  hw_set_bits(&timer_hw->inte, 1u << _PM_ALARM_NUM);
+  irq_set_exclusive_handler(_PM_IRQ_HANDLER, _PM_timerISR); // Set IRQ handler
+#endif
+}
 
 #endif
 
@@ -106,6 +132,27 @@ int _PM_pwm_slice;
 #define _PM_TIMER_DEFAULT NULL
 
 #endif
+
+// Initialize, but do not start, timer.
+void _PM_timerInit(void *tptr) {
+#if _PM_CLOCK_PWM
+  _PM_pwm_slice = (int)tptr & 0xff;
+  // Enable PWM wrap interrupt
+  pwm_clear_irq(_PM_PWM_SLICE);
+  pwm_set_irq_enabled(_PM_PWM_SLICE, true);
+  irq_set_exclusive_handler(PWM_IRQ_WRAP, _PM_PWM_ISR);
+  irq_set_enabled(PWM_IRQ_WRAP, true);
+
+  // Config but do not start PWM
+  pwm_config config = pwm_get_default_config();
+  pwm_config_set_clkdiv_int(&config, _PM_PWM_DIV);
+  pwm_init(_PM_PWM_SLICE, &config, true);
+#else
+  timer_hw->alarm[_PM_ALARM_NUM] = timer_hw->timerawl; // Clear any timer
+  hw_set_bits(&timer_hw->inte, 1u << _PM_ALARM_NUM);
+  irq_set_exclusive_handler(_PM_IRQ_HANDLER, _PM_timerISR); // Set IRQ handler
+#endif
+}
 
 #endif
 
@@ -152,26 +199,6 @@ static void _PM_timerISR(void) {
   _PM_row_handler(_PM_protoPtr);                       // In core.c
 }
 #endif
-
-// Initialize, but do not start, timer.
-void _PM_timerInit(void *tptr) {
-#if _PM_CLOCK_PWM
-  // Enable PWM wrap interrupt
-  pwm_clear_irq(_PM_PWM_SLICE);
-  pwm_set_irq_enabled(_PM_PWM_SLICE, true);
-  irq_set_exclusive_handler(PWM_IRQ_WRAP, _PM_PWM_ISR);
-  irq_set_enabled(PWM_IRQ_WRAP, true);
-
-  // Config but do not start PWM
-  pwm_config config = pwm_get_default_config();
-  pwm_config_set_clkdiv_int(&config, _PM_PWM_DIV);
-  pwm_init(_PM_PWM_SLICE, &config, true);
-#else
-  timer_hw->alarm[_PM_ALARM_NUM] = timer_hw->timerawl; // Clear any timer
-  hw_set_bits(&timer_hw->inte, 1u << _PM_ALARM_NUM);
-  irq_set_exclusive_handler(_PM_IRQ_HANDLER, _PM_timerISR); // Set IRQ handler
-#endif
-}
 
 // Set timer period and enable timer.
 inline void _PM_timerStart(void *tptr, uint32_t period) {
