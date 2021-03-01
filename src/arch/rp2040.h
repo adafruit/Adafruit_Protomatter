@@ -207,9 +207,9 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
   pwm_set_wrap(_PM_PWM_SLICE, period);
   pwm_set_enabled(_PM_PWM_SLICE, true);
 #else
-  irq_set_enabled(_PM_IRQ_HANDLER, true);                   // Enable alarm IRQ
-  _PM_timerSave = timer_hw->timerawl;                       // Time at start
-  timer_hw->alarm[_PM_ALARM_NUM] = _PM_timerSave + period;  // Time at end
+  irq_set_enabled(_PM_IRQ_HANDLER, true);                  // Enable alarm IRQ
+  _PM_timerSave = timer_hw->timerawl;                      // Time at start
+  timer_hw->alarm[_PM_ALARM_NUM] = _PM_timerSave + period; // Time at end
 #endif
 }
 
