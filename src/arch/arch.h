@@ -207,3 +207,7 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 #if !defined(_PM_PORT_TYPE)
 #define _PM_PORT_TYPE uint32_t ///< PORT register size/type
 #endif
+
+#if !defined(_PM_SHIFT_REG_CLK)
+#define _PM_SHIFT_REG_CLK 12000000
+#endif
