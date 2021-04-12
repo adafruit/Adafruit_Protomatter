@@ -17,7 +17,7 @@
 
 #pragma once
 
-#if defined(__SAMD51__) || defined(SAMD51) // Arduino, Circuitpy SAMD51 defs
+#if defined(__SAMD51__) || defined(SAM_D5X_E5X) // Arduino, Circuitpy SAMD5x / E5x defs
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
@@ -212,4 +212,4 @@ uint32_t _PM_timerStop(void *tptr) {
 
 #define _PM_minMinPeriod 160
 
-#endif // END __SAMD51__ || SAMD51
+#endif // END __SAMD51__ || SAM_D5X_E5X
