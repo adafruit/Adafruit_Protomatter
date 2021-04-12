@@ -17,7 +17,7 @@
 
 #pragma once
 
-#if defined(__SAMD51__) || defined(SAM_D5X_E5X) || defined(_SAMD21_) ||      \
+#if defined(__SAMD51__) || defined(SAM_D5X_E5X) || defined(_SAMD21_) ||        \
     defined(SAMD21)
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------

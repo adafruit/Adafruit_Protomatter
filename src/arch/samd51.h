@@ -17,7 +17,8 @@
 
 #pragma once
 
-#if defined(__SAMD51__) || defined(SAM_D5X_E5X) // Arduino, Circuitpy SAMD5x / E5x defs
+#if defined(__SAMD51__) ||                                                     \
+    defined(SAM_D5X_E5X) // Arduino, Circuitpy SAMD5x / E5x defs
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
