@@ -19,10 +19,6 @@
 
 #if defined(ESP32)
 
-#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
-
-#include "driver/timer.h"
-
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
 
@@ -60,6 +56,10 @@ void *_PM_protoPtr = NULL;
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
 #define _PM_timerNum 0         // Timer #0 (can be 0-3)
 
+
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
+
+#include "driver/timer.h"
 // This is the default aforementioned singular timer. IN THEORY, other
 // timers could be used, IF an Arduino sketch passes the address of its
 // own hw_timer_t* to the Protomatter constructor and initializes that
@@ -67,7 +67,6 @@ void *_PM_protoPtr = NULL;
 // below pass around a handle rather than accessing _PM_esp32timer
 // directly, in case that's ever actually used in the future.
 static hw_timer_t *_PM_esp32timer = NULL;
-#define _PM_TIMER_DEFAULT &_PM_esp32timer
 
 extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core);
 
@@ -77,8 +76,6 @@ extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core);
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
 IRAM_ATTR static void _PM_esp32timerCallback(void) {
-  _PM_row_handler(_PM_protoPtr); // In core.c
-}
 
 // Initialize, but do not start, timer.
 void _PM_timerInit(void *tptr) {
@@ -117,6 +114,77 @@ IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
 // ESP32 CircuitPython magic goes here. If any of the above Arduino-specific
 // defines, structs or functions are useful as-is, don't copy them, just
 // move them above the ARDUINO check so fixes/changes carry over, thx.
+
+#include "driver/gpio.h"
+#include "peripherals/timer.h"
+#include "hal/timer_ll.h"
+
+#define _PM_TIMER_DEFAULT NULL
+
+#define _PM_pinOutput(pin) \
+  gpio_set_direction((pin), GPIO_MODE_OUTPUT)
+
+#define _PM_pinLow(pin) \
+  gpio_set_level((pin), false)
+
+#define _PM_pinHigh(pin) \
+  gpio_set_level((pin), true)
+
+#define _PM_portBitMask(pin) (1U << ((pin)&31))
+
+// Timer interrupt handler. This, _PM_row_handler() and any functions
+// called by _PM_row_handler() should all have the IRAM_ATTR attribute
+// (RAM-resident functions). This isn't really the ISR itself, but a
+// callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
+// which takes care of interrupt status bits & such.
+IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
+  if(_PM_protoPtr) {
+    _PM_row_handler(_PM_protoPtr); // In core.c
+  }
+  return false;
+};
+
+// Initialize, but do not start, timer.
+void _PM_timerInit(void *tptr) {
+    const timer_config_t config = {
+        .alarm_en = false,
+        .counter_en = false,
+        .intr_type = TIMER_INTR_LEVEL,
+        .counter_dir = TIMER_COUNT_UP,
+        .auto_reload = true,
+        .divider = 2 // 40MHz
+    };
+
+    timer_index_t *timer = (timer_index_t*)tptr;
+    timer_init(timer->group, timer->idx, &config);
+    timer_isr_callback_add(timer->group, timer->idx, _PM_esp32timerCallback, NULL, 0);
+    timer_enable_intr(timer->group, timer->idx);
+}
+
+// Set timer period, initialize count value to zero, enable timer.
+IRAM_ATTR void _PM_timerStart(void *tptr, uint32_t period) {
+    timer_index_t *timer = (timer_index_t*)tptr;
+    timer_ll_set_counter_enable(timer->hw, timer->idx, false);
+    timer_ll_set_counter_value(timer->hw, timer->idx, 0);
+    timer_ll_set_alarm_value(timer->hw, timer->idx, period);
+    timer_ll_set_alarm_enable(timer->hw, timer->idx, true);
+    timer_ll_set_counter_enable(timer->hw, timer->idx, true);
+}
+
+IRAM_ATTR uint32_t _PM_timerGetCount(void *tptr) {
+    timer_index_t *timer = (timer_index_t*)tptr;
+    timer->hw->hw_timer[timer->idx].update.update = 1;
+    return timer->hw->hw_timer[timer->idx].cnt_low;
+}
+
+// Disable timer and return current count value.
+// Timer must be previously initialized.
+IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
+    timer_index_t *timer = (timer_index_t*)tptr;
+    timer_ll_set_counter_enable(timer->hw, timer->idx, false);
+    return _PM_timerGetCount(tptr);
+}
+
 
 #endif // END CIRCUITPYTHON ------------------------------------------------
 
