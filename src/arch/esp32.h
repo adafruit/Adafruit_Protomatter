@@ -36,6 +36,16 @@
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
+// As written, because it's tied to a specific timer right now, the
+// Arduino lib only permits one instance of the Protomatter_core struct,
+// which it sets up when calling begin().
+void *_PM_protoPtr = NULL;
+
+#define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
+#define _PM_timerNum 0         // Timer #0 (can be 0-3)
+
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
+
 // ESP32 requires a custom PEW declaration (issues one set of RGB color bits
 // followed by clock pulse). Turns out the bit set/clear registers are not
 // actually atomic. If two writes are made in quick succession, the second
@@ -47,16 +57,6 @@
   *set_full = clock;      /* Set clock high */                                 \
   *clear_full = rgbclock; /* Clear RGB data + clock */                         \
   ///< Bitbang one set of RGB data bits to matrix
-
-// As written, because it's tied to a specific timer right now, the
-// Arduino lib only permits one instance of the Protomatter_core struct,
-// which it sets up when calling begin().
-void *_PM_protoPtr = NULL;
-
-#define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
-#define _PM_timerNum 0         // Timer #0 (can be 0-3)
-
-#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 #include "driver/timer.h"
 // This is the default aforementioned singular timer. IN THEORY, other
@@ -114,9 +114,23 @@ IRAM_ATTR static void _PM_esp32timerCallback(void) {
 // defines, structs or functions are useful as-is, don't copy them, just
 // move them above the ARDUINO check so fixes/changes carry over, thx.
 
+// ESP32 requires a custom PEW declaration (issues one set of RGB color bits
+// followed by clock pulse). Turns out the bit set/clear registers are not
+// actually atomic. If two writes are made in quick succession, the second
+// has no effect. One option is NOPs, other is to write a 0 (no effect) to
+// the opposing register (set vs clear) to synchronize the next write.
+#define PEW                                                                    \
+  *set = (*data++) << shift; /* Set RGB data high */                           \
+  *clear_full = 0;           /* ESP32 MUST sync before 2nd 'set' */            \
+  *set = clock;              /* Set clock high */                              \
+  *clear_full = rgbclock;    /* Clear RGB data + clock */                      \
+  ///< Bitbang one set of RGB data bits to matrix
+
 #include "driver/gpio.h"
 #include "hal/timer_ll.h"
 #include "peripherals/timer.h"
+
+#define _PM_STRICT_32BIT_IO (1)
 
 #define _PM_TIMER_DEFAULT NULL
 
