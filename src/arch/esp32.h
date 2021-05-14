@@ -59,7 +59,7 @@ void *_PM_protoPtr = NULL;
   *clear_full = rgbclock; /* Clear RGB data + clock */                         \
   ///< Bitbang one set of RGB data bits to matrix
 
-#define _PM_timerNum 0         // Timer #0 (can be 0-3)
+#define _PM_timerNum 0 // Timer #0 (can be 0-3)
 
 // This is the default aforementioned singular timer. IN THEORY, other
 // timers could be used, IF an Arduino sketch passes the address of its
