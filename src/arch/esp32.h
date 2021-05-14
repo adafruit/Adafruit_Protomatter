@@ -56,7 +56,6 @@ void *_PM_protoPtr = NULL;
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
 #define _PM_timerNum 0         // Timer #0 (can be 0-3)
 
-
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 #include "driver/timer.h"
@@ -77,37 +76,37 @@ extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core);
 // which takes care of interrupt status bits & such.
 IRAM_ATTR static void _PM_esp32timerCallback(void) {
 
-// Initialize, but do not start, timer.
-void _PM_timerInit(void *tptr) {
-  hw_timer_t **timer = (hw_timer_t **)tptr; // pointer-to-pointer
-  if (timer == _PM_TIMER_DEFAULT) {
-    *timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
+  // Initialize, but do not start, timer.
+  void _PM_timerInit(void *tptr) {
+    hw_timer_t **timer = (hw_timer_t **)tptr; // pointer-to-pointer
+    if (timer == _PM_TIMER_DEFAULT) {
+      *timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
+    }
+    timerAttachInterrupt(*timer, &_PM_esp32timerCallback, true);
   }
-  timerAttachInterrupt(*timer, &_PM_esp32timerCallback, true);
-}
 
-// Set timer period, initialize count value to zero, enable timer.
-IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
-  hw_timer_t *timer = *(hw_timer_t **)tptr;
-  timerAlarmWrite(timer, period, true);
-  timerAlarmEnable(timer);
-  timerStart(timer);
-}
+  // Set timer period, initialize count value to zero, enable timer.
+  IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
+    hw_timer_t *timer = *(hw_timer_t **)tptr;
+    timerAlarmWrite(timer, period, true);
+    timerAlarmEnable(timer);
+    timerStart(timer);
+  }
 
-// Return current count value (timer enabled or not).
-// Timer must be previously initialized.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(void *tptr) {
-  hw_timer_t *timer = *(hw_timer_t **)tptr;
-  return (uint32_t)timerRead(timer);
-}
+  // Return current count value (timer enabled or not).
+  // Timer must be previously initialized.
+  IRAM_ATTR inline uint32_t _PM_timerGetCount(void *tptr) {
+    hw_timer_t *timer = *(hw_timer_t **)tptr;
+    return (uint32_t)timerRead(timer);
+  }
 
-// Disable timer and return current count value.
-// Timer must be previously initialized.
-IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
-  hw_timer_t *timer = *(hw_timer_t **)tptr;
-  timerStop(timer);
-  return _PM_timerGetCount(tptr);
-}
+  // Disable timer and return current count value.
+  // Timer must be previously initialized.
+  IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
+    hw_timer_t *timer = *(hw_timer_t **)tptr;
+    timerStop(timer);
+    return _PM_timerGetCount(tptr);
+  }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
@@ -116,19 +115,16 @@ IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
 // move them above the ARDUINO check so fixes/changes carry over, thx.
 
 #include "driver/gpio.h"
-#include "peripherals/timer.h"
 #include "hal/timer_ll.h"
+#include "peripherals/timer.h"
 
 #define _PM_TIMER_DEFAULT NULL
 
-#define _PM_pinOutput(pin) \
-  gpio_set_direction((pin), GPIO_MODE_OUTPUT)
+#define _PM_pinOutput(pin) gpio_set_direction((pin), GPIO_MODE_OUTPUT)
 
-#define _PM_pinLow(pin) \
-  gpio_set_level((pin), false)
+#define _PM_pinLow(pin) gpio_set_level((pin), false)
 
-#define _PM_pinHigh(pin) \
-  gpio_set_level((pin), true)
+#define _PM_pinHigh(pin) gpio_set_level((pin), true)
 
 #define _PM_portBitMask(pin) (1U << ((pin)&31))
 
@@ -138,7 +134,7 @@ IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
 IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
-  if(_PM_protoPtr) {
+  if (_PM_protoPtr) {
     _PM_row_handler(_PM_protoPtr); // In core.c
   }
   return false;
@@ -146,45 +142,45 @@ IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 
 // Initialize, but do not start, timer.
 void _PM_timerInit(void *tptr) {
-    const timer_config_t config = {
-        .alarm_en = false,
-        .counter_en = false,
-        .intr_type = TIMER_INTR_LEVEL,
-        .counter_dir = TIMER_COUNT_UP,
-        .auto_reload = true,
-        .divider = 2 // 40MHz
-    };
+  const timer_config_t config = {
+      .alarm_en = false,
+      .counter_en = false,
+      .intr_type = TIMER_INTR_LEVEL,
+      .counter_dir = TIMER_COUNT_UP,
+      .auto_reload = true,
+      .divider = 2 // 40MHz
+  };
 
-    timer_index_t *timer = (timer_index_t*)tptr;
-    timer_init(timer->group, timer->idx, &config);
-    timer_isr_callback_add(timer->group, timer->idx, _PM_esp32timerCallback, NULL, 0);
-    timer_enable_intr(timer->group, timer->idx);
+  timer_index_t *timer = (timer_index_t *)tptr;
+  timer_init(timer->group, timer->idx, &config);
+  timer_isr_callback_add(timer->group, timer->idx, _PM_esp32timerCallback, NULL,
+                         0);
+  timer_enable_intr(timer->group, timer->idx);
 }
 
 // Set timer period, initialize count value to zero, enable timer.
 IRAM_ATTR void _PM_timerStart(void *tptr, uint32_t period) {
-    timer_index_t *timer = (timer_index_t*)tptr;
-    timer_ll_set_counter_enable(timer->hw, timer->idx, false);
-    timer_ll_set_counter_value(timer->hw, timer->idx, 0);
-    timer_ll_set_alarm_value(timer->hw, timer->idx, period);
-    timer_ll_set_alarm_enable(timer->hw, timer->idx, true);
-    timer_ll_set_counter_enable(timer->hw, timer->idx, true);
+  timer_index_t *timer = (timer_index_t *)tptr;
+  timer_ll_set_counter_enable(timer->hw, timer->idx, false);
+  timer_ll_set_counter_value(timer->hw, timer->idx, 0);
+  timer_ll_set_alarm_value(timer->hw, timer->idx, period);
+  timer_ll_set_alarm_enable(timer->hw, timer->idx, true);
+  timer_ll_set_counter_enable(timer->hw, timer->idx, true);
 }
 
 IRAM_ATTR uint32_t _PM_timerGetCount(void *tptr) {
-    timer_index_t *timer = (timer_index_t*)tptr;
-    timer->hw->hw_timer[timer->idx].update.update = 1;
-    return timer->hw->hw_timer[timer->idx].cnt_low;
+  timer_index_t *timer = (timer_index_t *)tptr;
+  timer->hw->hw_timer[timer->idx].update.update = 1;
+  return timer->hw->hw_timer[timer->idx].cnt_low;
 }
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
 IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
-    timer_index_t *timer = (timer_index_t*)tptr;
-    timer_ll_set_counter_enable(timer->hw, timer->idx, false);
-    return _PM_timerGetCount(tptr);
+  timer_index_t *timer = (timer_index_t *)tptr;
+  timer_ll_set_counter_enable(timer->hw, timer->idx, false);
+  return _PM_timerGetCount(tptr);
 }
-
 
 #endif // END CIRCUITPYTHON ------------------------------------------------
 
