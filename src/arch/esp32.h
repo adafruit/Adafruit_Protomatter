@@ -19,6 +19,8 @@
 
 #if defined(ESP32)
 
+#include "driver/timer.h"
+
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
 
@@ -42,7 +44,6 @@
 void *_PM_protoPtr = NULL;
 
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
-#define _PM_timerNum 0         // Timer #0 (can be 0-3)
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
@@ -58,7 +59,8 @@ void *_PM_protoPtr = NULL;
   *clear_full = rgbclock; /* Clear RGB data + clock */                         \
   ///< Bitbang one set of RGB data bits to matrix
 
-#include "driver/timer.h"
+#define _PM_timerNum 0         // Timer #0 (can be 0-3)
+
 // This is the default aforementioned singular timer. IN THEORY, other
 // timers could be used, IF an Arduino sketch passes the address of its
 // own hw_timer_t* to the Protomatter constructor and initializes that
@@ -66,6 +68,7 @@ void *_PM_protoPtr = NULL;
 // below pass around a handle rather than accessing _PM_esp32timer
 // directly, in case that's ever actually used in the future.
 static hw_timer_t *_PM_esp32timer = NULL;
+#define _PM_TIMER_DEFAULT &_PM_esp32timer
 
 extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core);
 
@@ -75,38 +78,40 @@ extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core);
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
 IRAM_ATTR static void _PM_esp32timerCallback(void) {
+  _PM_row_handler(_PM_protoPtr); // In core.c
+}
 
-  // Initialize, but do not start, timer.
-  void _PM_timerInit(void *tptr) {
-    hw_timer_t **timer = (hw_timer_t **)tptr; // pointer-to-pointer
-    if (timer == _PM_TIMER_DEFAULT) {
-      *timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
-    }
-    timerAttachInterrupt(*timer, &_PM_esp32timerCallback, true);
+// Initialize, but do not start, timer.
+void _PM_timerInit(void *tptr) {
+  hw_timer_t **timer = (hw_timer_t **)tptr; // pointer-to-pointer
+  if (timer == _PM_TIMER_DEFAULT) {
+    *timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
   }
+  timerAttachInterrupt(*timer, &_PM_esp32timerCallback, true);
+}
 
-  // Set timer period, initialize count value to zero, enable timer.
-  IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
-    hw_timer_t *timer = *(hw_timer_t **)tptr;
-    timerAlarmWrite(timer, period, true);
-    timerAlarmEnable(timer);
-    timerStart(timer);
-  }
+// Set timer period, initialize count value to zero, enable timer.
+IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
+  hw_timer_t *timer = *(hw_timer_t **)tptr;
+  timerAlarmWrite(timer, period, true);
+  timerAlarmEnable(timer);
+  timerStart(timer);
+}
 
-  // Return current count value (timer enabled or not).
-  // Timer must be previously initialized.
-  IRAM_ATTR inline uint32_t _PM_timerGetCount(void *tptr) {
-    hw_timer_t *timer = *(hw_timer_t **)tptr;
-    return (uint32_t)timerRead(timer);
-  }
+// Return current count value (timer enabled or not).
+// Timer must be previously initialized.
+IRAM_ATTR inline uint32_t _PM_timerGetCount(void *tptr) {
+  hw_timer_t *timer = *(hw_timer_t **)tptr;
+  return (uint32_t)timerRead(timer);
+}
 
-  // Disable timer and return current count value.
-  // Timer must be previously initialized.
-  IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
-    hw_timer_t *timer = *(hw_timer_t **)tptr;
-    timerStop(timer);
-    return _PM_timerGetCount(tptr);
-  }
+// Disable timer and return current count value.
+// Timer must be previously initialized.
+IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
+  hw_timer_t *timer = *(hw_timer_t **)tptr;
+  timerStop(timer);
+  return _PM_timerGetCount(tptr);
+}
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
