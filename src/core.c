@@ -795,11 +795,13 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
   // Note in this case two copies exist of the PORT set register.
   // The optimizer will most likely simplify this; leaving as-is, not
   // wanting a special case of the PEW macro due to divergence risk.
-  volatile uint32_t *set;             // For RGB data set
-  volatile _PM_PORT_TYPE *set_full;   // For clock set
+  volatile uint32_t *set;           // For RGB data set
+#if !defined(_PM_STRICT_32BIT_IO)
+  volatile _PM_PORT_TYPE *set_full; // For clock set
+  set_full = (volatile _PM_PORT_TYPE *)core->setReg;
+#endif
   volatile _PM_PORT_TYPE *clear_full; // For RGB data + clock clear
   set = (volatile uint32_t *)core->setReg;
-  set_full = (volatile _PM_PORT_TYPE *)core->setReg;
   clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
