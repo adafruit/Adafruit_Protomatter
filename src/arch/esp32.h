@@ -21,14 +21,18 @@
 
 #include "driver/timer.h"
 
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+#define _PM_portOutRegister(pin) (volatile uint32_t *)&GPIO.out
+#define _PM_portSetRegister(pin) (volatile uint32_t *)&GPIO.out_w1ts
+#define _PM_portClearRegister(pin) (volatile uint32_t *)&GPIO.out_w1tc
+#else
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
-
 #define _PM_portSetRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
-
 #define _PM_portClearRegister(pin)                                             \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
+#endif
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)
@@ -189,8 +193,13 @@ IRAM_ATTR void _PM_timerStart(void *tptr, uint32_t period) {
 
 IRAM_ATTR uint32_t _PM_timerGetCount(void *tptr) {
   timer_index_t *timer = (timer_index_t *)tptr;
-  timer->hw->hw_timer[timer->idx].update.update = 1;
-  return timer->hw->hw_timer[timer->idx].cnt_low;
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+  timer->hw->hw_timer[timer->idx].update.tn_update = 1;
+  return timer->hw->hw_timer[timer->idx].lo.tn_lo;
+#else
+  timer->hw->hw_timer[timer->idx].update.tx_update = 1;
+  return timer->hw->hw_timer[timer->idx].lo.tx_lo;
+#endif
 }
 
 // Disable timer and return current count value.
