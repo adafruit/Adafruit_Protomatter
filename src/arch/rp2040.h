@@ -186,7 +186,6 @@ static volatile uint32_t _PM_timerSave;
 // sets up this pointer when calling begin().
 void *_PM_protoPtr = NULL;
 
-
 #if _PM_CLOCK_PWM // Use PWM for timing
 static void _PM_PWM_ISR(void) {
   pwm_clear_irq(_PM_PWM_SLICE);  // Reset PWM wrap interrupt
