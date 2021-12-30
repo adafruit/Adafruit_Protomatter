@@ -104,7 +104,7 @@ void _PM_timerInit(void *tptr) {
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
-#if !defined(F_CPU) // Not sure if CircuitPython build defines this
+#if !defined(F_CPU)     // Not sure if CircuitPython build defines this
 #define F_CPU 125000000 // Standard RP2040 clock speed
 #endif
 
