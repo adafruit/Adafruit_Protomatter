@@ -236,28 +236,18 @@ uint32_t _PM_timerStop(void *tptr) {
   return _PM_timerGetCount(tptr);
 }
 
-// TO DO: determine clock-holding NOPs needed for different CPU speeds.
-// Rates supported by Philhower core:
-// 50, 100, 125, 133, 150, 175, 200, 225, 250, 275, 300
-// These probably "bin" somewhat and don't need distinct defines for
-// every single one. At slowest speeds, can probably even leave undefined.
-// Original NOPs for 125 MHz were 2 for low and 1 for high.
-//#if (F_CPU >= something)
-//#define _PM_clockHoldLow asm("nop; nop;");
-//#define _PM_clockHoldHigh asm("nop;");
-//#elif (F_CPU >= something)
-//#define _PM_clockHoldLow asm("nop; nop;");
-//#define _PM_clockHoldHigh asm("nop;");
-//#elif (F_CPU >= something)
-//#define _PM_clockHoldLow asm("nop; nop;");
-//#define _PM_clockHoldHigh asm("nop;");
-//#else
-//#define _PM_clockHoldLow asm("nop; nop;");
-//#define _PM_clockHoldHigh asm("nop;");
-//#endif
-
+#if (F_CPU >= 250000000)
+#define _PM_clockHoldLow asm("nop; nop; nop;");
+#define _PM_clockHoldHigh asm("nop; nop; nop;");
+#elif (F_CPU >= 175000000)
 #define _PM_clockHoldLow asm("nop; nop;");
 #define _PM_clockHoldHigh asm("nop;");
+#elif (F_CPU >= 125000000)
+#define _PM_clockHoldLow asm("nop;");
+#define _PM_clockHoldHigh asm("nop;");
+#elif (F_CPU >= 100000000)
+#define _PM_clockHoldLow asm("nop;");
+#endif // No NOPs needed at lower speeds
 
 #define _PM_chunkSize 8
 #if _PM_CLOCK_PWM
