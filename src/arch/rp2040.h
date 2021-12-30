@@ -68,8 +68,8 @@ static void _PM_timerISR(void);
 
 // Arduino implementation is tied to a specific PWM slice & frequency
 #define _PM_PWM_SLICE 0
-#define _PM_PWM_DIV 3 // ~41.6 MHz, similar to SAMD
-#define _PM_timerFreq (125000000 / _PM_PWM_DIV)
+#define _PM_PWM_DIV ((F_CPU + 20000000) / 40000000) // 125 MHz->3->~41.6 MHz
+#define _PM_timerFreq (F_CPU / _PM_PWM_DIV)
 #define _PM_TIMER_DEFAULT NULL
 
 #else // Use alarm for timing
@@ -104,6 +104,10 @@ void _PM_timerInit(void *tptr) {
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
+#if !defined(F_CPU) // Not sure if CircuitPython build defines this
+#define F_CPU 125000000 // Standard RP2040 clock speed
+#endif
+
 // 'pin' here is GPXX #
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)
@@ -118,7 +122,7 @@ void _PM_timerInit(void *tptr) {
 int _PM_pwm_slice;
 #define _PM_PWM_SLICE (_PM_pwm_slice & 0xff)
 #define _PM_PWM_DIV 3 // ~41.6 MHz, similar to SAMD
-#define _PM_timerFreq (125000000 / _PM_PWM_DIV)
+#define _PM_timerFreq (F_CPU / _PM_PWM_DIV)
 #define _PM_TIMER_DEFAULT NULL
 
 #else // Use alarm for timing
@@ -232,12 +236,34 @@ uint32_t _PM_timerStop(void *tptr) {
   return _PM_timerGetCount(tptr);
 }
 
-#define _PM_chunkSize 8
+// TO DO: determine clock-holding NOPs needed for different CPU speeds.
+// Rates supported by Philhower core:
+// 50, 100, 125, 133, 150, 175, 200, 225, 250, 275, 300
+// These probably "bin" somewhat and don't need distinct defines for
+// every single one. At slowest speeds, can probably even leave undefined.
+// Original NOPs for 125 MHz were 2 for low and 1 for high.
+//#if (F_CPU >= something)
+//#define _PM_clockHoldLow asm("nop; nop;");
+//#define _PM_clockHoldHigh asm("nop;");
+//#elif (F_CPU >= something)
+//#define _PM_clockHoldLow asm("nop; nop;");
+//#define _PM_clockHoldHigh asm("nop;");
+//#elif (F_CPU >= something)
+//#define _PM_clockHoldLow asm("nop; nop;");
+//#define _PM_clockHoldHigh asm("nop;");
+//#else
+//#define _PM_clockHoldLow asm("nop; nop;");
+//#define _PM_clockHoldHigh asm("nop;");
+//#endif
+
 #define _PM_clockHoldLow asm("nop; nop;");
+#define _PM_clockHoldHigh asm("nop;");
+
+#define _PM_chunkSize 8
 #if _PM_CLOCK_PWM
 #define _PM_minMinPeriod 100
 #else
 #define _PM_minMinPeriod 8
 #endif
 
-#endif // END ARDUINO_ARCH_RP2040 etc.
+#endif // END RP2040
