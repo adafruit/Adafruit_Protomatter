@@ -26,8 +26,7 @@
 
 #pragma once
 
-// TO DO: PUT A *PROPER* RP2040 CHECK HERE
-#if defined(PICO_BOARD) || defined(__RP2040__)
+#if defined(ARDUINO_ARCH_RP2040) || defined(PICO_BOARD) || defined(__RP2040__)
 
 #include "../../hardware_pwm/include/hardware/pwm.h"
 #include "hardware/irq.h"
@@ -36,11 +35,6 @@
 
 // RP2040 only allows full 32-bit aligned writes to GPIO.
 #define _PM_STRICT_32BIT_IO ///< Change core.c behavior for long accesses only
-
-// TEMPORARY: FORCING ARDUINO COMPILATION FOR INITIAL C TESTING
-#if !defined(CIRCUITPY)
-#define ARDUINO
-#endif
 
 // Enable this to use PWM for bitplane timing, else a timer alarm is used.
 // PWM has finer resolution, but alarm is adequate -- this is more about
@@ -57,7 +51,11 @@ static void _PM_timerISR(void);
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
-// 'pin' here is GPXX # -- that might change in Arduino implementation
+// THIS CURRENTLY ONLY WORKS WITH THE PHILHOWER RP2040 CORE.
+// mbed Arduino RP2040 core won't compile due to missing stdio.h.
+// Also, much of this currently assumes GPXX pin numbers with no remapping.
+
+// 'pin' here is GPXX # (might change if pin remapping gets added in core)
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)
 #define _PM_wordOffset(pin) ((pin & 31) / 16)
@@ -66,12 +64,12 @@ static void _PM_timerISR(void);
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
-#if _PM_CLOCK_PWM
+#if _PM_CLOCK_PWM // Use PWM for timing
 
 // Arduino implementation is tied to a specific PWM slice & frequency
 #define _PM_PWM_SLICE 0
-#define _PM_PWM_DIV 3 // ~41.6 MHz, similar to SAMD
-#define _PM_timerFreq (125000000 / _PM_PWM_DIV)
+#define _PM_PWM_DIV ((F_CPU + 20000000) / 40000000) // 125 MHz->3->~41.6 MHz
+#define _PM_timerFreq (F_CPU / _PM_PWM_DIV)
 #define _PM_TIMER_DEFAULT NULL
 
 #else // Use alarm for timing
@@ -81,6 +79,8 @@ static void _PM_timerISR(void);
 #define _PM_IRQ_HANDLER TIMER_IRQ_1
 #define _PM_timerFreq 1000000
 #define _PM_TIMER_DEFAULT NULL
+
+#endif
 
 // Initialize, but do not start, timer.
 void _PM_timerInit(void *tptr) {
@@ -102,9 +102,11 @@ void _PM_timerInit(void *tptr) {
 #endif
 }
 
-#endif
-
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
+
+#if !defined(F_CPU)     // Not sure if CircuitPython build defines this
+#define F_CPU 125000000 // Standard RP2040 clock speed
+#endif
 
 // 'pin' here is GPXX #
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -120,7 +122,7 @@ void _PM_timerInit(void *tptr) {
 int _PM_pwm_slice;
 #define _PM_PWM_SLICE (_PM_pwm_slice & 0xff)
 #define _PM_PWM_DIV 3 // ~41.6 MHz, similar to SAMD
-#define _PM_timerFreq (125000000 / _PM_PWM_DIV)
+#define _PM_timerFreq (F_CPU / _PM_PWM_DIV)
 #define _PM_TIMER_DEFAULT NULL
 
 #else // Use alarm for timing
@@ -131,7 +133,7 @@ int _PM_pwm_slice;
 #define _PM_timerFreq 1000000
 #define _PM_TIMER_DEFAULT NULL
 
-#endif
+#endif // end PWM/alarm
 
 // Initialize, but do not start, timer.
 void _PM_timerInit(void *tptr) {
@@ -154,28 +156,9 @@ void _PM_timerInit(void *tptr) {
 #endif
 }
 
-#endif
-
-#if !_PM_CLOCK_PWM
-// Unlike timers on other devices, on RP2040 you don't reset a counter to
-// zero at the start of a cycle. To emulate that behavior (for determining
-// elapsed times), the timer start time must be saved somewhere...
-static volatile uint32_t _PM_timerSave;
-
-#endif
-
-// Because it's tied to a specific timer right now, there can be only
-// one instance of the Protomatter_core struct. The Arduino library
-// sets up this pointer when calling begin().
-void *_PM_protoPtr = NULL;
-
-#define _PM_portOutRegister(pin) ((void *)&sio_hw->gpio_out)
-#define _PM_portSetRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_set)
-#define _PM_portClearRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_clr)
-#define _PM_portToggleRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_togl)
-// 'pin' here is GPXX # -- that might change in Arduino implementation
+// 'pin' here is GPXX #
 #define _PM_portBitMask(pin) (1UL << pin)
-// Same for these -- using GPXX #, but Arduino might assign different order
+// Same for these -- using GPXX #
 #define _PM_pinOutput(pin)                                                     \
   {                                                                            \
     gpio_init(pin);                                                            \
@@ -187,6 +170,25 @@ void *_PM_protoPtr = NULL;
 #ifndef _PM_delayMicroseconds
 #define _PM_delayMicroseconds(n) sleep_us(n)
 #endif
+
+#endif // end CIRCUITPY
+
+#define _PM_portOutRegister(pin) ((void *)&sio_hw->gpio_out)
+#define _PM_portSetRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_set)
+#define _PM_portClearRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_clr)
+#define _PM_portToggleRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_togl)
+
+#if !_PM_CLOCK_PWM
+// Unlike timers on other devices, on RP2040 you don't reset a counter to
+// zero at the start of a cycle. To emulate that behavior (for determining
+// elapsed times), the timer start time must be saved somewhere...
+static volatile uint32_t _PM_timerSave;
+#endif
+
+// Because it's tied to a specific timer right now, there can be only
+// one instance of the Protomatter_core struct. The Arduino library
+// sets up this pointer when calling begin().
+void *_PM_protoPtr = NULL;
 
 #if _PM_CLOCK_PWM // Use PWM for timing
 static void _PM_PWM_ISR(void) {
@@ -234,12 +236,24 @@ uint32_t _PM_timerStop(void *tptr) {
   return _PM_timerGetCount(tptr);
 }
 
-#define _PM_chunkSize 8
+#if (F_CPU >= 250000000)
+#define _PM_clockHoldLow asm("nop; nop; nop;");
+#define _PM_clockHoldHigh asm("nop; nop; nop;");
+#elif (F_CPU >= 175000000)
 #define _PM_clockHoldLow asm("nop; nop;");
+#define _PM_clockHoldHigh asm("nop;");
+#elif (F_CPU >= 125000000)
+#define _PM_clockHoldLow asm("nop;");
+#define _PM_clockHoldHigh asm("nop;");
+#elif (F_CPU >= 100000000)
+#define _PM_clockHoldLow asm("nop;");
+#endif // No NOPs needed at lower speeds
+
+#define _PM_chunkSize 8
 #if _PM_CLOCK_PWM
 #define _PM_minMinPeriod 100
 #else
 #define _PM_minMinPeriod 8
 #endif
 
-#endif // END PICO_BOARD
+#endif // END RP2040
