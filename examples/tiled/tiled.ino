@@ -72,6 +72,18 @@ supported boards.
   uint8_t clockPin   = 23; // A9
   uint8_t latchPin   = 6;
   uint8_t oePin      = 9;
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_RP2040)
+  // RP2040 support requires the Earle Philhower board support package;
+  // will not compile with the Arduino Mbed OS board package.
+  // The following pinout works with the Adafruit Feather RP2040 and
+  // original RGB Matrix FeatherWing (M0/M4/RP2040, not nRF version).
+  // Pin numbers here are GP## numbers, which may be different than
+  // the pins printed on some boards' top silkscreen.
+  uint8_t rgbPins[]  = {8, 7, 9, 11, 10, 12};
+  uint8_t addrPins[] = {25, 24, 29, 28};
+  uint8_t clockPin   = 13;
+  uint8_t latchPin   = 1;
+  uint8_t oePin      = 0;
 #endif
 
 /* ----------------------------------------------------------------------
