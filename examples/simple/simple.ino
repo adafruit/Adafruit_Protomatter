@@ -32,6 +32,12 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t clockPin   = 13;
   uint8_t latchPin   = 0;
   uint8_t oePin      = 1;
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) // Feather ESP32-S2 + RGB Matrix FeatherWing
+  uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
+  uint8_t addrPins[] = {A5, A4, A3, A2};
+  uint8_t clockPin   = 13;
+  uint8_t latchPin   = 0;
+  uint8_t oePin      = 1;
 #elif defined(__SAMD51__) // M4 Metro Variants (Express, AirLift)
   uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
   uint8_t addrPins[] = {A5, A4, A3, A2};
