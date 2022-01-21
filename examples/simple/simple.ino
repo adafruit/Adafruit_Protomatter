@@ -22,7 +22,7 @@ supported boards. Notes have been moved to the bottom of the code.
 
 #if defined(_VARIANT_MATRIXPORTAL_M4_) // MatrixPortal M4
   uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-  uint8_t addrPins[] = {17, 18, 19, 20};
+  uint8_t addrPins[] = {17, 18, 19, 20, 21};
   uint8_t clockPin   = 14;
   uint8_t latchPin   = 15;
   uint8_t oePin      = 16;
@@ -177,6 +177,11 @@ void setup(void) {
   matrix.drawRect(14, 6, 17, 17, matrix.color565(0, 255, 0));
   matrix.drawTriangle(32, 9, 41, 27, 23, 27, matrix.color565(0, 0, 255));
   matrix.println("ADAFRUIT"); // Default text color is white
+  if (matrix.height() > 32) {
+    matrix.setCursor(0, 32);
+    matrix.println("64 pixel"); // Default text color is white
+    matrix.println("matrix"); // Default text color is white
+  }
 
   // AFTER DRAWING, A show() CALL IS REQUIRED TO UPDATE THE MATRIX!
 
