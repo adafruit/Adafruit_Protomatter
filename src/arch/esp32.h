@@ -28,7 +28,7 @@
 #else
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 #define _PM_STRICT_32BIT_IO ///< Change core.c behavior for long accesses only
-#endif // end ESP32S3
+#endif                      // end ESP32S3
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
 #define _PM_portSetRegister(pin)                                               \
