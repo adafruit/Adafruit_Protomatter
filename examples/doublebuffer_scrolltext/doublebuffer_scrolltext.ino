@@ -45,6 +45,13 @@ supported boards.
   uint8_t clockPin   = 12;
   uint8_t latchPin   = PIN_SERIAL1_RX;
   uint8_t oePin      = PIN_SERIAL1_TX;
+#elif USB_VID == 0x239A && USB_PID == 0x8113 // Feather ESP32-S3 No PSRAM
+  // M0/M4/RP2040 Matrix FeatherWing compatible:
+  uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
+  uint8_t addrPins[] = {A5, A4, A3, A2};
+  uint8_t clockPin   = 13; // Must be on same port as rgbPins
+  uint8_t latchPin   = RX;
+  uint8_t oePin      = TX;
 #elif defined(ESP32)
   // 'Safe' pins, not overlapping any peripherals:
   // GPIO.out: 4, 12, 13, 14, 15, 21, 27, GPIO.out1: 32, 33
@@ -97,7 +104,7 @@ Adafruit_Protomatter matrix(
   1, rgbPins,  // # of matrix chains, array of 6 RGB pins for each
   4, addrPins, // # of address pins (height is inferred), array of pins
   clockPin, latchPin, oePin, // Other matrix control pins
-  true);       // HERE IS THE MAGIG FOR DOUBLE-BUFFERING!
+  true);       // HERE IS THE MAGIC FOR DOUBLE-BUFFERING!
 
 // Sundry globals used for animation ---------------------------------------
 
