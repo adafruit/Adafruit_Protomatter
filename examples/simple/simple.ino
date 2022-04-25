@@ -63,6 +63,13 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t clockPin   = 13; // Must be on same port as rgbPins
   uint8_t latchPin   = RX;
   uint8_t oePin      = TX;
+#elif USB_VID == 0x239A && USB_PID == 0x80EB // Feather ESP32-S2
+  // M0/M4/RP2040 Matrix FeatherWing compatible:
+  uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
+  uint8_t addrPins[] = {A5, A4, A3, A2};
+  uint8_t clockPin   = 13; // Must be on same port as rgbPins
+  uint8_t latchPin   = RX;
+  uint8_t oePin      = TX;
 #elif defined(ESP32)
   // 'Safe' pins, not overlapping any peripherals:
   // GPIO.out: 4, 12, 13, 14, 15, 21, 27, GPIO.out1: 32, 33

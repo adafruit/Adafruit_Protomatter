@@ -26,9 +26,9 @@
 #define _PM_portSetRegister(pin) (volatile uint32_t *)&GPIO.out_w1ts
 #define _PM_portClearRegister(pin) (volatile uint32_t *)&GPIO.out_w1tc
 #else
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #define _PM_STRICT_32BIT_IO ///< Change core.c behavior for long accesses only
-#endif                      // end ESP32S3
+#endif                      // end ESP32S3/S2
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
 #define _PM_portSetRegister(pin)                                               \
@@ -52,6 +52,10 @@ void *_PM_protoPtr = NULL;
 
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
 
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+#define _PM_minMinPeriod 50 ///< Minimum timer interval for least bit
+#endif
+
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // ESP32 requires a custom PEW declaration (issues one set of RGB color bits
@@ -59,14 +63,15 @@ void *_PM_protoPtr = NULL;
 // actually atomic. If two writes are made in quick succession, the second
 // has no effect. One option is NOPs, other is to write a 0 (no effect) to
 // the opposing register (set vs clear) to synchronize the next write.
-#if !defined(CONFIG_IDF_TARGET_ESP32S3) // S3 can use stock PEW define
+// S3 & S2 can use stock PEW define
+#if !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32S2)
 #define PEW                                                                    \
   *set = *data++;         /* Set RGB data high */                              \
   *clear_full = 0;        /* ESP32 MUST sync before 2nd 'set' */               \
   *set_full = clock;      /* Set clock high */                                 \
   *clear_full = rgbclock; /* Clear RGB data + clock */                         \
   ///< Bitbang one set of RGB data bits to matrix
-#endif // end !ESP32S3
+#endif // end !ESP32S3/S2
 
 #define _PM_timerNum 0 // Timer #0 (can be 0-3)
 
@@ -198,7 +203,7 @@ IRAM_ATTR void _PM_timerStart(void *tptr, uint32_t period) {
 
 IRAM_ATTR uint32_t _PM_timerGetCount(void *tptr) {
   timer_index_t *timer = (timer_index_t *)tptr;
-#ifdef CONFIG_IDF_TARGET_ESP32S3
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
   timer->hw->hw_timer[timer->idx].update.tn_update = 1;
   return timer->hw->hw_timer[timer->idx].lo.tn_lo;
 #else
