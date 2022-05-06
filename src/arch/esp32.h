@@ -45,6 +45,13 @@
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
 
+//#define _PM_CUSTOM_BLAST
+// If custom blast, all three functions must be declared.
+// Unused ones can be empty funcs, that's fine, just need to exist.
+//IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {}
+//IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
+//IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
+
 // As written, because it's tied to a specific timer right now, the
 // Arduino lib only permits one instance of the Protomatter_core struct,
 // which it sets up when calling begin().

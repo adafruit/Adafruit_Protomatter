@@ -587,6 +587,8 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   }
 }
 
+#if !defined _PM_CUSTOM_BLAST
+
 // Innermost data-stuffing loop functions
 
 // The presence of a bit-toggle register can make the data-stuffing loop a
@@ -817,6 +819,8 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
   *(volatile uint32_t *)core->clearReg = core->rgbAndClockMask;
 #endif
 }
+
+#endif // end !_PM_CUSTOM_BLAST
 
 // Returns current value of frame counter and resets its value to zero.
 // Two calls to this, timed one second apart (or use math with other
