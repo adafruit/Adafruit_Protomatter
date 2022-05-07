@@ -148,7 +148,6 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 #define _PM_pinInput(pin) pinMode(pin, INPUT)
 #define _PM_pinHigh(pin) digitalWrite(pin, HIGH)
 #define _PM_pinLow(pin) digitalWrite(pin, LOW)
-#define _PM_portBitMask(pin) digitalPinToBitMask(pin)
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
@@ -175,6 +174,10 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 #include "teensy4.h"
 
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
+
+#if !defined(_PM_portBitMask)
+#define _PM_portBitMask(pin) digitalPinToBitMask(pin)
+#endif
 
 #if !defined(_PM_chunkSize)
 #define _PM_chunkSize 8 ///< Unroll data-stuffing loop to this size

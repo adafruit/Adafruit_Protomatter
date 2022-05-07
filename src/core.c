@@ -73,12 +73,16 @@ static void blast_byte(Protomatter_core *core, uint8_t *data);
 static void blast_word(Protomatter_core *core, uint16_t *data);
 static void blast_long(Protomatter_core *core, uint32_t *data);
 
+#if !defined(_PM_clearReg)
 #define _PM_clearReg(x)                                                        \
   (*(volatile _PM_PORT_TYPE *)((x).clearReg) =                                 \
        ((x).bit)) ///< Clear non-RGB-data-or-clock control line (_PM_pin type)
+#endif
+#if !defined(_PM_setReg)
 #define _PM_setReg(x)                                                          \
   (*(volatile _PM_PORT_TYPE *)((x).setReg) =                                   \
        ((x).bit)) ///< Set non-RGB-data-or-clock control line (_PM_pin type)
+#endif
 
 // Validate and populate vital elements of core structure.
 // Does NOT allocate core struct -- calling function must provide that.
@@ -434,7 +438,7 @@ void _PM_resume(Protomatter_core *core) {
       }
     }
 
-    _PM_timerInit(core->timer);        // Configure timer
+    _PM_timerInit(core);               // Configure timer & any other periphs
     _PM_timerStart(core->timer, 1000); // Start timer
   }
 }
