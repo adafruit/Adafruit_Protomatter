@@ -186,6 +186,9 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
 
   // RGB + clock are on same port, we can proceed...
 
+#if defined(_PM_bytesPerElement)
+  core->bytesPerElement = _PM_bytesPerElement;
+#else
   // Determine data type for internal representation. If all the data
   // bitmasks (and possibly clock bitmask, depending whether toggle-bits
   // register is present) are in the same byte, this can be stored more
@@ -217,6 +220,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     core->bytesPerElement = 4; // Use 32-bit PORT accesses.
     break;
   }
+#endif
 
   // Planning for screen data allocation...
   core->numRowPairs = 1 << core->numAddressLines;
