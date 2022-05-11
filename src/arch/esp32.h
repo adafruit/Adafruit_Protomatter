@@ -68,10 +68,20 @@ static uint16_t _bit_toggle[128] = {
 };
 
 #include <driver/dedic_gpio.h>
-// These files are S2 only:
+#if defined(CONFIG_IDF_TARGET_ESP32S2)
 #include <soc/dedic_gpio_reg.h>
 #include <soc/dedic_gpio_struct.h>
-// Are there S3 equivs?
+#else
+// Dedicated GPIO headers don't exist for S3? Periph is definitely indicated
+// as supported in headers though. Can try including the S2 headers...this
+// does get through compilation, but linking fails because DEDIC_GPIO doesn't
+// exist (normally set by linker script).
+// UPDATE: the indication that dedicated GPIO exists on S3 appears to be
+// wrong. It's not covered in the datasheet at all, not declared in the
+// linker script...it's just...not there.
+#include <../../../../../esp32s2/include/soc/esp32s2/include/soc/dedic_gpio_reg.h>
+#include <../../../../../esp32s2/include/soc/esp32s2/include/soc/dedic_gpio_struct.h>
+#endif
 
 // Override the behavior of _PM_portBitMask macro so instead of returning
 // a 32-bit mask for a pin within its corresponding GPIO register, it instead
