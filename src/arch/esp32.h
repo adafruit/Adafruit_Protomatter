@@ -29,9 +29,6 @@
 
 #else
 
-// Is this needed? Maybe not.
-#define _PM_STRICT_32BIT_IO ///< Change core.c behavior for long accesses only
-
 // Oh wait - this is only true on S2/S3. On others, use orig line.
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
@@ -42,7 +39,14 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
 
+// Because using Dedicated GPIO, all RGB bits are in a single byte.
+// Override the check that determines how they're spread in PORT.
 #define _PM_bytesPerElement 1
+// Instruct core.c to format the matrix data in RAM as if we're using
+// a port toggle register, even though _PM_portToggleRegister is NOT defined
+// because ESP32 doesn't have that (but does have it through Dedicated GPIO).
+#define _PM_USE_TOGGLE_FORMAT
+
 // These all have the 7th bit (doubled up, because toggle) set on purpose,
 // because that's how the code always works.
 static uint16_t _bit_toggle[64] = {
@@ -55,20 +59,6 @@ static uint16_t _bit_toggle[64] = {
     0x3F3C, 0x3F3F, 0x3FC0, 0x3FC3, 0x3FCC, 0x3FCF, 0x3FF0, 0x3FF3, 0x3FFC,
     0x3FFF,
 };
-// How to tell core code to always use 1 byte even if registers span
-// PORTs?
-// That's in core->bytesPerElement...and by the time our timer init func
-// is called later, that value's already set and memory is already alloc'd.
-// UNLESS _PM_portOutRegiser is fiddled to return same address for all,
-// then it will alloc one byte.
-// Need to define custom _PM_clearReg() and _PM_setReg() macros, and
-// have core.c only define those if not already present.
-// Ah! 'x' is a pin struct, so there should be a mask element?
-// OH, OF COURSE. the gpio_out_idv register is specifically used
-// by the RGB & clock bits. ALL other bits are on different
-// registers and not through Direct GPIO periph.
-//#define _PM_setReg(x) DEDIC_GPIO.gpio_out_idv.val = _bit_set[x.bit]
-//#define _PM_clearReg(x) DEDIC_GPIO.gpio_out_idv.val = _bit_clear[x.bit]
 
 #include <driver/dedic_gpio.h>
 // These files are S2 only:
@@ -81,7 +71,7 @@ static uint16_t _bit_toggle[64] = {
 // returns a 7-bit mask for the pin within the Direct GPIO register...this
 // requires comparing against pin numbers in the core struct.
 static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
-  if (pin == core->clockPin) return 0x40;
+  if (pin == core->clockPin) return 1 << 6;
   for (uint8_t i=0; i<6; i++) {
     if (pin == core->rgbPins[i]) return 1 << i;
   }
@@ -107,9 +97,6 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // PORT has already been initialized with RGB data + clock bits
   // all LOW, so we don't need to initialize that state here.
 
-// OK, with some chunk loop unrolling, this is starting to look
-// promising. RGB and clock are toggling! However, OR, latch and
-// address pins are not. Need to work on those.
   for (uint32_t bits = core->chainBits / 8; bits--; ) {
     *gpio = _bit_toggle[*data++]; // Toggle in new data + toggle clock low
     *gpio = 0b11000000000000;     // Toggle clock high
@@ -140,9 +127,6 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 // Unused ones can be empty, that's fine, just need to exist.
 IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
 IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
-
-// Might not need this now:
-//#define _PM_minMinPeriod 50 ///< Minimum timer interval for least bit
 
 #else
 

@@ -175,6 +175,10 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
 
+#if defined(_PM_portToggleRegister)
+#define _PM_USE_TOGGLE_FORMAT
+#endif
+
 #if !defined(_PM_portBitMask)
 #define _PM_portBitMask(pin) digitalPinToBitMask(pin)
 #endif

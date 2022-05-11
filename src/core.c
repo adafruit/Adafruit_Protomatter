@@ -245,7 +245,8 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // rgbMask data follows the matrix buffer(s)
   core->rgbMask = core->screenData + screenBytes;
 
-#if !defined(_PM_portToggleRegister)
+//#if !defined(_PM_portToggleRegister)
+#if !defined(_PM_USE_TOGGLE_FORMAT)
   // Clear entire screenData buffer so there's no cruft in any pad bytes
   // (if using toggle register, each is set to clockMask below instead).
   memset(core->screenData, 0, screenBytes);
@@ -254,7 +255,8 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // Figure out clockMask and rgbAndClockMask, clear matrix buffers
   if (core->bytesPerElement == 1) {
     core->portOffset = _PM_byteOffset(core->rgbPins[0]);
-#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
+//#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
+#if defined(_PM_USE_TOGGLE_FORMAT) && !defined(_PM_STRICT_32BIT_IO)
     // Clock and rgbAndClockMask are 8-bit values
     core->clockMask = _PM_portBitMask(core->clockPin) >> (core->portOffset * 8);
     core->rgbAndClockMask =
@@ -271,7 +273,8 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     }
   } else if (core->bytesPerElement == 2) {
     core->portOffset = _PM_wordOffset(core->rgbPins[0]);
-#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
+//#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
+#if defined(_PM_USE_TOGGLE_FORMAT) && !defined(_PM_STRICT_32BIT_IO)
     // Clock and rgbAndClockMask are 16-bit values
     core->clockMask =
         _PM_portBitMask(core->clockPin) >> (core->portOffset * 16);
@@ -285,7 +288,8 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     // Clock and rgbAndClockMask are 32-bit values
     core->clockMask = _PM_portBitMask(core->clockPin);
     core->rgbAndClockMask = bitMask | core->clockMask;
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
     // TO DO: this ifdef and the one above can probably be wrapped up
     // in a more cohesive case. Think something similar will be needed
     // for the byte case. Will need Teensy 4.1 to test.
@@ -304,7 +308,8 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     core->portOffset = 0;
     core->clockMask = _PM_portBitMask(core->clockPin);
     core->rgbAndClockMask = bitMask | core->clockMask;
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
     uint32_t elements = screenBytes / 4;
     for (uint32_t i = 0; i < elements; i++) {
       ((uint32_t *)core->screenData)[i] = core->clockMask;
@@ -887,7 +892,8 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     dest += core->bufferSize * (1 - core->activeBuffer);
   }
 
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
 #if !defined(_PM_STRICT_32BIT_IO)
   // core->clockMask mask is already an 8-bit value
   uint8_t clockMask = core->clockMask;
@@ -946,7 +952,8 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     uint32_t greenBit = initialGreenBit;
     uint32_t blueBit = initialBlueBit;
     for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
       uint8_t prior = clockMask; // Set clock bit on 1st out
 #endif
       uint8_t *d2 = dest; // Incremented per-pixel across all tiles
@@ -990,7 +997,9 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
             result |= pinMask[4];
           if (lowerRGB & blueBit)
             result |= pinMask[5];
-#if defined(_PM_portToggleRegister)
+// THIS is where toggle format (without toggle reg.) messes up
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
           *d2++ = result ^ prior;
           prior = result | clockMask; // Set clock bit on next out
 #else
@@ -1011,7 +1020,8 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
         redBit = 0b0000100000000000;
         blueBit = 0b0000000000000001;
       }
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
       // If using bit-toggle register, erase the toggle bit on the
       // first element of each bitplane & row pair. The matrix-driving
       // interrupt functions correspondingly set the clock low before
@@ -1061,7 +1071,8 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
   // register exists, "clear" really means the clock mask is set in all
   // but the first element on a scanline (per bitplane). If no toggle
   // register, can just zero everything out.
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
   // No per-chain loop is required; one clock bit handles all chains
   uint32_t offset = 0; // Current position in the 'dest' buffer
   uint16_t mask = core->clockMask >> (core->portOffset * 16);
@@ -1085,7 +1096,8 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
       uint32_t greenBit = initialGreenBit;
       uint32_t blueBit = initialBlueBit;
       for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
         // Since we're ORing in bits over an existing clock bit,
         // prior is 0 rather than clockMask as in the byte case.
         uint16_t prior = 0;
@@ -1133,7 +1145,8 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
               result |= pinMask[5];
               // Main difference here vs byte converter is each chain
               // ORs new bits into place (vs single-pass overwrite).
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
             *d2++ |= result ^ prior; // Bitwise OR
             prior = result;
 #else
@@ -1185,7 +1198,8 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
     initialBlueBit = 0b0000000000000001 << shiftLeft;
   }
 
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
   // No per-chain loop is required; one clock bit handles all chains
   uint32_t offset = 0; // Current position in the 'dest' buffer
   for (uint8_t row = 0; row < core->numRowPairs; row++) {
@@ -1208,7 +1222,8 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
       uint32_t greenBit = initialGreenBit;
       uint32_t blueBit = initialBlueBit;
       for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
         uint32_t prior = 0;
 #endif
         uint32_t *d2 = dest; // Incremented per-pixel across all tiles
@@ -1254,7 +1269,8 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
               result |= pinMask[5];
               // Main difference here vs byte converter is each chain
               // ORs new bits into place (vs single-pass overwrite).
-#if defined(_PM_portToggleRegister)
+//#if defined(_PM_portToggleRegister)
+#if defined(_PM_USE_TOGGLE_FORMAT)
             *d2++ |= result ^ prior; // Bitwise OR
             prior = result;
 #else

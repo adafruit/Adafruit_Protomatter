@@ -32,12 +32,13 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t clockPin   = 13;
   uint8_t latchPin   = 0;
   uint8_t oePin      = 1;
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) // Feather ESP32-S2 + RGB Matrix FeatherWing
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) // Feather ESP32-S2
+  // M0/M4/RP2040 Matrix FeatherWing compatible:
   uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
   uint8_t addrPins[] = {A5, A4, A3, A2};
-  uint8_t clockPin   = 13;
-  uint8_t latchPin   = 0;
-  uint8_t oePin      = 1;
+  uint8_t clockPin   = 13; // Must be on same port as rgbPins
+  uint8_t latchPin   = RX;
+  uint8_t oePin      = TX;
 #elif defined(__SAMD51__) // M4 Metro Variants (Express, AirLift)
   uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
   uint8_t addrPins[] = {A5, A4, A3, A2};
@@ -57,13 +58,6 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t latchPin   = PIN_SERIAL1_RX;
   uint8_t oePin      = PIN_SERIAL1_TX;
 #elif USB_VID == 0x239A && USB_PID == 0x8113 // Feather ESP32-S3 No PSRAM
-  // M0/M4/RP2040 Matrix FeatherWing compatible:
-  uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
-  uint8_t addrPins[] = {A5, A4, A3, A2};
-  uint8_t clockPin   = 13; // Must be on same port as rgbPins
-  uint8_t latchPin   = RX;
-  uint8_t oePin      = TX;
-#elif USB_VID == 0x239A && USB_PID == 0x80EB // Feather ESP32-S2
   // M0/M4/RP2040 Matrix FeatherWing compatible:
   uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
   uint8_t addrPins[] = {A5, A4, A3, A2};
