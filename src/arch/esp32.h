@@ -29,6 +29,9 @@
 
 #else
 
+// Is this needed? Maybe not.
+#define _PM_STRICT_32BIT_IO ///< Change core.c behavior for long accesses only
+
 // Oh wait - this is only true on S2/S3. On others, use orig line.
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
@@ -79,10 +82,10 @@ static uint16_t _bit_toggle[64] = {
 // requires comparing against pin numbers in the core struct.
 static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
   if (pin == core->clockPin) return 0x40;
-  for (uint8_t i=0; i<7; i++) {
+  for (uint8_t i=0; i<6; i++) {
     if (pin == core->rgbPins[i]) return 1 << i;
   }
-  // Else return the bit that would normally be used for GPIO
+  // Else return the bit that would normally be used for regular GPIO
   return (1U << (pin & 31));
 }
 // Thankfully, at present, any code which calls _PM_portBitMask() currently
