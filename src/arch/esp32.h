@@ -29,7 +29,6 @@
 
 #else
 
-// Oh wait - this is only true on S2/S3. On others, use orig line.
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
 #define _PM_portSetRegister(pin)                                               \
@@ -37,18 +36,33 @@
 #define _PM_portClearRegister(pin)                                             \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+#if defined(CONFIG_IDF_TARGET_ESP32S2)
 
-// Because using Dedicated GPIO, all RGB bits are in a single byte.
-// Override the check that determines how they're spread in PORT.
+// On ESP32-S2, use the Dedicated GPIO peripheral, which allows faster bit-
+// toggling than the conventional GPIO registers. Unfortunately NOT present
+// on S3 or other ESP32 devices. Normal GPIO has a bottleneck where toggling
+// a pin is limited to 8 MHz max. Dedicated GPIO can work around this and
+// get over twice this rate, but requires some very weird hoops!
+// Dedicated GPIO only supports 8-bit output, so parallel output isn't
+// supported, but positives include that there's very flexible pin MUXing,
+// so matrix data in RAM can ALWAYS be stored in byte format regardless how
+// the RGB+clock bits are distributed among pins.
 #define _PM_bytesPerElement 1
-// Instruct core.c to format the matrix data in RAM as if we're using
-// a port toggle register, even though _PM_portToggleRegister is NOT defined
-// because ESP32 doesn't have that (but does have it through Dedicated GPIO).
+#define _PM_byteOffset(pin) 0
+#define _PM_wordOffset(pin) 0
+
+// Odd thing with Dedicated GPIO is that the bit-toggle operation is faster
+// than bit set or clear (perhaps some underlying operation is atomic rather
+// than read-modify-write). So, instruct core.c to format the matrix data in
+// RAM as if we're using a port toggle register, even though
+// _PM_portToggleRegister is NOT defined because ESP32 doesn't have that in
+// conventional GPIO.
 #define _PM_USE_TOGGLE_FORMAT
 
-// These all have the 7th bit (doubled up, because toggle) set on purpose,
-// because that's how the code always works.
+// This table is used to remap 7-bit (RGB+RGB+clock) data to the 2-bits-per
+// GPIO format used by Dedicated GPIO. Bits corresponding to clock output
+// are always set here, as we want that bit toggled low at the same time new
+// RGB data is set up.
 static uint16_t _bit_toggle[128] = {
     0x3000, 0x3003, 0x300C, 0x300F, 0x3030, 0x3033, 0x303C, 0x303F, 0x30C0,
     0x30C3, 0x30CC, 0x30CF, 0x30F0, 0x30F3, 0x30FC, 0x30FF, 0x3300, 0x3303,
@@ -68,20 +82,8 @@ static uint16_t _bit_toggle[128] = {
 };
 
 #include <driver/dedic_gpio.h>
-#if defined(CONFIG_IDF_TARGET_ESP32S2)
 #include <soc/dedic_gpio_reg.h>
 #include <soc/dedic_gpio_struct.h>
-#else
-// Dedicated GPIO headers don't exist for S3? Periph is definitely indicated
-// as supported in headers though. Can try including the S2 headers...this
-// does get through compilation, but linking fails because DEDIC_GPIO doesn't
-// exist (normally set by linker script).
-// UPDATE: the indication that dedicated GPIO exists on S3 appears to be
-// wrong. It's not covered in the datasheet at all, not declared in the
-// linker script...it's just...not there.
-#include <../../../../../esp32s2/include/soc/esp32s2/include/soc/dedic_gpio_reg.h>
-#include <../../../../../esp32s2/include/soc/esp32s2/include/soc/dedic_gpio_struct.h>
-#endif
 
 // Override the behavior of _PM_portBitMask macro so instead of returning
 // a 32-bit mask for a pin within its corresponding GPIO register, it instead
@@ -99,19 +101,13 @@ static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
 // has a 'core' variable.
 #define _PM_portBitMask(pin) _PM_directBitMask(core, pin)
 
-// Because S2/S3 go through Dedicated GPIO, everythings always in one byte:
-#define _PM_byteOffset(pin) 0
-#define _PM_wordOffset(pin) 0
-// Downside to Dedicated GPIO is we can only do one chain.
-// Parallel chains require more bits...maybe change to I2S LCD for that.
-
-// ESP32-S2 and S3 require a complete replacement of the "blast" functions
+// Dedicated GPIO requires a complete replacement of the "blast" functions
 // in order to get sufficient speed.
-#define _PM_CUSTOM_BLAST
+#define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
 IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   volatile uint32_t *gpio = &DEDIC_GPIO.gpio_out_idv.val;
 
-  // PORT has already been initialized with RGB data + clock bits
+  // GPIO has already been initialized with RGB data + clock bits
   // all LOW, so we don't need to initialize that state here.
 
   for (uint32_t bits = core->chainBits / 8; bits--; ) {
@@ -133,7 +129,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
     *gpio = 0b11000000000000;
   }
 
-  // Want the PORT left with RGB data and clock LOW on function exit
+  // Want the pins left with RGB data and clock LOW on function exit
   // (so it's easier to see on 'scope, and to prime it for the next call).
   // This is implicit in the no-toggle case (due to how the PEW macro
   // works), but toggle case requires explicitly clearing those bits.
@@ -145,7 +141,9 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
 IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
 
-#else
+#endif // end ESP32S2
+
+#endif // end !ESP32C3
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)
@@ -154,10 +152,6 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
 #define _PM_byteOffset(pin) (3 - ((pin & 31) / 8))
 #define _PM_wordOffset(pin) (1 - ((pin & 31) / 16))
 #endif
-
-#endif // end ESP32S3/S2
-
-#endif // end !ESP32C3
 
 // As written, because it's tied to a specific timer right now, the
 // Arduino lib only permits one instance of the Protomatter_core struct,
@@ -207,11 +201,11 @@ IRAM_ATTR static void _PM_esp32timerCallback(void) {
 
 // Initialize, but do not start, timer (and any other peripherals).
 void _PM_timerInit(Protomatter_core *core) {
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-  // On S2 & S3, initialize the Dedicated GPIO peripheral using the RGB
-  // pin list from the core struct, plus the clock pin (7 pins total).
-  // Unsure if these structs & arrays need to be persistent. Declaring
-  // static just in case, will remove that one by one.
+#if defined(CONFIG_IDF_TARGET_ESP32S2)
+  // On S2, initialize the Dedicated GPIO peripheral using the RGB pin list
+  // list from the core struct, plus the clock pin (7 pins total). Unsure if
+  // these structs & arrays need to be persistent. Declaring static just in
+  // case...could experiment with removing one by one.
   static int pins[7];
   for (uint8_t i=0; i<6; i++) pins[i] = core->rgbPins[i];
   pins[6] = core->clockPin;

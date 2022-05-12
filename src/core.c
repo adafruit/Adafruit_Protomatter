@@ -98,8 +98,21 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
   // bitDepth is NOT constrained here, handle in calling function
   // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
   // but might be more or less elsewhere)
+#if defined(_PM_bytesPerElement)
+#if _PM_bytesPerElement == 1
+  if (rgbCount > 1)
+    rgbCount = 1; // Parallel output not supported if only 8-bit PORT
+#elif _PM_bytesPerElement == 2
+  if (rgbCount > 2)
+    rgbCount = 2; // Max 2 in parallel (13 bits in 16-bit PORT)
+#else
   if (rgbCount > 5)
-    rgbCount = 5; // Max 5 in parallel (32-bit PORT)
+    rgbCount = 5; // Max 5 in parallel (31 bits in 32-bit PORT)
+#endif
+#else
+  if (rgbCount > 5)
+    rgbCount = 5; // Max 5 in parallel (31 bits in 32-bit PORT)
+#endif // end _PM_bytesPerElement
   if (addrCount > 5)
     addrCount = 5; // Max 5 address lines (A-E)
   if (!tile)

@@ -135,6 +135,30 @@ _PM_allocate:                Memory allocation function, should return a
                              If not defined, malloc() is used.
 _PM_free:                    Corresponding deallocator for _PM_allocate().
                              If not defined, free() is used.
+_PM_bytesPerElement          If defined, this allows an arch-specific source
+                             file to override core's data size that's based
+                             on pin selections. Reasonable values would be 1,
+                             2 or 4. Not currently used, this came about
+                             during ESP32-S2 development; a GPIO peripheral
+                             there allows super flexible pin MUXing, so one
+                             byte could be used even w/pins spread all over.
+_PM_USE_TOGGLE_FORMAT        If defined, this instructs the core code to
+                             format pixel data for GPIO bit-toggling, even
+                             if _PM_portToggleRegister is not defined. Not
+                             currently used, another ESP32-S2 experiment
+                             where normal GPIO does not have a toggle reg
+                             but a different peripheral does.
+_PM_CUSTOM_BLAST             If defined, instructs core code to not compile
+                             the blast_byte(), blast_word() or blast_long()
+                             functions; these will be declared in the arch-
+                             specific file instead. Not currently used, was
+                             part of the ESP32-S2 experiment. This might yet
+                             benefit other architectures, where DMA, PIO or
+                             other specialized peripherals could be set up
+                             to issue data independent of the CPU. This goes
+                             against's Protomatter's normal design of using
+                             the most baseline peripherals for a given
+                             architecture, but time marches on, y'know?
 */
 
 // ENVIRONMENT-SPECIFIC DECLARATIONS ---------------------------------------
