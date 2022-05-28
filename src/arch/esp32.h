@@ -202,7 +202,9 @@ static IRAM_ATTR bool dma_callback(gdma_channel_handle_t dma_chan,
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
 IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
-  while (!xfer_done); // Wait for completion of prior xfer
+//  while (!xfer_done); // Wait for completion of prior xfer
+gdma_reset(dma_chan);                 // Stop any current DMA
+LCD_CAM.lcd_user.lcd_start = 0;       // Stop any current LCD transfer
 
   LCD_CAM.lcd_misc.lcd_afifo_reset = 1; // Reset TX FIFO (required)
 
@@ -386,7 +388,8 @@ void _PM_timerInit(Protomatter_core *core) {
   LCD_CAM.lcd_user.lcd_bit_order = 0;   // Do not reverse bit order
   LCD_CAM.lcd_user.lcd_2byte_en = 0;    // 8-bit data mode
   LCD_CAM.lcd_user.lcd_dout = 1;        // Enable data out
-  LCD_CAM.lcd_user.lcd_dummy = 0;       // No dummy phase at LCD start
+// Changed this to one dummy phase, image then goes stable!
+  LCD_CAM.lcd_user.lcd_dummy = 1;       // No dummy phase at LCD start
   LCD_CAM.lcd_user.lcd_cmd = 0;         // No command at LCD start
   // For whatever reason, a dummy cycle is output at the start
   // regardless of the 'dummy' setting above. This minimizes it
