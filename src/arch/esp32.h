@@ -356,7 +356,7 @@ void _PM_timerInit(Protomatter_core *core) {
   // Configure LCD clock
   LCD_CAM.lcd_clock.clk_en = 1;             // Enable clock
   LCD_CAM.lcd_clock.lcd_clk_sel = 3;        // PLL160M source
-  LCD_CAM.lcd_clock.lcd_clkm_div_a = 1;     // 1/1 fractional divide,
+  LCD_CAM.lcd_clock.lcd_clkm_div_a = 0;     // 1/1 fractional divide,
   LCD_CAM.lcd_clock.lcd_clkm_div_b = 1;     // plus '7' below yields...
   LCD_CAM.lcd_clock.lcd_clkm_div_num = 7;   // 1:8 prescale (20 MHz CLK)
   LCD_CAM.lcd_clock.lcd_ck_out_edge = 0;    // PCLK low in first half of cycle
@@ -382,20 +382,20 @@ void _PM_timerInit(Protomatter_core *core) {
   LCD_CAM.lcd_rgb_yuv.lcd_conv_bypass = 0; // Disable RGB/YUV converter
   LCD_CAM.lcd_misc.lcd_next_frame_en = 0;  // Do NOT auto-frame
   LCD_CAM.lcd_data_dout_mode.val = 0;      // No data delays
-  LCD_CAM.lcd_user.lcd_dout_cyclelen = core->chainBits;
+  LCD_CAM.lcd_user.lcd_dout_cyclelen = core->chainBits - 1;
   LCD_CAM.lcd_user.lcd_always_out_en = 0;
   LCD_CAM.lcd_user.lcd_8bits_order = 0; // Do not swap bytes
   LCD_CAM.lcd_user.lcd_bit_order = 0;   // Do not reverse bit order
   LCD_CAM.lcd_user.lcd_2byte_en = 0;    // 8-bit data mode
   LCD_CAM.lcd_user.lcd_dout = 1;        // Enable data out
-// Changed this to one dummy phase, image then goes stable!
-  LCD_CAM.lcd_user.lcd_dummy = 1;       // No dummy phase at LCD start
+  // MUST enable at least one dummy phase at start of output, else clock
+  // and data are intermittently misaligned. Since HUB75 is just a shift
+  // register, the extra clock tick is harmless and the zero-data shifts
+  // off the end of the chain. Unsure if this is a lack of understanding
+  // on my part, a documentation issue, or silicon errata. Regardless,
+  // harmless now that it's known.
+  LCD_CAM.lcd_user.lcd_dummy = 1;       // Enable dummy phase at LCD start
   LCD_CAM.lcd_user.lcd_cmd = 0;         // No command at LCD start
-  // For whatever reason, a dummy cycle is output at the start
-  // regardless of the 'dummy' setting above. This minimizes it
-  // to one cycle. Since the RGB matrix is simply a shift register,
-  // and this is at the start, it harmlessly goes off the end.
-  // But if there's a way to eliminate this, that would be best.
   LCD_CAM.lcd_user.lcd_dummy_cyclelen = 0;
   LCD_CAM.lcd_user.lcd_cmd_2_cycle_en = 0;
 
