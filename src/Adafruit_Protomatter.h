@@ -144,8 +144,8 @@ public:
   */
   uint16_t colorHSV(uint16_t hue, uint8_t sat = 255, uint8_t val = 255);
 
-  Protomatter_core core;             // Underlying C struct
 private:
+  Protomatter_core core;             // Underlying C struct
   void convert_byte(uint8_t *dest);  // GFXcanvas16-to-matrix
   void convert_word(uint16_t *dest); // conversion functions
   void convert_long(uint32_t *dest); // for 8/16/32 bit bufs
