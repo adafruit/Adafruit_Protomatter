@@ -162,7 +162,7 @@ void _PM_timerInit(Protomatter_core *core) {
   // Determine IRQn from timer address
   uint8_t timerNum = 0;
   while ((timerNum < NUM_TIMERS) &&
-         (timer[timerNum].tc != (NRF_TIMER_Type)core->timer)) {
+         (timer[timerNum].tc != (NRF_TIMER_Type *)core->timer)) {
     timerNum++;
   }
   if (timerNum >= NUM_TIMERS)
