@@ -46,13 +46,13 @@
 #define _PM_byteOffset(pin) 0
 #define _PM_wordOffset(pin) 0
 
+#include <driver/periph_ctrl.h>
+#include <esp_private/gdma.h>
+#include <esp_rom_gpio.h>
+#include <hal/dma_types.h>
+#include <hal/gpio_hal.h>
 #include <soc/lcd_cam_reg.h>
 #include <soc/lcd_cam_struct.h>
-#include <hal/dma_types.h>
-#include <esp_private/gdma.h>
-#include <hal/gpio_hal.h>
-#include <esp_rom_gpio.h>
-#include <driver/periph_ctrl.h>
 
 // Override the behavior of _PM_portBitMask macro so instead of returning
 // a 32-bit mask for a pin within its corresponding GPIO register, it instead
@@ -60,9 +60,11 @@
 // one of the RGB bits or the clock bit...this requires comparing against pin
 // numbers in the core struct.
 static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
-  if (pin == core->clockPin) return 1 << 6;
-  for (uint8_t i=0; i<6; i++) {
-    if (pin == core->rgbPins[i]) return 1 << i;
+  if (pin == core->clockPin)
+    return 1 << 6;
+  for (uint8_t i = 0; i < 6; i++) {
+    if (pin == core->rgbPins[i])
+      return 1 << i;
   }
   // Else return the bit that would normally be used for regular GPIO
   return (1U << (pin & 31));
@@ -78,7 +80,8 @@ static volatile bool xfer_done = true; // DMA completion flag
 
 // DMA callback for end-of-transfer interrupt
 static IRAM_ATTR bool dma_callback(gdma_channel_handle_t dma_chan,
-  gdma_event_data_t *event_data, void *user_data) {
+                                   gdma_event_data_t *event_data,
+                                   void *user_data) {
   xfer_done = true;
   return true;
 }
@@ -87,9 +90,9 @@ static IRAM_ATTR bool dma_callback(gdma_channel_handle_t dma_chan,
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
 IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
-//  while (!xfer_done); // Wait for completion of prior xfer
-gdma_reset(dma_chan);                 // Stop any current DMA
-LCD_CAM.lcd_user.lcd_start = 0;       // Stop any current LCD transfer
+  //  while (!xfer_done); // Wait for completion of prior xfer
+  gdma_reset(dma_chan);           // Stop any current DMA
+  LCD_CAM.lcd_user.lcd_start = 0; // Stop any current LCD transfer
 
   LCD_CAM.lcd_misc.lcd_afifo_reset = 1; // Reset TX FIFO (required)
 
@@ -139,14 +142,11 @@ void _PM_timerInit(Protomatter_core *core) {
   // IN THEORY this could be expanded to support 2 parallel chains,
   // but the rest of the LCD & DMA setup isn't currently written for
   // that, so it's limited to a single chain.
-  const uint8_t signal[] = {
-    LCD_DATA_OUT0_IDX,
-    LCD_DATA_OUT1_IDX,
-    LCD_DATA_OUT2_IDX,
-    LCD_DATA_OUT3_IDX,
-    LCD_DATA_OUT4_IDX,
-    LCD_DATA_OUT5_IDX };
-  for (int i = 0; i < 6; i++) pinmux(core->rgbPins[i], signal[i]);
+  const uint8_t signal[] = {LCD_DATA_OUT0_IDX, LCD_DATA_OUT1_IDX,
+                            LCD_DATA_OUT2_IDX, LCD_DATA_OUT3_IDX,
+                            LCD_DATA_OUT4_IDX, LCD_DATA_OUT5_IDX};
+  for (int i = 0; i < 6; i++)
+    pinmux(core->rgbPins[i], signal[i]);
   pinmux(core->clockPin, LCD_PCLK_IDX);
 
   // Configure frame format
@@ -166,8 +166,8 @@ void _PM_timerInit(Protomatter_core *core) {
   // off the end of the chain. Unsure if this is a lack of understanding
   // on my part, a documentation issue, or silicon errata. Regardless,
   // harmless now that it's known.
-  LCD_CAM.lcd_user.lcd_dummy = 1;       // Enable dummy phase at LCD start
-  LCD_CAM.lcd_user.lcd_cmd = 0;         // No command at LCD start
+  LCD_CAM.lcd_user.lcd_dummy = 1; // Enable dummy phase at LCD start
+  LCD_CAM.lcd_user.lcd_cmd = 0;   // No command at LCD start
   LCD_CAM.lcd_user.lcd_dummy_cyclelen = 0;
   LCD_CAM.lcd_user.lcd_cmd_2_cycle_en = 0;
 
@@ -181,26 +181,22 @@ void _PM_timerInit(Protomatter_core *core) {
 
   // Alloc DMA channel & connect it to LCD periph
   gdma_channel_alloc_config_t dma_chan_config = {
-    .direction = GDMA_CHANNEL_DIRECTION_TX,
+      .direction = GDMA_CHANNEL_DIRECTION_TX,
   };
   esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
-  gdma_strategy_config_t strategy_config = {
-    .owner_check = false,
-    .auto_update_desc = false
-  };
+  gdma_strategy_config_t strategy_config = {.owner_check = false,
+                                            .auto_update_desc = false};
   gdma_apply_strategy(dma_chan, &strategy_config);
   gdma_transfer_ability_t ability = {
-    .sram_trans_align = 0,
-    .psram_trans_align = 0,
+      .sram_trans_align = 0,
+      .psram_trans_align = 0,
   };
   gdma_set_transfer_ability(dma_chan, &ability);
   gdma_start(dma_chan, (intptr_t)&desc);
 
   // Enable DMA transfer callback
-  gdma_tx_event_callbacks_t tx_cbs = {
-    .on_trans_eof = dma_callback
-  };
+  gdma_tx_event_callbacks_t tx_cbs = {.on_trans_eof = dma_callback};
   gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, NULL);
 
   _PM_esp32commonTimerInit(core); // In esp32-common.h
@@ -236,14 +232,11 @@ void _PM_timerInit(Protomatter_core *core) {
   // IN THEORY this could be expanded to support 2 parallel chains,
   // but the rest of the LCD & DMA setup isn't currently written for
   // that, so it's limited to a single chain.
-  const uint8_t signal[] = {
-    LCD_DATA_OUT0_IDX,
-    LCD_DATA_OUT1_IDX,
-    LCD_DATA_OUT2_IDX,
-    LCD_DATA_OUT3_IDX,
-    LCD_DATA_OUT4_IDX,
-    LCD_DATA_OUT5_IDX };
-  for (int i = 0; i < 6; i++) pinmux(core->rgbPins[i], signal[i]);
+  const uint8_t signal[] = {LCD_DATA_OUT0_IDX, LCD_DATA_OUT1_IDX,
+                            LCD_DATA_OUT2_IDX, LCD_DATA_OUT3_IDX,
+                            LCD_DATA_OUT4_IDX, LCD_DATA_OUT5_IDX};
+  for (int i = 0; i < 6; i++)
+    pinmux(core->rgbPins[i], signal[i]);
   pinmux(core->clockPin, LCD_PCLK_IDX);
 
   // Configure frame format
@@ -263,8 +256,8 @@ void _PM_timerInit(Protomatter_core *core) {
   // off the end of the chain. Unsure if this is a lack of understanding
   // on my part, a documentation issue, or silicon errata. Regardless,
   // harmless now that it's known.
-  LCD_CAM.lcd_user.lcd_dummy = 1;       // Enable dummy phase at LCD start
-  LCD_CAM.lcd_user.lcd_cmd = 0;         // No command at LCD start
+  LCD_CAM.lcd_user.lcd_dummy = 1; // Enable dummy phase at LCD start
+  LCD_CAM.lcd_user.lcd_cmd = 0;   // No command at LCD start
   LCD_CAM.lcd_user.lcd_dummy_cyclelen = 0;
   LCD_CAM.lcd_user.lcd_cmd_2_cycle_en = 0;
 
@@ -278,26 +271,22 @@ void _PM_timerInit(Protomatter_core *core) {
 
   // Alloc DMA channel & connect it to LCD periph
   gdma_channel_alloc_config_t dma_chan_config = {
-    .direction = GDMA_CHANNEL_DIRECTION_TX,
+      .direction = GDMA_CHANNEL_DIRECTION_TX,
   };
   esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
-  gdma_strategy_config_t strategy_config = {
-    .owner_check = false,
-    .auto_update_desc = false
-  };
+  gdma_strategy_config_t strategy_config = {.owner_check = false,
+                                            .auto_update_desc = false};
   gdma_apply_strategy(dma_chan, &strategy_config);
   gdma_transfer_ability_t ability = {
-    .sram_trans_align = 0,
-    .psram_trans_align = 0,
+      .sram_trans_align = 0,
+      .psram_trans_align = 0,
   };
   gdma_set_transfer_ability(dma_chan, &ability);
   gdma_start(dma_chan, (intptr_t)&desc);
 
   // Enable DMA transfer callback
-  gdma_tx_event_callbacks_t tx_cbs = {
-    .on_trans_eof = dma_callback
-  };
+  gdma_tx_event_callbacks_t tx_cbs = {.on_trans_eof = dma_callback};
   gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, NULL);
 
   _PM_esp32commonTimerInit(core); // In esp32-common.h

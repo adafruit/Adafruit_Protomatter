@@ -95,9 +95,9 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
   if (!core)
     return PROTOMATTER_ERR_ARG;
 
-  // bitDepth is NOT constrained here, handle in calling function
-  // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
-  // but might be more or less elsewhere)
+    // bitDepth is NOT constrained here, handle in calling function
+    // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
+    // but might be more or less elsewhere)
 #if defined(_PM_bytesPerElement)
 #if _PM_bytesPerElement == 1
   if (rgbCount > 1)
@@ -179,6 +179,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // RGB+clock on one PORT, and the size of the internal data representation,
   // can be overridden because they're much simplified.
   core->bytesPerElement = _PM_bytesPerElement;
+  uint32_t bitMask = 0;
 #else
   // Verify that rgbPins and clockPin are all on the same PORT. If not,
   // return an error. Pin list is not freed; please call dealloc function.
@@ -262,7 +263,6 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // rgbMask data follows the matrix buffer(s)
   core->rgbMask = core->screenData + screenBytes;
 
-//#if !defined(_PM_portToggleRegister)
 #if !defined(_PM_USE_TOGGLE_FORMAT)
   // Clear entire screenData buffer so there's no cruft in any pad bytes
   // (if using toggle register, each is set to clockMask below instead).
@@ -272,7 +272,6 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   // Figure out clockMask and rgbAndClockMask, clear matrix buffers
   if (core->bytesPerElement == 1) {
     core->portOffset = _PM_byteOffset(core->rgbPins[0]);
-//#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
 #if defined(_PM_USE_TOGGLE_FORMAT) && !defined(_PM_STRICT_32BIT_IO)
     // Clock and rgbAndClockMask are 8-bit values
     core->clockMask = _PM_portBitMask(core->clockPin) >> (core->portOffset * 8);
@@ -290,7 +289,6 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     }
   } else if (core->bytesPerElement == 2) {
     core->portOffset = _PM_wordOffset(core->rgbPins[0]);
-//#if defined(_PM_portToggleRegister) && !defined(_PM_STRICT_32BIT_IO)
 #if defined(_PM_USE_TOGGLE_FORMAT) && !defined(_PM_STRICT_32BIT_IO)
     // Clock and rgbAndClockMask are 16-bit values
     core->clockMask =
@@ -305,7 +303,6 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     // Clock and rgbAndClockMask are 32-bit values
     core->clockMask = _PM_portBitMask(core->clockPin);
     core->rgbAndClockMask = bitMask | core->clockMask;
-//#if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
     // TO DO: this ifdef and the one above can probably be wrapped up
     // in a more cohesive case. Think something similar will be needed
@@ -325,7 +322,6 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     core->portOffset = 0;
     core->clockMask = _PM_portBitMask(core->clockPin);
     core->rgbAndClockMask = bitMask | core->clockMask;
-//#if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
     uint32_t elements = screenBytes / 4;
     for (uint32_t i = 0; i < elements; i++) {

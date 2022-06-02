@@ -151,12 +151,12 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
 void _PM_esp32commonTimerInit(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   const timer_config_t config = {
-    .alarm_en = false,
-    .counter_en = false,
-    .intr_type = TIMER_INTR_LEVEL,
-    .counter_dir = TIMER_COUNT_UP,
-    .auto_reload = true,
-    .divider = 2 // 40MHz
+      .alarm_en = false,
+      .counter_en = false,
+      .intr_type = TIMER_INTR_LEVEL,
+      .counter_dir = TIMER_COUNT_UP,
+      .auto_reload = true,
+      .divider = 2 // 40MHz
   };
 
   timer_init(timer->group, timer->idx, &config);

@@ -58,21 +58,21 @@
 // are always set here, as we want that bit toggled low at the same time new
 // RGB data is set up.
 static uint16_t _bit_toggle[128] = {
-  0x3000, 0x3003, 0x300C, 0x300F, 0x3030, 0x3033, 0x303C, 0x303F, 0x30C0,
-  0x30C3, 0x30CC, 0x30CF, 0x30F0, 0x30F3, 0x30FC, 0x30FF, 0x3300, 0x3303,
-  0x330C, 0x330F, 0x3330, 0x3333, 0x333C, 0x333F, 0x33C0, 0x33C3, 0x33CC,
-  0x33CF, 0x33F0, 0x33F3, 0x33FC, 0x33FF, 0x3C00, 0x3C03, 0x3C0C, 0x3C0F,
-  0x3C30, 0x3C33, 0x3C3C, 0x3C3F, 0x3CC0, 0x3CC3, 0x3CCC, 0x3CCF, 0x3CF0,
-  0x3CF3, 0x3CFC, 0x3CFF, 0x3F00, 0x3F03, 0x3F0C, 0x3F0F, 0x3F30, 0x3F33,
-  0x3F3C, 0x3F3F, 0x3FC0, 0x3FC3, 0x3FCC, 0x3FCF, 0x3FF0, 0x3FF3, 0x3FFC,
-  0x3FFF, 0x3000, 0x3003, 0x300C, 0x300F, 0x3030, 0x3033, 0x303C, 0x303F,
-  0x30C0, 0x30C3, 0x30CC, 0x30CF, 0x30F0, 0x30F3, 0x30FC, 0x30FF, 0x3300,
-  0x3303, 0x330C, 0x330F, 0x3330, 0x3333, 0x333C, 0x333F, 0x33C0, 0x33C3,
-  0x33CC, 0x33CF, 0x33F0, 0x33F3, 0x33FC, 0x33FF, 0x3C00, 0x3C03, 0x3C0C,
-  0x3C0F, 0x3C30, 0x3C33, 0x3C3C, 0x3C3F, 0x3CC0, 0x3CC3, 0x3CCC, 0x3CCF,
-  0x3CF0, 0x3CF3, 0x3CFC, 0x3CFF, 0x3F00, 0x3F03, 0x3F0C, 0x3F0F, 0x3F30,
-  0x3F33, 0x3F3C, 0x3F3F, 0x3FC0, 0x3FC3, 0x3FCC, 0x3FCF, 0x3FF0, 0x3FF3,
-  0x3FFC, 0x3FFF,
+    0x3000, 0x3003, 0x300C, 0x300F, 0x3030, 0x3033, 0x303C, 0x303F, 0x30C0,
+    0x30C3, 0x30CC, 0x30CF, 0x30F0, 0x30F3, 0x30FC, 0x30FF, 0x3300, 0x3303,
+    0x330C, 0x330F, 0x3330, 0x3333, 0x333C, 0x333F, 0x33C0, 0x33C3, 0x33CC,
+    0x33CF, 0x33F0, 0x33F3, 0x33FC, 0x33FF, 0x3C00, 0x3C03, 0x3C0C, 0x3C0F,
+    0x3C30, 0x3C33, 0x3C3C, 0x3C3F, 0x3CC0, 0x3CC3, 0x3CCC, 0x3CCF, 0x3CF0,
+    0x3CF3, 0x3CFC, 0x3CFF, 0x3F00, 0x3F03, 0x3F0C, 0x3F0F, 0x3F30, 0x3F33,
+    0x3F3C, 0x3F3F, 0x3FC0, 0x3FC3, 0x3FCC, 0x3FCF, 0x3FF0, 0x3FF3, 0x3FFC,
+    0x3FFF, 0x3000, 0x3003, 0x300C, 0x300F, 0x3030, 0x3033, 0x303C, 0x303F,
+    0x30C0, 0x30C3, 0x30CC, 0x30CF, 0x30F0, 0x30F3, 0x30FC, 0x30FF, 0x3300,
+    0x3303, 0x330C, 0x330F, 0x3330, 0x3333, 0x333C, 0x333F, 0x33C0, 0x33C3,
+    0x33CC, 0x33CF, 0x33F0, 0x33F3, 0x33FC, 0x33FF, 0x3C00, 0x3C03, 0x3C0C,
+    0x3C0F, 0x3C30, 0x3C33, 0x3C3C, 0x3C3F, 0x3CC0, 0x3CC3, 0x3CCC, 0x3CCF,
+    0x3CF0, 0x3CF3, 0x3CFC, 0x3CFF, 0x3F00, 0x3F03, 0x3F0C, 0x3F0F, 0x3F30,
+    0x3F33, 0x3F3C, 0x3F3F, 0x3FC0, 0x3FC3, 0x3FCC, 0x3FCF, 0x3FF0, 0x3FF3,
+    0x3FFC, 0x3FFF,
 };
 
 #include <driver/dedic_gpio.h>
@@ -85,9 +85,11 @@ static uint16_t _bit_toggle[128] = {
 // one of the RGB bits or the clock bit...this requires comparing against pin
 // numbers in the core struct.
 static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
-  if (pin == core->clockPin) return 1 << 6;
-  for (uint8_t i=0; i<6; i++) {
-    if (pin == core->rgbPins[i]) return 1 << i;
+  if (pin == core->clockPin)
+    return 1 << 6;
+  for (uint8_t i = 0; i < 6; i++) {
+    if (pin == core->rgbPins[i])
+      return 1 << i;
   }
   // Else return the bit that would normally be used for regular GPIO
   return (1U << (pin & 31));
@@ -105,7 +107,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // GPIO has already been initialized with RGB data + clock bits
   // all LOW, so we don't need to initialize that state here.
 
-  for (uint32_t bits = core->chainBits / 8; bits--; ) {
+  for (uint32_t bits = core->chainBits / 8; bits--;) {
     *gpio = _bit_toggle[*data++]; // Toggle in new data + toggle clock low
     *gpio = 0b11000000000000;     // Toggle clock high
     *gpio = _bit_toggle[*data++];
@@ -146,17 +148,17 @@ void _PM_timerInit(Protomatter_core *core) {
   // these structs & arrays need to be persistent. Declaring static just in
   // case...could experiment with removing one by one.
   static int pins[7];
-  for (uint8_t i=0; i<6; i++) pins[i] = core->rgbPins[i];
+  for (uint8_t i = 0; i < 6; i++)
+    pins[i] = core->rgbPins[i];
   pins[6] = core->clockPin;
   static dedic_gpio_bundle_config_t config_in = {
-    .gpio_array = pins, // Array of GPIO numbers
-    .array_size = 7, // RGB pins + clock pin
-    .flags = {
-      .in_en = 0, // Disable input
-      .out_en = 1, // Enable output
-      .out_invert = 0, // Non-inverted
-    }
-  };
+      .gpio_array = pins, // Array of GPIO numbers
+      .array_size = 7,    // RGB pins + clock pin
+      .flags = {
+          .in_en = 0,      // Disable input
+          .out_en = 1,     // Enable output
+          .out_invert = 0, // Non-inverted
+      }};
   static dedic_gpio_bundle_handle_t bundle;
   (void)dedic_gpio_new_bundle(&config_in, &bundle);
   dedic_gpio_bundle_write(bundle, config_in.array_size, 1);
@@ -180,17 +182,17 @@ void _PM_timerInit(Protomatter_core *core) {
   // these structs & arrays need to be persistent. Declaring static just in
   // case...could experiment with removing one by one.
   static int pins[7];
-  for (uint8_t i=0; i<6; i++) pins[i] = core->rgbPins[i];
+  for (uint8_t i = 0; i < 6; i++)
+    pins[i] = core->rgbPins[i];
   pins[6] = core->clockPin;
   static dedic_gpio_bundle_config_t config_in = {
-    .gpio_array = pins, // Array of GPIO numbers
-    .array_size = 7, // RGB pins + clock pin
-    .flags = {
-      .in_en = 0, // Disable input
-      .out_en = 1, // Enable output
-      .out_invert = 0, // Non-inverted
-    }
-  };
+      .gpio_array = pins, // Array of GPIO numbers
+      .array_size = 7,    // RGB pins + clock pin
+      .flags = {
+          .in_en = 0,      // Disable input
+          .out_en = 1,     // Enable output
+          .out_invert = 0, // Non-inverted
+      }};
   static dedic_gpio_bundle_handle_t bundle;
   (void)dedic_gpio_new_bundle(&config_in, &bundle);
   dedic_gpio_bundle_write(bundle, config_in.array_size, 1);
