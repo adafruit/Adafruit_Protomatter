@@ -173,6 +173,13 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     return PROTOMATTER_ERR_MALLOC;
   }
 
+#if defined(_PM_bytesPerElement)
+  // Some chips (e.g. ESP32S2 & S3) have potent pin MUX capabilities and
+  // arch-specific code might use special peripherals. The usual rules about
+  // RGB+clock on one PORT, and the size of the internal data representation,
+  // can be overridden because they're much simplified.
+  core->bytesPerElement = _PM_bytesPerElement;
+#else
   // Verify that rgbPins and clockPin are all on the same PORT. If not,
   // return an error. Pin list is not freed; please call dealloc function.
   // Also get bitmask of which bits within 32-bit PORT register are
@@ -199,9 +206,6 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
 
   // RGB + clock are on same port, we can proceed...
 
-#if defined(_PM_bytesPerElement)
-  core->bytesPerElement = _PM_bytesPerElement;
-#else
   // Determine data type for internal representation. If all the data
   // bitmasks (and possibly clock bitmask, depending whether toggle-bits
   // register is present) are in the same byte, this can be stored more
@@ -233,7 +237,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     core->bytesPerElement = 4; // Use 32-bit PORT accesses.
     break;
   }
-#endif
+#endif // end RGB+clock PORT check & bytesPerElement calc
 
   // Planning for screen data allocation...
   core->numRowPairs = 1 << core->numAddressLines;

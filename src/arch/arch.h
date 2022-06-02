@@ -140,10 +140,10 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 _PM_bytesPerElement          If defined, this allows an arch-specific source
                              file to override core's data size that's based
                              on pin selections. Reasonable values would be 1,
-                             2 or 4. Not currently used, this came about
-                             during ESP32-S2 development; a GPIO peripheral
-                             there allows super flexible pin MUXing, so one
-                             byte could be used even w/pins spread all over.
+                             2 or 4. This came about during ESP32-S2
+                             development; GPIO or I2S/LCD peripherals there
+                             allows super flexible pin MUXing, so one byte
+                             could be used even w/pins spread all over.
 _PM_USE_TOGGLE_FORMAT        If defined, this instructs the core code to
                              format pixel data for GPIO bit-toggling, even
                              if _PM_portToggleRegister is not defined. Not

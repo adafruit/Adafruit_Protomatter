@@ -208,6 +208,11 @@ extern void _PM_deallocate(Protomatter_core *core);
 */
 extern void _PM_row_handler(Protomatter_core *core);
 
+// *********************************************************************
+// NOTE: AS OF 1.3.0, TIMER-RELATED FUNCTIONS REQUIRE A Protomatter_core
+// STRUCT POINTER, RATHER THAN A void* TIMER-RELATED POINTER.
+// *********************************************************************
+
 /*!
   @brief  Returns current value of frame counter and resets its value to
           zero. Two calls to this, timed one second apart (or use math with
