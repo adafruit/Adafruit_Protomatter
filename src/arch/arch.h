@@ -146,18 +146,14 @@ _PM_bytesPerElement          If defined, this allows an arch-specific source
                              could be used even w/pins spread all over.
 _PM_USE_TOGGLE_FORMAT        If defined, this instructs the core code to
                              format pixel data for GPIO bit-toggling, even
-                             if _PM_portToggleRegister is not defined. Not
-                             currently used, another ESP32-S2 experiment
-                             where normal GPIO does not have a toggle reg
-                             but a different peripheral does.
+                             if _PM_portToggleRegister is not defined.
 _PM_CUSTOM_BLAST             If defined, instructs core code to not compile
                              the blast_byte(), blast_word() or blast_long()
                              functions; these will be declared in the arch-
-                             specific file instead. Not currently used, was
-                             part of the ESP32-S2 experiment. This might yet
-                             benefit other architectures, where DMA, PIO or
-                             other specialized peripherals could be set up
-                             to issue data independent of the CPU. This goes
+                             specific file instead. This might benefit
+                             architectures, where DMA, PIO or other
+                             specialized peripherals could be set up to
+                             issue data independent of the CPU. This goes
                              against's Protomatter's normal design of using
                              the most baseline peripherals for a given
                              architecture, but time marches on, y'know?
