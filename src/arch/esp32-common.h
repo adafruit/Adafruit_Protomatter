@@ -65,8 +65,8 @@ IRAM_ATTR static void _PM_esp32timerCallback(void) {
 }
 
 // Set timer period, initialize count value to zero, enable timer.
-IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
-  hw_timer_t *timer = *(hw_timer_t **)tptr;
+IRAM_ATTR inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+  hw_timer_t *timer = (hw_timer_t *)core->timer;
   timerAlarmWrite(timer, period, true);
   timerAlarmEnable(timer);
   timerStart(timer);
@@ -74,28 +74,26 @@ IRAM_ATTR inline void _PM_timerStart(void *tptr, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(void *tptr) {
-  hw_timer_t *timer = *(hw_timer_t **)tptr;
-  return (uint32_t)timerRead(timer);
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  return (uint32_t)timerRead((hw_timer_t *)core->timer);
 }
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
-  hw_timer_t *timer = *(hw_timer_t **)tptr;
-  timerStop(timer);
-  return _PM_timerGetCount(tptr);
+IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
+  timerStop((hw_timer_t *)core->timer);
+  return _PM_timerGetCount(core);
 }
 
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.
 void _PM_esp32commonTimerInit(Protomatter_core *core) {
-  hw_timer_t **timer = (hw_timer_t **)core->timer; // pointer-to-pointer
+  hw_timer_t *timer = (hw_timer_t *)core->timer; // pointer-to-pointer
   if (timer == _PM_TIMER_DEFAULT) {
-    *timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
+    core->timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
   }
-  timerAttachInterrupt(*timer, &_PM_esp32timerCallback, true);
+  timerAttachInterrupt(timer, &_PM_esp32timerCallback, true);
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
@@ -130,8 +128,8 @@ IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 };
 
 // Set timer period, initialize count value to zero, enable timer.
-IRAM_ATTR void _PM_timerStart(void *tptr, uint32_t period) {
-  timer_index_t *timer = (timer_index_t *)tptr;
+IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+  timer_index_t *timer = (timer_index_t *)core->timer;
   timer_ll_set_counter_enable(timer->hw, timer->idx, false);
   timer_ll_set_counter_value(timer->hw, timer->idx, 0);
   timer_ll_set_alarm_value(timer->hw, timer->idx, period);
@@ -141,17 +139,17 @@ IRAM_ATTR void _PM_timerStart(void *tptr, uint32_t period) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-IRAM_ATTR uint32_t _PM_timerStop(void *tptr) {
-  timer_index_t *timer = (timer_index_t *)tptr;
+IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
+  timer_index_t *timer = (timer_index_t *)core->timer;
   timer_ll_set_counter_enable(timer->hw, timer->idx, false);
-  return _PM_timerGetCount(tptr);
+  return _PM_timerGetCount(core);
 }
 
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.
 void _PM_esp32commonTimerInit(Protomatter_core *core) {
-  hw_timer_t **timer = (hw_timer_t **)core->timer; // pointer-to-pointer
+  timer_index_t *timer = (timer_index_t *)core->timer;
   const timer_config_t config = {
     .alarm_en = false,
     .counter_en = false,
@@ -161,7 +159,6 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
     .divider = 2 // 40MHz
   };
 
-  timer_index_t *timer = (timer_index_t *)tptr;
   timer_init(timer->group, timer->idx, &config);
   timer_isr_callback_add(timer->group, timer->idx, _PM_esp32timerCallback, NULL,
                          0);

@@ -82,11 +82,13 @@ Timer-related macros/functions:
 
 _PM_timerFreq:               A numerical constant - the source clock rate
                              (in Hz) that's fed to the timer peripheral.
-_PM_timerInit(void*):        Initialize (but do not start) timer.
-_PM_timerStart(void*,count): (Re)start timer for a given timer-tick interval.
-_PM_timerStop(void*):        Stop timer, return current timer counter value.
-_PM_timerGetCount(void*):    Get current timer counter value (whether timer
-                             is running or stopped).
+_PM_timerInit(Protomatter_core*):        Initialize (but do not start) timer.
+_PM_timerStart(Protomatter_core*,count): (Re)start timer for a given
+                                         timer-tick interval.
+_PM_timerStop(Protomatter_core*):        Stop timer, return current timer
+                                         counter value.
+_PM_timerGetCount(Protomatter_core*):    Get current timer counter value
+                                         (whether timer is running or stopped).
 A timer interrupt service routine is also required, syntax for which varies
 between architectures.
 The void* argument passed to the timer functions is some indeterminate type

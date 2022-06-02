@@ -64,9 +64,9 @@ This repository currently consists of:
 
 # Arduino Library
 
-This will likely supersede the RGBmatrixPanel library on non-AVR devices, as
-the older library has painted itself into a few corners. The newer library
-uses a single constructor for all matrix setups, potentially handling parallel
+This supersedes the RGBmatrixPanel library on non-AVR devices, as the older
+library has painted itself into a few corners. The newer library uses a
+single constructor for all matrix setups, potentially handling parallel
 chains (not yet fully implemented), various matrix sizes and chain lengths,
 and variable bit depths from 1 to 6 (refresh rate is a function of all of
 these). Note however that it is NOT A DROP-IN REPLACEMENT for RGBmatrixPanel.
@@ -77,13 +77,13 @@ aimed at low-cost color LCD displays), even if the matrix is configured for
 a lower bit depth (colors will be decimated/quantized in this case).
 
 It does have some new limitations, mostly significant RAM overhead (hence
-no plans for AVR port) and that all RGB data pins and the clock pin MUST be
-on the same PORT register (e.g. all PORTA or PORTB, can't intermix). RAM
-overhead is somewhat reduced (but still large) if those pins are all in a
-single 8-bit byte within the PORT (they do not need to be contiguous or
-sequential within this byte, if for instance it makes PCB routing easier,
-but they should all aim for a single byte). Other pins (matrix address lines,
-latch and output enable) can reside on any PORT or bit.
+no plans for AVR port) and (with a few exceptions) that all RGB data pins
+and the clock pin MUST be on the same PORT register (e.g. all PORTA or PORTB
+,can't intermix). RAM overhead is somewhat reduced (but still large) if
+those pins are all in a single 8-bit byte within the PORT (they do not need
+to be contiguous or sequential within this byte, if for instance it makes
+PCB routing easier, but they should all aim for a single byte). Other pins
+(matrix address lines, latch and output enable) can reside on any PORT or bit.
 
 # C Library
 

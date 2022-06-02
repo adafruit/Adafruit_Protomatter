@@ -196,7 +196,7 @@ void _PM_timerInit(Protomatter_core *core) {
   dedic_gpio_bundle_write(bundle, config_in.array_size, 1);
   DEDIC_GPIO.gpio_out_cpu.val = 0; // Use GPIO registers, not CPU instructions
 
-  _PM_esp32commonTimerInit(tptr); // In esp32-common.h
+  _PM_esp32commonTimerInit(core); // In esp32-common.h
 }
 
 #endif // END CIRCUITPYTHON ------------------------------------------------

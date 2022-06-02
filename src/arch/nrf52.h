@@ -136,7 +136,7 @@ void _PM_IRQ_HANDLER(void) {
 
 // CODE COMMON TO ALL ENVIRONMENTS -----------------------------------------
 
-void _PM_timerInit(void *tptr) {
+void _PM_timerInit(Protomatter_core *core) {
   static const struct {
     NRF_TIMER_Type *tc; // -> Timer peripheral base address
     IRQn_Type IRQn;     // Interrupt number
@@ -161,7 +161,7 @@ void _PM_timerInit(void *tptr) {
 
   // Determine IRQn from timer address
   uint8_t timerNum = 0;
-  while ((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tptr)) {
+  while ((timerNum < NUM_TIMERS) && (timer[timerNum].tc != (NRF_TIMER_Type)core->timer)) {
     timerNum++;
   }
   if (timerNum >= NUM_TIMERS)
@@ -183,24 +183,24 @@ void _PM_timerInit(void *tptr) {
   NVIC_EnableIRQ(timer[timerNum].IRQn);
 }
 
-inline void _PM_timerStart(void *tptr, uint32_t period) {
-  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
+inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
   tc->TASKS_STOP = 1;  // Stop timer
   tc->TASKS_CLEAR = 1; // Reset to 0
   tc->CC[0] = period;
   tc->TASKS_START = 1; // Start timer
 }
 
-inline uint32_t _PM_timerGetCount(void *tptr) {
-  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
+inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
   tc->TASKS_CAPTURE[0] = 1; // Capture timer to CC[n] register
   return tc->CC[0];
 }
 
-uint32_t _PM_timerStop(void *tptr) {
-  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)tptr;
+uint32_t _PM_timerStop(Protomatter_core *core) {
+  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
   tc->TASKS_STOP = 1; // Stop timer
-  __attribute__((unused)) uint32_t count = _PM_timerGetCount(tptr);
+  __attribute__((unused)) uint32_t count = _PM_timerGetCount(core);
   // NOTE TO FUTURE SELF: I don't know why the GetCount code isn't
   // working. It does the expected thing in a small test program but
   // not here. I need to get on with testing on an actual matrix, so

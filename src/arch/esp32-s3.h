@@ -300,7 +300,7 @@ void _PM_timerInit(Protomatter_core *core) {
   };
   gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, NULL);
 
-  _PM_esp32commonTimerInit(tptr); // In esp32-common.h
+  _PM_esp32commonTimerInit(core); // In esp32-common.h
 }
 
 #endif // END CIRCUITPYTHON ------------------------------------------------

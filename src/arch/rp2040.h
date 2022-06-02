@@ -83,7 +83,7 @@ static void _PM_timerISR(void);
 #endif
 
 // Initialize, but do not start, timer.
-void _PM_timerInit(void *tptr) {
+void _PM_timerInit(Protomatter_core *core) {
 #if _PM_CLOCK_PWM
   // Enable PWM wrap interrupt
   pwm_clear_irq(_PM_PWM_SLICE);
@@ -136,9 +136,9 @@ int _PM_pwm_slice;
 #endif // end PWM/alarm
 
 // Initialize, but do not start, timer.
-void _PM_timerInit(void *tptr) {
+void _PM_timerInit(Protomatter_core *core) {
 #if _PM_CLOCK_PWM
-  _PM_pwm_slice = (int)tptr & 0xff;
+  _PM_pwm_slice = (int)core->timer & 0xff;
   // Enable PWM wrap interrupt
   pwm_clear_irq(_PM_PWM_SLICE);
   pwm_set_irq_enabled(_PM_PWM_SLICE, true);
@@ -203,7 +203,7 @@ static void _PM_timerISR(void) {
 #endif
 
 // Set timer period and enable timer.
-inline void _PM_timerStart(void *tptr, uint32_t period) {
+inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
 #if _PM_CLOCK_PWM
   pwm_set_counter(_PM_PWM_SLICE, 0);
   pwm_set_wrap(_PM_PWM_SLICE, period);
@@ -217,7 +217,7 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-inline uint32_t _PM_timerGetCount(void *tptr) {
+inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 #if _PM_CLOCK_PWM
   return pwm_get_counter(_PM_PWM_SLICE);
 #else
@@ -227,13 +227,13 @@ inline uint32_t _PM_timerGetCount(void *tptr) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-uint32_t _PM_timerStop(void *tptr) {
+uint32_t _PM_timerStop(Protomatter_core *core) {
 #if _PM_CLOCK_PWM
   pwm_set_enabled(_PM_PWM_SLICE, false);
 #else
   irq_set_enabled(_PM_IRQ_HANDLER, false); // Disable alarm IRQ
 #endif
-  return _PM_timerGetCount(tptr);
+  return _PM_timerGetCount(core);
 }
 
 #if (F_CPU >= 250000000)

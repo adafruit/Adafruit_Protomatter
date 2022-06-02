@@ -417,9 +417,9 @@ void _PM_stop(Protomatter_core *core) {
       return;
     }
     while (core->swapBuffers)
-      ;                         // Wait for any pending buffer swap
-    _PM_timerStop(core->timer); // Halt timer
-    _PM_setReg(core->oe);       // Set OE HIGH (disable output)
+      ;                   // Wait for any pending buffer swap
+    _PM_timerStop(core);  // Halt timer
+    _PM_setReg(core->oe); // Set OE HIGH (disable output)
     // So, in PRINCIPLE, setting OE high would be sufficient...
     // but in case that pin is shared with another function such
     // as the onloard LED (which pulses during bootloading) let's
@@ -460,8 +460,8 @@ void _PM_resume(Protomatter_core *core) {
       }
     }
 
-    _PM_timerInit(core);               // Configure timer & any other periphs
-    _PM_timerStart(core->timer, 1000); // Start timer
+    _PM_timerInit(core);        // Configure timer & any other periphs
+    _PM_timerStart(core, 1000); // Start timer
   }
 }
 
@@ -506,7 +506,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   _PM_clearReg(core->latch);
 
   _PM_setReg(core->latch);
-  (void)_PM_timerStop(core->timer);
+  (void)_PM_timerStop(core);
   uint8_t prevPlane = core->plane; // Save that plane # for later timing
   _PM_clearReg(core->latch);       // (split to add a few cycles)
 
@@ -570,7 +570,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
   // now while the next plane data is loaded.
 
   // Set timer and enable LED output for data loaded on PRIOR pass:
-  _PM_timerStart(core->timer, core->bitZeroPeriod << prevPlane);
+  _PM_timerStart(core, core->bitZeroPeriod << prevPlane);
   _PM_delayMicroseconds(1); // Appease Teensy4
   _PM_clearReg(core->oe);   // Enable LED output
 
@@ -602,7 +602,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
     // Determine number of timer cycles taken to issue the data.
     // It can vary slightly if heavy interrupts happen, things like that.
     // Timer is still running and counting up at this point.
-    uint32_t elapsed = _PM_timerGetCount(core->timer);
+    uint32_t elapsed = _PM_timerGetCount(core);
     // Nudge the plane-zero time up or down (filtering to avoid jitter)
     core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed + 4) / 8;
     // But don't allow it to drop below the minimum period calculated during

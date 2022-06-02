@@ -118,8 +118,8 @@ static void _PM_timerISR(void) {
 }
 
 // Initialize, but do not start, timer.
-void _PM_timerInit(void *tptr) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+void _PM_timerInit(Protomatter_core *core) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
   CCM_CCGR1 |= CCM_CCGR1_PIT(CCM_CCGR_ON); // Enable clock signal to PIT
   PIT_MCR = 1;                             // Enable PIT
   timer->TCTRL = 0;                        // Disable timer and interrupt
@@ -130,8 +130,8 @@ void _PM_timerInit(void *tptr) {
 }
 
 // Set timer period, initialize count value to zero, enable timer.
-inline void _PM_timerStart(void *tptr, uint32_t period) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
   timer->TCTRL = 0;      // Disable timer and interrupt
   timer->LDVAL = period; // Set load value
   // timer->CVAL = period; // And current value (just in case?)
@@ -141,17 +141,17 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-inline uint32_t _PM_timerGetCount(void *tptr) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
   return (timer->LDVAL - timer->CVAL);
 }
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-uint32_t _PM_timerStop(void *tptr) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)tptr;
+uint32_t _PM_timerStop(Protomatter_core *core) {
+  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
   timer->TCTRL = 0; // Disable timer and interrupt
-  return _PM_timerGetCount(tptr);
+  return _PM_timerGetCount(core);
 }
 
 #define _PM_clockHoldHigh                                                      \

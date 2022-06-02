@@ -56,7 +56,7 @@
 // CODE COMMON TO ALL ENVIRONMENTS -----------------------------------------
 
 // Initialize, but do not start, timer
-void _PM_timerInit(void *tptr) {
+void _PM_timerInit(Protomatter_core *core) {
   static const struct {
     Tc *tc;          // -> Timer/counter peripheral base address
     IRQn_Type IRQn;  // Interrupt number
@@ -104,7 +104,7 @@ void _PM_timerInit(void *tptr) {
   };
 #define NUM_TIMERS (sizeof timer / sizeof timer[0])
 
-  Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+  Tc *tc = (Tc *)core->timer; // Cast peripheral address passed in
 
   uint8_t timerNum = 0;
   while ((timerNum < NUM_TIMERS) && (timer[timerNum].tc != tc)) {
@@ -162,8 +162,8 @@ void _PM_timerInit(void *tptr) {
 // Set timer period, initialize count value to zero, enable timer.
 // Timer must be initialized to 16-bit mode using the init function
 // above, but must be inactive before calling this.
-inline void _PM_timerStart(void *tptr, uint32_t period) {
-  Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
+inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+  Tc *tc = (Tc *)core->timer; // Cast peripheral address passed in
   tc->COUNT16.COUNT.reg = 0;
   while (tc->COUNT16.SYNCBUSY.bit.COUNT)
     ;
@@ -177,8 +177,8 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-inline uint32_t _PM_timerGetCount(void *tptr) {
-  Tc *tc = (Tc *)tptr;                // Cast peripheral address passed in
+inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  Tc *tc = (Tc *)core->timer;         // Cast peripheral address passed in
   tc->COUNT16.CTRLBSET.bit.CMD = 0x4; // Sync COUNT
   while (tc->COUNT16.CTRLBSET.bit.CMD)
     ; // Wait for command
@@ -187,9 +187,9 @@ inline uint32_t _PM_timerGetCount(void *tptr) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-uint32_t _PM_timerStop(void *tptr) {
-  Tc *tc = (Tc *)tptr; // Cast peripheral address passed in
-  uint32_t count = _PM_timerGetCount(tptr);
+uint32_t _PM_timerStop(Protomatter_core *core) {
+  Tc *tc = (Tc *)core->timer; // Cast peripheral address passed in
+  uint32_t count = _PM_timerGetCount(core);
   tc->COUNT16.CTRLA.bit.ENABLE = 0;
   while (tc->COUNT16.SYNCBUSY.bit.STATUS)
     ;
