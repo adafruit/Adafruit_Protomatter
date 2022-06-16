@@ -183,18 +183,13 @@ void _PM_timerInit(Protomatter_core *core) {
 
   // Alloc DMA channel & connect it to LCD periph
   gdma_channel_alloc_config_t dma_chan_config = {
-    .sibling_chan = NULL,
-    .direction = GDMA_CHANNEL_DIRECTION_TX,
-    .flags = {
-      .reserve_sibling = 0
-    }
-  };
+      .sibling_chan = NULL,
+      .direction = GDMA_CHANNEL_DIRECTION_TX,
+      .flags = {.reserve_sibling = 0}};
   esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
-  gdma_strategy_config_t strategy_config = {
-    .owner_check = false,
-    .auto_update_desc = false
-  };
+  gdma_strategy_config_t strategy_config = {.owner_check = false,
+                                            .auto_update_desc = false};
   gdma_apply_strategy(dma_chan, &strategy_config);
   gdma_transfer_ability_t ability = {
       .sram_trans_align = 0,
@@ -286,18 +281,13 @@ void _PM_timerInit(Protomatter_core *core) {
 
   // Alloc DMA channel & connect it to LCD periph
   gdma_channel_alloc_config_t dma_chan_config = {
-    .sibling_chan = NULL,
-    .direction = GDMA_CHANNEL_DIRECTION_TX,
-    .flags = {
-      .reserve_sibling = 0
-    }
-  };
+      .sibling_chan = NULL,
+      .direction = GDMA_CHANNEL_DIRECTION_TX,
+      .flags = {.reserve_sibling = 0}};
   esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
-  gdma_strategy_config_t strategy_config = {
-    .owner_check = false,
-    .auto_update_desc = false
-  };
+  gdma_strategy_config_t strategy_config = {.owner_check = false,
+                                            .auto_update_desc = false};
   gdma_apply_strategy(dma_chan, &strategy_config);
   gdma_transfer_ability_t ability = {
       .sram_trans_align = 0,
