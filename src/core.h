@@ -208,6 +208,11 @@ extern void _PM_deallocate(Protomatter_core *core);
 */
 extern void _PM_row_handler(Protomatter_core *core);
 
+// *********************************************************************
+// NOTE: AS OF 1.3.0, TIMER-RELATED FUNCTIONS REQUIRE A Protomatter_core
+// STRUCT POINTER, RATHER THAN A void* TIMER-RELATED POINTER.
+// *********************************************************************
+
 /*!
   @brief  Returns current value of frame counter and resets its value to
           zero. Two calls to this, timed one second apart (or use math with
@@ -221,30 +226,27 @@ extern uint32_t _PM_getFrameCount(Protomatter_core *core);
 
 /*!
   @brief  Start (or restart) a timer/counter peripheral.
-  @param  tptr    Pointer to timer/counter peripheral OR a struct
-                  encapsulating information about a timer/counter
-                  periph (architecture-dependent).
+  @param  core    Pointer to Protomatter core structure, from which timer
+                  details can be derived.
   @param  period  Timer 'top' / rollover value.
 */
-extern void _PM_timerStart(void *tptr, uint32_t period);
+extern void _PM_timerStart(Protomatter_core *core, uint32_t period);
 
 /*!
   @brief  Stop timer/counter peripheral.
-  @param  tptr    Pointer to timer/counter peripheral OR a struct
-                  encapsulating information about a timer/counter
-                  periph (architecture-dependent).
+  @param  core    Pointer to Protomatter core structure, from which timer
+                  details can be derived.
   @return Counter value when timer was stopped.
 */
-extern uint32_t _PM_timerStop(void *tptr);
+extern uint32_t _PM_timerStop(Protomatter_core *core);
 
 /*!
   @brief  Query a timer/counter peripheral's current count.
-  @param  tptr    Pointer to timer/counter peripheral OR a struct
-                  encapsulating information about a timer/counter
-                  periph (architecture-dependent).
+  @param  core    Pointer to Protomatter core structure, from which timer
+                  details can be derived.
   @return Counter value.
 */
-extern uint32_t _PM_timerGetCount(void *tptr);
+extern uint32_t _PM_timerGetCount(Protomatter_core *core);
 
 /*!
   @brief  Pauses until the next vertical blank to avoid 'tearing' animation

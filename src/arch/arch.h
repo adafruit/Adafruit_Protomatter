@@ -82,11 +82,13 @@ Timer-related macros/functions:
 
 _PM_timerFreq:               A numerical constant - the source clock rate
                              (in Hz) that's fed to the timer peripheral.
-_PM_timerInit(void*):        Initialize (but do not start) timer.
-_PM_timerStart(void*,count): (Re)start timer for a given timer-tick interval.
-_PM_timerStop(void*):        Stop timer, return current timer counter value.
-_PM_timerGetCount(void*):    Get current timer counter value (whether timer
-                             is running or stopped).
+_PM_timerInit(Protomatter_core*):        Initialize (but do not start) timer.
+_PM_timerStart(Protomatter_core*,count): (Re)start timer for a given
+                                         timer-tick interval.
+_PM_timerStop(Protomatter_core*):        Stop timer, return current timer
+                                         counter value.
+_PM_timerGetCount(Protomatter_core*):    Get current timer counter value
+                                         (whether timer is running or stopped).
 A timer interrupt service routine is also required, syntax for which varies
 between architectures.
 The void* argument passed to the timer functions is some indeterminate type
@@ -135,6 +137,26 @@ _PM_allocate:                Memory allocation function, should return a
                              If not defined, malloc() is used.
 _PM_free:                    Corresponding deallocator for _PM_allocate().
                              If not defined, free() is used.
+_PM_bytesPerElement          If defined, this allows an arch-specific source
+                             file to override core's data size that's based
+                             on pin selections. Reasonable values would be 1,
+                             2 or 4. This came about during ESP32-S2
+                             development; GPIO or I2S/LCD peripherals there
+                             allows super flexible pin MUXing, so one byte
+                             could be used even w/pins spread all over.
+_PM_USE_TOGGLE_FORMAT        If defined, this instructs the core code to
+                             format pixel data for GPIO bit-toggling, even
+                             if _PM_portToggleRegister is not defined.
+_PM_CUSTOM_BLAST             If defined, instructs core code to not compile
+                             the blast_byte(), blast_word() or blast_long()
+                             functions; these will be declared in the arch-
+                             specific file instead. This might benefit
+                             architectures, where DMA, PIO or other
+                             specialized peripherals could be set up to
+                             issue data independent of the CPU. This goes
+                             against's Protomatter's normal design of using
+                             the most baseline peripherals for a given
+                             architecture, but time marches on, y'know?
 */
 
 // ENVIRONMENT-SPECIFIC DECLARATIONS ---------------------------------------
@@ -148,7 +170,6 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 #define _PM_pinInput(pin) pinMode(pin, INPUT)
 #define _PM_pinHigh(pin) digitalWrite(pin, HIGH)
 #define _PM_pinLow(pin) digitalWrite(pin, LOW)
-#define _PM_portBitMask(pin) digitalPinToBitMask(pin)
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
@@ -165,7 +186,12 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 
 // ARCHITECTURE-SPECIFIC HEADERS -------------------------------------------
 
-#include "esp32.h"
+// clang-format off
+#include "esp32-common.h"
+#include "esp32.h" // Original ESP32
+#include "esp32-s2.h"
+#include "esp32-s3.h"
+#include "esp32-c3.h"
 #include "nrf52.h"
 #include "rp2040.h"
 #include "samd-common.h"
@@ -173,8 +199,17 @@ _PM_free:                    Corresponding deallocator for _PM_allocate().
 #include "samd51.h"
 #include "stm32.h"
 #include "teensy4.h"
+// clang-format on
 
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
+
+#if defined(_PM_portToggleRegister)
+#define _PM_USE_TOGGLE_FORMAT
+#endif
+
+#if !defined(_PM_portBitMask)
+#define _PM_portBitMask(pin) digitalPinToBitMask(pin)
+#endif
 
 #if !defined(_PM_chunkSize)
 #define _PM_chunkSize 8 ///< Unroll data-stuffing loop to this size

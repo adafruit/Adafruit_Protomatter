@@ -93,8 +93,8 @@ void _PM_IRQ_HANDLER(void) {
 }
 
 // Initialize, but do not start, timer
-void _PM_timerInit(void *tptr) {
-  TIM_TypeDef *tim_instance = (TIM_TypeDef *)tptr;
+void _PM_timerInit(Protomatter_core *core) {
+  TIM_TypeDef *tim_instance = (TIM_TypeDef *)core->timer;
   stm_peripherals_timer_reserve(tim_instance);
   // Set IRQs at max priority and start clock
   stm_peripherals_timer_preinit(tim_instance, 0, _PM_IRQ_HANDLER);
@@ -114,8 +114,8 @@ void _PM_timerInit(void *tptr) {
   NVIC_SetPriority(tim_irq, 0); // Top priority
 }
 
-inline void _PM_timerStart(void *tptr, uint32_t period) {
-  TIM_TypeDef *tim = tptr;
+inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+  TIM_TypeDef *tim = core->timer;
   tim->SR = 0;
   tim->ARR = period;
   tim->CR1 |= TIM_CR1_CEN;
@@ -123,13 +123,13 @@ inline void _PM_timerStart(void *tptr, uint32_t period) {
   HAL_NVIC_EnableIRQ(stm_peripherals_timer_get_irqnum(tim));
 }
 
-inline uint32_t _PM_timerGetCount(void *tptr) {
-  TIM_TypeDef *tim = tptr;
+inline uint32_t _PM_timerGetCount(Protomatter_Core *core) {
+  TIM_TypeDef *tim = core->timer;
   return tim->CNT;
 }
 
-uint32_t _PM_timerStop(void *tptr) {
-  TIM_TypeDef *tim = tptr;
+uint32_t _PM_timerStop(Protomatter_core *core) {
+  TIM_TypeDef *tim = core->timer;
   HAL_NVIC_DisableIRQ(stm_peripherals_timer_get_irqnum(tim));
   tim->CR1 &= ~TIM_CR1_CEN;
   tim->DIER &= ~TIM_DIER_UIE;
