@@ -194,20 +194,15 @@ inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
 
 inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
   volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
-  tc->TASKS_CAPTURE[0] = 1; // Capture timer to CC[n] register
-  return tc->CC[0];
+  tc->TASKS_CAPTURE[1] = 1; // Capture timer to CC[1] register
+  return tc->CC[1];         // (don't clobber value in CC[0])
 }
 
 uint32_t _PM_timerStop(Protomatter_core *core) {
   volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
   tc->TASKS_STOP = 1; // Stop timer
   __attribute__((unused)) uint32_t count = _PM_timerGetCount(core);
-  // NOTE TO FUTURE SELF: I don't know why the GetCount code isn't
-  // working. It does the expected thing in a small test program but
-  // not here. I need to get on with testing on an actual matrix, so
-  // this is just a nonsense fudge value for now:
-  return 100;
-  // return count;
+  return count;
 }
 
 #define _PM_clockHoldHigh asm("nop; nop");
