@@ -150,7 +150,7 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
 IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   uint64_t value;
-  timer_ll_get_counter_value(timer->hw, timer->idx,&value);
+  timer_ll_get_counter_value(timer->hw, timer->idx, &value);
   return (uint32_t)value;
 }
 
