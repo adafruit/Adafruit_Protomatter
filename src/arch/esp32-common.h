@@ -145,6 +145,15 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
   return _PM_timerGetCount(core);
 }
 
+// Return current count value (timer enabled or not).
+// Timer must be previously initialized.
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  timer_index_t *timer = (timer_index_t *)core->timer;
+  uint64_t value;
+  timer_ll_get_counter_value(timer->hw, timer->idx,&value);
+  return (uint32_t)value;
+}
+
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.

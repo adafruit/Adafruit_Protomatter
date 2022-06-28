@@ -73,6 +73,9 @@ static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
 
 // Thankfully, at present, any core code which calls _PM_portBitMask()
 // currently has a 'core' variable, so we can safely do this...
+// This replaces the version from esp32-common.h, and CircuitPython requires
+// the 'undef' be manually performed or an error is thrown at compile time.
+#undef _PM_portBitMask
 #define _PM_portBitMask(pin) _PM_directBitMask(core, pin)
 
 static dma_descriptor_t desc;
@@ -284,7 +287,7 @@ void _PM_timerInit(Protomatter_core *core) {
       .sibling_chan = NULL,
       .direction = GDMA_CHANNEL_DIRECTION_TX,
       .flags = {.reserve_sibling = 0}};
-  esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
+  (void)gdma_new_channel(&dma_chan_config, &dma_chan);
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
   gdma_strategy_config_t strategy_config = {.owner_check = false,
                                             .auto_update_desc = false};
