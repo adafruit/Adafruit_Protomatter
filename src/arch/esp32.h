@@ -32,6 +32,8 @@
 #define _PM_portClearRegister(pin)                                             \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
 
+#define _PM_portBitMask(pin) (1U << ((pin)&31))
+
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)
 #define _PM_wordOffset(pin) ((pin & 31) / 16)
@@ -62,6 +64,8 @@
 #endif // end !ESP32S3/S2
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
+
+#define _PM_STRICT_32BIT_IO (1)
 
 // ESP32 requires a custom PEW declaration (issues one set of RGB color bits
 // followed by clock pulse). Turns out the bit set/clear registers are not
