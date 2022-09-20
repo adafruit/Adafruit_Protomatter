@@ -26,6 +26,7 @@
 // see if the same should be applied!
 
 #include "driver/timer.h"
+#include "soc/gpio_periph.h"
 
 // As currently written, only one instance of the Protomatter_core struct
 // is allowed, set up when calling begin()...so it's just a global here:
@@ -106,6 +107,7 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
 // here and into the variant-specific headers.
 
 #include "driver/gpio.h"
+#include "esp_idf_version.h"
 #include "hal/timer_ll.h"
 #include "peripherals/timer.h"
 
@@ -113,7 +115,6 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
 #define _PM_pinOutput(pin) gpio_set_direction((pin), GPIO_MODE_OUTPUT)
 #define _PM_pinLow(pin) gpio_set_level((pin), false)
 #define _PM_pinHigh(pin) gpio_set_level((pin), true)
-#define _PM_portBitMask(pin) (1U << ((pin)&31))
 
 // Timer interrupt handler. This, _PM_row_handler() and any functions
 // called by _PM_row_handler() should all have the IRAM_ATTR attribute
@@ -128,6 +129,17 @@ IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 };
 
 // Set timer period, initialize count value to zero, enable timer.
+#if (ESP_IDF_VERSION_MAJOR == 5)
+IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_ll_enable_counter(timer->hw, timer->idx, false);
+  timer_ll_set_reload_value(timer->hw, timer->idx, 0);
+  timer_ll_trigger_soft_reload(timer->hw, timer->idx);
+  timer_ll_set_alarm_value(timer->hw, timer->idx, period);
+  timer_ll_enable_alarm(timer->hw, timer->idx, true);
+  timer_ll_enable_counter(timer->hw, timer->idx, true);
+}
+#else
 IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   timer_ll_set_counter_enable(timer->hw, timer->idx, false);
@@ -136,13 +148,29 @@ IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   timer_ll_set_alarm_enable(timer->hw, timer->idx, true);
   timer_ll_set_counter_enable(timer->hw, timer->idx, true);
 }
+#endif
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
 IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
+#if (ESP_IDF_VERSION_MAJOR == 5)
+  timer_ll_enable_counter(timer->hw, timer->idx, false);
+#else
   timer_ll_set_counter_enable(timer->hw, timer->idx, false);
+#endif
   return _PM_timerGetCount(core);
+}
+
+IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  timer_index_t *timer = (timer_index_t *)core->timer;
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+  timer->hw->hw_timer[timer->idx].update.tn_update = 1;
+  return timer->hw->hw_timer[timer->idx].lo.tn_lo;
+#else
+  timer->hw->hw_timer[timer->idx].update.tx_update = 1;
+  return timer->hw->hw_timer[timer->idx].lo.tx_lo;
+#endif
 }
 
 // Initialize, but do not start, timer. This function contains timer setup

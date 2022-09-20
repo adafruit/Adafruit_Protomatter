@@ -46,7 +46,11 @@
 #define _PM_byteOffset(pin) 0
 #define _PM_wordOffset(pin) 0
 
+#if (ESP_IDF_VERSION_MAJOR == 5)
+#include <esp_private/periph_ctrl.h>
+#else
 #include <driver/periph_ctrl.h>
+#endif
 #include <esp_private/gdma.h>
 #include <esp_rom_gpio.h>
 #include <hal/dma_types.h>
@@ -284,7 +288,7 @@ void _PM_timerInit(Protomatter_core *core) {
       .sibling_chan = NULL,
       .direction = GDMA_CHANNEL_DIRECTION_TX,
       .flags = {.reserve_sibling = 0}};
-  esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
+  gdma_new_channel(&dma_chan_config, &dma_chan);
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
   gdma_strategy_config_t strategy_config = {.owner_check = false,
                                             .auto_update_desc = false};
