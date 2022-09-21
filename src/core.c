@@ -73,6 +73,21 @@ static void blast_byte(Protomatter_core *core, uint8_t *data);
 static void blast_word(Protomatter_core *core, uint16_t *data);
 static void blast_long(Protomatter_core *core, uint32_t *data);
 
+// Needed only for panels with FM6126A chipset
+static void _PM_resetFM6126A(Protomatter_core *core);
+#if !defined(_PM_setRGBPins)
+#define _PM_setRGBPins()                                                       \
+  for (uint8_t p = 0; p < core->parallel * 6 * core->bytesPerElement; p++) {   \
+    _PM_pinHigh(core->rgbPins[p]);                                             \
+  }
+#endif
+#if !defined(_PM_clearRGBPins)
+#define _PM_clearRGBPins()                                                     \
+  for (uint8_t p = 0; p < core->parallel * 6 * core->bytesPerElement; p++) {   \
+    _PM_pinLow(core->rgbPins[p]);                                              \
+  }
+#endif
+
 #if !defined(_PM_clearReg)
 #define _PM_clearReg(x)                                                        \
   (*(volatile _PM_PORT_TYPE *)((x).clearReg) =                                 \
@@ -369,6 +384,9 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     _PM_pinOutput(core->rgbPins[i]);
     _PM_pinLow(core->rgbPins[i]);
   }
+
+  _PM_resetFM6126A(core);
+
 #if defined(_PM_portToggleRegister)
   core->addrPortToggle = _PM_portToggleRegister(core->addr[0].pin);
   core->singleAddrPort = 1;
@@ -869,6 +887,70 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
     while (core->swapBuffers)
       ;
   }
+}
+
+static void _PM_resetFM6126A(Protomatter_core *core) {
+  // From SmartMatrix: FM6126A chipset reset sequence, which is ignored by other
+  // chipsets Thanks to Bob Davis:
+  // http://bobdavis321.blogspot.com/2019/02/p3-64x32-hub75e-led-matrix-panels-with.html
+
+  int maxLeds = 256;
+  int C12[16] = {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  int C13[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+
+  // Keep display off
+  _PM_pinHigh(core->oe.pin);
+
+  // Set CLK/LAT to idle state
+  _PM_pinLow(core->latch.pin);
+  _PM_pinLow(core->clockPin);
+  _PM_delayMicroseconds(1);
+
+  // Send Data to control register 11
+  for (int i = 0; i < maxLeds; i++) {
+    int y = i % 16;
+    _PM_clearRGBPins();
+
+    if (C12[y] == 1) {
+      _PM_setRGBPins();
+    }
+
+    if (i > maxLeds - 12) {
+      _PM_pinHigh(core->latch.pin);
+    } else {
+      _PM_pinLow(core->latch.pin);
+    }
+
+    _PM_pinHigh(core->clockPin);
+    _PM_delayMicroseconds(1);
+    _PM_pinLow(core->clockPin);
+    _PM_delayMicroseconds(1);
+  }
+
+  _PM_pinLow(core->latch.pin);
+
+  // Send Data to control register 12
+  for (int i = 0; i < maxLeds; i++) {
+    int y = i % 16;
+    _PM_clearRGBPins();
+
+    if (C13[y] == 1) {
+      _PM_setRGBPins();
+    }
+
+    if (i > maxLeds - 13) {
+      _PM_pinHigh(core->latch.pin);
+    } else {
+      _PM_pinLow(core->latch.pin);
+    }
+
+    _PM_pinHigh(core->clockPin);
+    _PM_delayMicroseconds(1);
+    _PM_pinLow(core->clockPin);
+    _PM_delayMicroseconds(1);
+  }
+
+  _PM_pinLow(core->latch.pin);
 }
 
 #if defined(ARDUINO) || defined(CIRCUITPY)
