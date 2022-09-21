@@ -75,18 +75,6 @@ static void blast_long(Protomatter_core *core, uint32_t *data);
 
 // Needed only for panels with FM6126A chipset
 static void _PM_resetFM6126A(Protomatter_core *core);
-#if !defined(_PM_setRGBPins)
-#define _PM_setRGBPins()                                                       \
-  for (uint8_t p = 0; p < core->parallel * 6 * core->bytesPerElement; p++) {   \
-    _PM_pinHigh(core->rgbPins[p]);                                             \
-  }
-#endif
-#if !defined(_PM_clearRGBPins)
-#define _PM_clearRGBPins()                                                     \
-  for (uint8_t p = 0; p < core->parallel * 6 * core->bytesPerElement; p++) {   \
-    _PM_pinLow(core->rgbPins[p]);                                              \
-  }
-#endif
 
 #if !defined(_PM_clearReg)
 #define _PM_clearReg(x)                                                        \
@@ -889,68 +877,48 @@ void _PM_swapbuffer_maybe(Protomatter_core *core) {
   }
 }
 
+// Set all RGB data bits high or low. Its done this way (rather than via
+// setReg/clearReg members, which would be a single call) because the latter
+// aren't configured on some architectures (e.g. ESP32-S3) where special
+// peripherals are used. Nothing in FM6126A init needs to be super optimal
+// as it's only called once briefly on startup...clocking takes more time!
+static void _PM_rgbState(Protomatter_core *core, bool state) {
+  for (uint8_t p = 0; p < core->parallel * 6; p++) {
+    if (state)
+      _PM_pinHigh(core->rgbPins[p]);
+    else
+      _PM_pinLow(core->rgbPins[p]);
+  }
+}
+
+// Configure one register of FM6126A. Latch assumed LOW on entry.
+static void _PM_FM6126A_reg(Protomatter_core *core, uint8_t reg,
+                            uint16_t dataMask) {
+  for (uint16_t i = 0; i < core->chainBits; i++) {
+    _PM_rgbState(core, dataMask & (0x8000 >> (i & 15)));
+
+    if (i > (core->chainBits - reg)) _PM_pinHigh(core->latch.pin);
+
+    _PM_pinHigh(core->clockPin);
+    _PM_delayMicroseconds(1);
+    _PM_pinLow(core->clockPin);
+    _PM_delayMicroseconds(1);
+  }
+
+  _PM_pinLow(core->latch.pin);
+}
+
+// Adapted from SmartMatrix: FM6126A chipset reset sequence,
+// harmless and ignored by other chips. Thanks to Bob Davis:
+// bobdavis321.blogspot.com/2019/02/p3-64x32-hub75e-led-matrix-panels-with.html
 static void _PM_resetFM6126A(Protomatter_core *core) {
-  // From SmartMatrix: FM6126A chipset reset sequence, which is ignored by other
-  // chipsets Thanks to Bob Davis:
-  // http://bobdavis321.blogspot.com/2019/02/p3-64x32-hub75e-led-matrix-panels-with.html
+  // On arrival here, clock and latch are low, OE is high, no need to config,
+  // but they must be in the same states when finished.
 
-  int maxLeds = 256;
-  int C12[16] = {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  int C13[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+  _PM_FM6126A_reg(core, 12, 0b0111111111111111);
+  _PM_FM6126A_reg(core, 13, 0b0000000001000000);
 
-  // Keep display off
-  _PM_pinHigh(core->oe.pin);
-
-  // Set CLK/LAT to idle state
-  _PM_pinLow(core->latch.pin);
-  _PM_pinLow(core->clockPin);
-  _PM_delayMicroseconds(1);
-
-  // Send Data to control register 11
-  for (int i = 0; i < maxLeds; i++) {
-    int y = i % 16;
-    _PM_clearRGBPins();
-
-    if (C12[y] == 1) {
-      _PM_setRGBPins();
-    }
-
-    if (i > maxLeds - 12) {
-      _PM_pinHigh(core->latch.pin);
-    } else {
-      _PM_pinLow(core->latch.pin);
-    }
-
-    _PM_pinHigh(core->clockPin);
-    _PM_delayMicroseconds(1);
-    _PM_pinLow(core->clockPin);
-    _PM_delayMicroseconds(1);
-  }
-
-  _PM_pinLow(core->latch.pin);
-
-  // Send Data to control register 12
-  for (int i = 0; i < maxLeds; i++) {
-    int y = i % 16;
-    _PM_clearRGBPins();
-
-    if (C13[y] == 1) {
-      _PM_setRGBPins();
-    }
-
-    if (i > maxLeds - 13) {
-      _PM_pinHigh(core->latch.pin);
-    } else {
-      _PM_pinLow(core->latch.pin);
-    }
-
-    _PM_pinHigh(core->clockPin);
-    _PM_delayMicroseconds(1);
-    _PM_pinLow(core->clockPin);
-    _PM_delayMicroseconds(1);
-  }
-
-  _PM_pinLow(core->latch.pin);
+  _PM_rgbState(core, 0); // Set all RGB low so port toggle can work
 }
 
 #if defined(ARDUINO) || defined(CIRCUITPY)
