@@ -84,6 +84,8 @@ static void blast_long(Protomatter_core *core, uint32_t *data);
        ((x).bit)) ///< Set non-RGB-data-or-clock control line (_PM_pin type)
 #endif
 
+void resetFM6126A(Protomatter_core *core);
+
 // Validate and populate vital elements of core structure.
 // Does NOT allocate core struct -- calling function must provide that.
 // (In the Arduino C++ library, it’s part of the Protomatter class.)
@@ -369,6 +371,9 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     _PM_pinOutput(core->rgbPins[i]);
     _PM_pinLow(core->rgbPins[i]);
   }
+
+    resetFM6126A(core);
+
 #if defined(_PM_portToggleRegister)
   core->addrPortToggle = _PM_portToggleRegister(core->addr[0].pin);
   core->singleAddrPort = 1;
@@ -1319,6 +1324,91 @@ void _PM_convert_565(Protomatter_core *core, uint16_t *source, uint16_t width) {
     _PM_convert_565_long(core, source, width);
   }
 }
+
+void resetFM6126A(Protomatter_core *core) {
+    // From SmartMatrix:
+    // send FM6126A chipset reset sequence, which is ignored by other chipsets that don't need it
+    // Thanks to Bob Davis: http://bobdavis321.blogspot.com/2019/02/p3-64x32-hub75e-led-matrix-panels-with.html
+
+    int maxLeds = 256;
+    int C12[16] = {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    int C13[16] = {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0};
+
+    // keep display off
+    _PM_pinHigh(core->oe.pin);
+
+    // set CLK/LAT to idle state
+    _PM_pinLow(core->latch.pin);
+    _PM_pinLow(core->clockPin);
+    delay(1);
+
+    // Send Data to control register 11
+    for (int i = 0; i < maxLeds; i++) {
+        int y = i % 16;
+        _PM_pinLow(core->rgbPins[2]); // B0
+        _PM_pinLow(core->rgbPins[0]); // R0
+        _PM_pinLow(core->rgbPins[3]); // R1
+        _PM_pinLow(core->rgbPins[1]); // G0
+        _PM_pinLow(core->rgbPins[4]); // G1
+        _PM_pinLow(core->rgbPins[5]); // B1
+
+        if (C12[y] == 1) {
+            _PM_pinHigh(core->rgbPins[2]); // B0
+            _PM_pinHigh(core->rgbPins[0]); // R0
+            _PM_pinHigh(core->rgbPins[3]); // R1
+            _PM_pinHigh(core->rgbPins[1]); // G0
+            _PM_pinHigh(core->rgbPins[4]); // G1
+            _PM_pinHigh(core->rgbPins[5]); // B1
+        }
+
+        if (i > maxLeds - 12) {
+            _PM_pinHigh(core->latch.pin);
+        } else {
+            _PM_pinLow(core->latch.pin);
+        }
+
+        _PM_pinHigh(core->clockPin);
+        delay(1);
+        _PM_pinLow(core->clockPin);
+        delay(1);
+    }
+
+    _PM_pinLow(core->latch.pin);
+
+    // Send Data to control register 12
+    for (int i = 0; i < maxLeds; i++) {
+        int y = i % 16;
+        _PM_pinLow(core->rgbPins[2]); // B0
+        _PM_pinLow(core->rgbPins[0]); // R0
+        _PM_pinLow(core->rgbPins[3]); // R1
+        _PM_pinLow(core->rgbPins[1]); // G0
+        _PM_pinLow(core->rgbPins[4]); // G1
+        _PM_pinLow(core->rgbPins[5]); // B1
+
+        if (C13[y] == 1) {
+            _PM_pinHigh(core->rgbPins[2]); // B0
+            _PM_pinHigh(core->rgbPins[0]); // R0
+            _PM_pinHigh(core->rgbPins[3]); // R1
+            _PM_pinHigh(core->rgbPins[1]); // G0
+            _PM_pinHigh(core->rgbPins[4]); // G1
+            _PM_pinHigh(core->rgbPins[5]); // B1
+        }
+
+        if (i > maxLeds - 13) {
+            _PM_pinHigh(core->latch.pin);
+        } else {
+            _PM_pinLow(core->latch.pin);
+        }
+
+        _PM_pinHigh(core->clockPin);
+        delay(1);
+        _PM_pinLow(core->clockPin);
+        delay(1);
+    }
+
+    _PM_pinLow(core->latch.pin);
+}
+
 
 #endif // END ARDUINO || CIRCUITPY
 
