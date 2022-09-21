@@ -897,7 +897,8 @@ static void _PM_FM6126A_reg(Protomatter_core *core, uint8_t reg,
   for (uint16_t i = 0; i < core->chainBits; i++) {
     _PM_rgbState(core, dataMask & (0x8000 >> (i & 15)));
 
-    if (i > (core->chainBits - reg)) _PM_pinHigh(core->latch.pin);
+    if (i > (core->chainBits - reg))
+      _PM_pinHigh(core->latch.pin);
 
     _PM_pinHigh(core->clockPin);
     _PM_delayMicroseconds(1);
