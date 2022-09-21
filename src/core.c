@@ -1340,7 +1340,7 @@ void resetFM6126A(Protomatter_core *core) {
     // set CLK/LAT to idle state
     _PM_pinLow(core->latch.pin);
     _PM_pinLow(core->clockPin);
-    delay(1);
+    _PM_delayMicroseconds(1);
 
     // Send Data to control register 11
     for (int i = 0; i < maxLeds; i++) {
@@ -1368,9 +1368,9 @@ void resetFM6126A(Protomatter_core *core) {
         }
 
         _PM_pinHigh(core->clockPin);
-        delay(1);
+        _PM_delayMicroseconds(1);
         _PM_pinLow(core->clockPin);
-        delay(1);
+        _PM_delayMicroseconds(1);
     }
 
     _PM_pinLow(core->latch.pin);
@@ -1401,9 +1401,9 @@ void resetFM6126A(Protomatter_core *core) {
         }
 
         _PM_pinHigh(core->clockPin);
-        delay(1);
+        _PM_delayMicroseconds(1);
         _PM_pinLow(core->clockPin);
-        delay(1);
+        _PM_delayMicroseconds(1);
     }
 
     _PM_pinLow(core->latch.pin);
