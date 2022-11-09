@@ -123,7 +123,7 @@ inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   HAL_NVIC_EnableIRQ(stm_peripherals_timer_get_irqnum(tim));
 }
 
-inline uint32_t _PM_timerGetCount(Protomatter_Core *core) {
+inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
   TIM_TypeDef *tim = core->timer;
   return tim->CNT;
 }
