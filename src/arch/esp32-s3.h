@@ -180,7 +180,7 @@ void _PM_timerInit(Protomatter_core *core) {
   gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_CAP_MAX);
   gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_CAP_MAX);
   for (uint8_t i = 0; i < core->numAddressLines; i++) {
-      gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
+    gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
   }
 
   // Disable LCD_CAM interrupts, clear any pending interrupt
@@ -283,7 +283,7 @@ void _PM_timerInit(Protomatter_core *core) {
   gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_CAP_MAX);
   gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_CAP_MAX);
   for (uint8_t i = 0; i < core->numAddressLines; i++) {
-      gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
+    gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
   }
 
   // Disable LCD_CAM interrupts, clear any pending interrupt
