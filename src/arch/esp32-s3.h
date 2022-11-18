@@ -25,6 +25,10 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 
+// Use DMA-capable RAM (not PSRAM) for framebuffer:
+#define _PM_allocate(x) heap_caps_malloc(x, MALLOC_CAP_DMA | MALLOC_CAP_8BIT)
+#define _PM_free(x) heap_caps_free(x)
+
 #define _PM_portOutRegister(pin)                                               \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
 #define _PM_portSetRegister(pin)                                               \
@@ -116,7 +120,7 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
 static void pinmux(int8_t pin, uint8_t signal) {
   esp_rom_gpio_connect_out_signal(pin, signal, false, false);
   gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
-  gpio_set_drive_capability((gpio_num_t)pin, (gpio_drive_cap_t)3);
+  gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_MAX);
 }
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
@@ -173,6 +177,11 @@ void _PM_timerInit(Protomatter_core *core) {
   for (int i = 0; i < 6; i++)
     pinmux(core->rgbPins[i], signal[i]);
   pinmux(core->clockPin, LCD_PCLK_IDX);
+  gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_CAP_MAX);
+  gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_CAP_MAX);
+  for (uint8_t i = 0; i < core->numAddressLines; i++) {
+      gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
+  }
 
   // Disable LCD_CAM interrupts, clear any pending interrupt
   LCD_CAM.lc_dma_int_ena.val &= ~LCD_LL_EVENT_TRANS_DONE;
@@ -271,6 +280,11 @@ void _PM_timerInit(Protomatter_core *core) {
   for (int i = 0; i < 6; i++)
     pinmux(core->rgbPins[i], signal[i]);
   pinmux(core->clockPin, LCD_PCLK_IDX);
+  gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_CAP_MAX);
+  gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_CAP_MAX);
+  for (uint8_t i = 0; i < core->numAddressLines; i++) {
+      gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
+  }
 
   // Disable LCD_CAM interrupts, clear any pending interrupt
   LCD_CAM.lc_dma_int_ena.val &= ~LCD_LL_EVENT_TRANS_DONE;
