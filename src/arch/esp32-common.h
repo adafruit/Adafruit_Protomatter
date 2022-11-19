@@ -26,6 +26,7 @@
 // see if the same should be applied!
 
 #include "driver/timer.h"
+#include "esp_heap_caps.h"
 #include "soc/gpio_periph.h"
 
 // As currently written, only one instance of the Protomatter_core struct
@@ -33,6 +34,16 @@
 void *_PM_protoPtr = NULL;
 
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
+
+// Use DMA-capable RAM (not PSRAM) for framebuffer:
+#if defined(_PM_allocate)
+#undef _PM_allocate
+#define _PM_allocate(x) heap_caps_malloc(x, MALLOC_CAP_DMA | MALLOC_CAP_8BIT)
+#endif
+#if defined(_PM_free)
+#undef _PM_free
+#define _PM_free(x) heap_caps_free(x)
+#endif
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
