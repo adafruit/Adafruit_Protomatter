@@ -73,12 +73,6 @@ IRAM_ATTR inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   timerStart(timer);
 }
 
-// Return current count value (timer enabled or not).
-// Timer must be previously initialized.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  return (uint32_t)timerRead((hw_timer_t *)core->timer);
-}
-
 // Disable timer and return current count value.
 // Timer must be previously initialized.
 IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {

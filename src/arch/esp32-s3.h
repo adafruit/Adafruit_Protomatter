@@ -50,6 +50,32 @@
 #define _PM_byteOffset(pin) 0
 #define _PM_wordOffset(pin) 0
 
+// On most architectures, _PM_timerGetCount() is used to measure bitbang
+// speed for one scanline, which is then used for bitplane 0 time, and each
+// subsequent plane doubles that. Since ESP32-S3 uses DMA and we don't have
+// an end-of-transfer interrupt, we make an informed approximation.
+// dmaSetupTime (measured in blast_byte()) measures the number of timer
+// cycles to set up and trigger the DMA transfer...
+static uint32_t dmaSetupTime = 100;
+// ...then, the version of _PM_timerGetCount() here uses that figure as a
+// starting point, plus the known constant DMA transfer speed (20 MHz) and
+// timer frequency (40 MHz), i.e. 2 cycles/column, to return a fair estimate
+// of the one-scanline transfer time, from which everything is extrapolated:
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  // Time estimate seems to come in a little high, so the -25 here is an
+  // empirically-derived fudge factor that may yield ever-so-slightly better
+  // refresh in some edge cases. If visual glitches are encountered, might
+  // need to dial back this number a bit.
+  return dmaSetupTime + core->chainBits * 2 - 25;
+}
+// Note that dmaSetupTime can vary from line to line, potentially influenced
+// by interrupts, nondeterministic DMA channel clearing times, etc., which is
+// why we don't just use a constant value. Each scanline might show for a
+// slightly different length of time, but duty cycle scales with this so it's
+// perceptually consistent; don't see bright or dark rows.
+
+#define _PM_minMinPeriod (200 + core->chainBits * 2)
+
 #if (ESP_IDF_VERSION_MAJOR == 5)
 #include <esp_private/periph_ctrl.h>
 #else
@@ -110,6 +136,11 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   esp_rom_delay_us(1); // Necessary before starting xfer
 
   LCD_CAM.lcd_user.lcd_start = 1; // Begin LCD DMA xfer
+
+  // Timer was cleared to 0 before calling blast_byte(), so this
+  // is the state of the timer immediately after DMA started:
+  dmaSetupTime = (uint32_t)timerRead((hw_timer_t *)core->timer);
+  // See notes near top of this file for what's done with this info.
 }
 
 // If using custom "blast" function(s), all three must be declared.

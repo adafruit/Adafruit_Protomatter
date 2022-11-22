@@ -42,6 +42,13 @@
 // No special peripheral setup on ESP32C3, just use common timer init...
 #define _PM_timerInit(core) _PM_esp32commonTimerInit(core);
 
+// Return current count value (timer enabled or not).
+// Timer must be previously initialized.
+// This function is the same on all ESP32 parts EXCEPT S3.
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  return (uint32_t)timerRead((hw_timer_t *)core->timer);
+}
+
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
