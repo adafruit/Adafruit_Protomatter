@@ -39,6 +39,13 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t clockPin   = 13; // Must be on same port as rgbPins
   uint8_t latchPin   = RX;
   uint8_t oePin      = TX;
+#elif defined(ARDUINO_METRO_ESP32S2) // Metro ESP32-S2
+  // Matrix Shield compatible:
+  uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
+  uint8_t addrPins[] = {A0, A1, A2, A3};
+  uint8_t clockPin   = 13; // Must be on same port as rgbPins
+  uint8_t latchPin   = 15;
+  uint8_t oePin      = 14;
 #elif defined(__SAMD51__) // M4 Metro Variants (Express, AirLift)
   uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
   uint8_t addrPins[] = {A5, A4, A3, A2};
