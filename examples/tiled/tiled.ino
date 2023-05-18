@@ -23,6 +23,12 @@ supported boards.
   uint8_t clockPin   = 14;
   uint8_t latchPin   = 15;
   uint8_t oePin      = 16;
+#elif defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) // MatrixPortal ESP32-S3
+  uint8_t rgbPins[]  = {42, 41, 40, 38, 39, 37};
+  uint8_t addrPins[] = {35, 36, 48, 45, 21};
+  uint8_t clockPin   = 2;
+  uint8_t latchPin   = 47;
+  uint8_t oePin      = 14;
 #elif defined(_VARIANT_FEATHER_M4_) // Feather M4 + RGB Matrix FeatherWing
   uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
   uint8_t addrPins[] = {A5, A4, A3, A2};
