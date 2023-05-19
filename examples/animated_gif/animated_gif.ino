@@ -1,7 +1,7 @@
 // Play GIFs from CIRCUITPY drive (USB-accessible filesystem) to LED matrix.
-// ***DESIGNED FOR ADAFRUIT MATRIXPORTAL M4***, but may run on some other
-// M4 & M0 and nRF52 boards (relies on TinyUSB stack). As written, runs on
-// 64x32 pixel matrix, this can be changed by editing the WIDTH and HEIGHT
+// ***DESIGNED FOR ADAFRUIT MATRIXPORTAL***, but may run on some other M4,
+// M0, ESP32S3 and nRF52 boards (relies on TinyUSB stack). As written, runs
+// on 64x32 pixel matrix, this can be changed by editing the WIDTH and HEIGHT
 // definitions. See the "simple" example for a run-down on matrix config.
 // Adapted from examples from Larry Bank's AnimatedGIF library and
 // msc_external_flash example in Adafruit_TinyUSB_Arduino.
@@ -33,7 +33,9 @@ uint16_t GIFminimumTime = 10; // Min. repeat time (seconds) until next GIF
 // FLASH FILESYSTEM STUFF --------------------------------------------------
 
 // External flash macros for QSPI or SPI are defined in board variant file.
-#if defined(EXTERNAL_FLASH_USE_QSPI)
+#if defined(ARDUINO_ARCH_ESP32)
+static Adafruit_FlashTransport_ESP32 flashTransport;
+#elif defined(EXTERNAL_FLASH_USE_QSPI)
 Adafruit_FlashTransport_QSPI flashTransport;
 #elif defined(EXTERNAL_FLASH_USE_SPI)
 Adafruit_FlashTransport_SPI flashTransport(EXTERNAL_FLASH_USE_CS,
@@ -56,6 +58,14 @@ uint8_t latchPin = 15;
 uint8_t oePin = 16;
 #define BACK_BUTTON 2
 #define NEXT_BUTTON 3
+#elif defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3)
+uint8_t rgbPins[] = {42, 41, 40, 38, 39, 37};
+uint8_t addrPins[] = {35, 36, 48, 45, 21}; // 16/32/64 pixels tall
+uint8_t clockPin = 2;
+uint8_t latchPin = 47;
+uint8_t oePin = 14;
+#define BACK_BUTTON 6
+#define NEXT_BUTTON 7
 #elif defined(_VARIANT_METRO_M4_)
 uint8_t rgbPins[] = {2, 3, 4, 5, 6, 7};
 uint8_t addrPins[] = {A0, A1, A2, A3}; // 16 or 32 pixels tall
@@ -89,7 +99,7 @@ int16_t xPos = 0, yPos = 0; // Top-left pixel coord of GIF in matrix space
 // FILE ACCESS FUNCTIONS REQUIRED BY ANIMATED GIF LIB ----------------------
 
 // Pass in ABSOLUTE PATH of GIF file to open
-void *GIFOpenFile(char *filename, int32_t *pSize) {
+void *GIFOpenFile(const char *filename, int32_t *pSize) {
   GIFfile = filesys.open(filename);
   if (GIFfile) {
     *pSize = GIFfile.size();
