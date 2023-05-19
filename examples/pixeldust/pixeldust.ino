@@ -23,7 +23,7 @@ uint8_t addrPins[] = {17, 18, 19, 20, 21};
 uint8_t clockPin   = 14;
 uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
-#elif defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) // MatrixPortal ESP32-S3
+#else // MatrixPortal ESP32-S3
 uint8_t rgbPins[]  = {42, 41, 40, 38, 39, 37};
 uint8_t addrPins[] = {35, 36, 48, 45, 21};
 uint8_t clockPin   = 2;
