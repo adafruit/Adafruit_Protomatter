@@ -74,7 +74,7 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // slightly different length of time, but duty cycle scales with this so it's
 // perceptually consistent; don't see bright or dark rows.
 
-#define _PM_minMinPeriod (200 + core->chainBits * 2)
+#define _PM_minMinPeriod (200 + (uint32_t)core->chainBits * 2)
 
 #if (ESP_IDF_VERSION_MAJOR == 5)
 #include <esp_private/periph_ctrl.h>
