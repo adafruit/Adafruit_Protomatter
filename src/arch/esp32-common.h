@@ -158,16 +158,15 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
   return _PM_timerGetCount(core);
 }
 
+#if !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32S2)
 IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
-#ifdef CONFIG_IDF_TARGET_ESP32S3
   timer->hw->hw_timer[timer->idx].update.tn_update = 1;
   return timer->hw->hw_timer[timer->idx].lo.tn_lo;
-#else
   timer->hw->hw_timer[timer->idx].update.tx_update = 1;
   return timer->hw->hw_timer[timer->idx].lo.tx_lo;
-#endif
 }
+#endif
 
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
