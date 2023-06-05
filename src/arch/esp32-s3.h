@@ -255,7 +255,7 @@ void _PM_timerInit(Protomatter_core *core) {
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
-void _PM_timerInit(Protomatter_core *core) {
+static void _PM_timerInit(Protomatter_core *core) {
 
   // TO DO: adapt this function for any CircuitPython-specific changes.
   // If none are required, this function can be deleted and the version
