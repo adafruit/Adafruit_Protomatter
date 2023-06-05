@@ -25,6 +25,9 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 
+#include "components/esp_rom/include/esp_rom_sys.h"
+#include "components/heap/include/esp_heap_caps.h"
+
 // Use DMA-capable RAM (not PSRAM) for framebuffer:
 #define _PM_allocate(x) heap_caps_malloc(x, MALLOC_CAP_DMA | MALLOC_CAP_8BIT)
 #define _PM_free(x) heap_caps_free(x)
