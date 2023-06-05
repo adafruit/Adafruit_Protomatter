@@ -32,7 +32,7 @@
 
 // As currently written, only one instance of the Protomatter_core struct
 // is allowed, set up when calling begin()...so it's just a global here:
-void *_PM_protoPtr = NULL;
+Protomatter_core *_PM_protoPtr;
 
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
 
