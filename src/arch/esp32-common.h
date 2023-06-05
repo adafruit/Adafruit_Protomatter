@@ -19,6 +19,8 @@
 
 #if defined(ESP32) // *All* ESP32 variants (OG, S2, S3, etc.)
 
+#include "esp_idf_version.h"
+
 // NOTE: there is some intentional repetition in the macros and functions
 // for some ESP32 variants. Previously they were all one file, but complex
 // preprocessor directives were turning into spaghetti. THEREFORE, if making
