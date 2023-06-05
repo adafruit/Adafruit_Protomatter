@@ -17,7 +17,7 @@
 
 #pragma once
 
-#if defined(ESP32) // *All* ESP32 variants (OG, S2, S3, etc.)
+#if defined(ESP32) || defined(ESP_PLATFORM) // *All* ESP32 variants (OG, S2, S3, etc.)
 
 #include "esp_idf_version.h"
 
