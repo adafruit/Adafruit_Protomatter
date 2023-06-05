@@ -117,7 +117,7 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
 // (RAM-resident functions). This isn't really the ISR itself, but a
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
-IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
+static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
   if (_PM_protoPtr) {
     _PM_row_handler(_PM_protoPtr); // In core.c
   }
@@ -126,7 +126,7 @@ IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 
 // Set timer period, initialize count value to zero, enable timer.
 #if (ESP_IDF_VERSION_MAJOR == 5)
-IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+static IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   timer_ll_enable_counter(timer->hw, timer->idx, false);
   timer_ll_set_reload_value(timer->hw, timer->idx, 0);
@@ -171,7 +171,7 @@ IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.
-void _PM_esp32commonTimerInit(Protomatter_core *core) {
+static void _PM_esp32commonTimerInit(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   const timer_config_t config = {
       .alarm_en = false,
