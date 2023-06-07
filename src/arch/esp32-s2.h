@@ -139,13 +139,6 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
 IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
 
-// Return current count value (timer enabled or not).
-// Timer must be previously initialized.
-// This function is the same on all ESP32 parts EXCEPT S3.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  return (uint32_t)timerRead((hw_timer_t *)core->timer);
-}
-
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 void _PM_timerInit(Protomatter_core *core) {
@@ -172,6 +165,13 @@ void _PM_timerInit(Protomatter_core *core) {
   DEDIC_GPIO.gpio_out_cpu.val = 0; // Use GPIO registers, not CPU instructions
 
   _PM_esp32commonTimerInit(core); // In esp32-common.h
+}
+
+// Return current count value (timer enabled or not).
+// Timer must be previously initialized.
+// This function is the same on all ESP32 parts EXCEPT S3.
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  return (uint32_t)timerRead((hw_timer_t *)core->timer);
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
@@ -206,6 +206,16 @@ void _PM_timerInit(Protomatter_core *core) {
   DEDIC_GPIO.gpio_out_cpu.val = 0; // Use GPIO registers, not CPU instructions
 
   _PM_esp32commonTimerInit(core); // In esp32-common.h
+}
+
+// Return current count value (timer enabled or not).
+// Timer must be previously initialized.
+// This function is the same on all ESP32 parts EXCEPT S3.
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+  uint64_t value;
+  timer_index_t *timer = (timer_index_t*)core->timer;
+  timer_get_counter_value(timer->group, timer->idx,&value);
+  retur (uint32_t)value;
 }
 
 #endif // END CIRCUITPYTHON ------------------------------------------------
