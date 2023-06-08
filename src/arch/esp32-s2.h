@@ -208,16 +208,6 @@ void _PM_timerInit(Protomatter_core *core) {
   _PM_esp32commonTimerInit(core); // In esp32-common.h
 }
 
-// Return current count value (timer enabled or not).
-// Timer must be previously initialized.
-// This function is the same on all ESP32 parts EXCEPT S3.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  uint64_t value;
-  timer_index_t *timer = (timer_index_t*)core->timer;
-  timer_get_counter_value(timer->group, timer->idx,&value);
-  return (uint32_t)value;
-}
-
 #endif // END CIRCUITPYTHON ------------------------------------------------
 
 #endif // END ESP32S2

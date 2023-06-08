@@ -158,13 +158,12 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
   return _PM_timerGetCount(core);
 }
 
-#if !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32S2)
+#if !defined(CONFIG_IDF_TARGET_ESP32S3)
 IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
-  timer->hw->hw_timer[timer->idx].update.tn_update = 1;
-  return timer->hw->hw_timer[timer->idx].lo.tn_lo;
-  timer->hw->hw_timer[timer->idx].update.tx_update = 1;
-  return timer->hw->hw_timer[timer->idx].lo.tx_lo;
+  uint64_t result;
+  timer_ll_get_counter_value(timer->hw, timer->idx, &result);
+  return (uint32_t)result;
 }
 #endif
 
