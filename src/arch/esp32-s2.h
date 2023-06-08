@@ -215,7 +215,7 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
   uint64_t value;
   timer_index_t *timer = (timer_index_t*)core->timer;
   timer_get_counter_value(timer->group, timer->idx,&value);
-  retur (uint32_t)value;
+  return (uint32_t)value;
 }
 
 #endif // END CIRCUITPYTHON ------------------------------------------------
