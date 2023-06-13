@@ -17,7 +17,10 @@
 
 #pragma once
 
-#if defined(ESP32) // *All* ESP32 variants (OG, S2, S3, etc.)
+#if defined(ESP32) ||                                                          \
+    defined(ESP_PLATFORM) // *All* ESP32 variants (OG, S2, S3, etc.)
+
+#include "esp_idf_version.h"
 
 // NOTE: there is some intentional repetition in the macros and functions
 // for some ESP32 variants. Previously they were all one file, but complex
@@ -30,7 +33,7 @@
 
 // As currently written, only one instance of the Protomatter_core struct
 // is allowed, set up when calling begin()...so it's just a global here:
-void *_PM_protoPtr = NULL;
+Protomatter_core *_PM_protoPtr;
 
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
 
@@ -115,7 +118,7 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
 // (RAM-resident functions). This isn't really the ISR itself, but a
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
-IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
+static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
   if (_PM_protoPtr) {
     _PM_row_handler(_PM_protoPtr); // In core.c
   }
@@ -124,7 +127,7 @@ IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 
 // Set timer period, initialize count value to zero, enable timer.
 #if (ESP_IDF_VERSION_MAJOR == 5)
-IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+static IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   timer_ll_enable_counter(timer->hw, timer->idx, false);
   timer_ll_set_reload_value(timer->hw, timer->idx, 0);
@@ -156,21 +159,19 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
   return _PM_timerGetCount(core);
 }
 
+#if !defined(CONFIG_IDF_TARGET_ESP32S3)
 IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-  timer->hw->hw_timer[timer->idx].update.tn_update = 1;
-  return timer->hw->hw_timer[timer->idx].lo.tn_lo;
-#else
-  timer->hw->hw_timer[timer->idx].update.tx_update = 1;
-  return timer->hw->hw_timer[timer->idx].lo.tx_lo;
-#endif
+  uint64_t result;
+  timer_ll_get_counter_value(timer->hw, timer->idx, &result);
+  return (uint32_t)result;
 }
+#endif
 
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.
-void _PM_esp32commonTimerInit(Protomatter_core *core) {
+static void _PM_esp32commonTimerInit(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   const timer_config_t config = {
       .alarm_en = false,

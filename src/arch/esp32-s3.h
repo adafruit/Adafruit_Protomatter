@@ -25,6 +25,9 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 
+#include "components/esp_rom/include/esp_rom_sys.h"
+#include "components/heap/include/esp_heap_caps.h"
+
 // Use DMA-capable RAM (not PSRAM) for framebuffer:
 #define _PM_allocate(x) heap_caps_malloc(x, MALLOC_CAP_DMA | MALLOC_CAP_8BIT)
 #define _PM_free(x) heap_caps_free(x)
@@ -74,7 +77,7 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // slightly different length of time, but duty cycle scales with this so it's
 // perceptually consistent; don't see bright or dark rows.
 
-#define _PM_minMinPeriod (200 + core->chainBits * 2)
+#define _PM_minMinPeriod (200 + (uint32_t)core->chainBits * 2)
 
 #if (ESP_IDF_VERSION_MAJOR == 5)
 #include <esp_private/periph_ctrl.h>
@@ -139,7 +142,10 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 
   // Timer was cleared to 0 before calling blast_byte(), so this
   // is the state of the timer immediately after DMA started:
-  dmaSetupTime = (uint32_t)timerRead((hw_timer_t *)core->timer);
+  uint64_t value;
+  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_get_counter_value(timer->group, timer->idx, &value);
+  dmaSetupTime = (uint32_t)value;
   // See notes near top of this file for what's done with this info.
 }
 
@@ -252,7 +258,7 @@ void _PM_timerInit(Protomatter_core *core) {
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
-void _PM_timerInit(Protomatter_core *core) {
+static void _PM_timerInit(Protomatter_core *core) {
 
   // TO DO: adapt this function for any CircuitPython-specific changes.
   // If none are required, this function can be deleted and the version
@@ -329,20 +335,22 @@ void _PM_timerInit(Protomatter_core *core) {
   desc.next = NULL;
 
   // Alloc DMA channel & connect it to LCD periph
-  gdma_channel_alloc_config_t dma_chan_config = {
-      .sibling_chan = NULL,
-      .direction = GDMA_CHANNEL_DIRECTION_TX,
-      .flags = {.reserve_sibling = 0}};
-  gdma_new_channel(&dma_chan_config, &dma_chan);
-  gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
-  gdma_strategy_config_t strategy_config = {.owner_check = false,
-                                            .auto_update_desc = false};
-  gdma_apply_strategy(dma_chan, &strategy_config);
-  gdma_transfer_ability_t ability = {
-      .sram_trans_align = 0,
-      .psram_trans_align = 0,
-  };
-  gdma_set_transfer_ability(dma_chan, &ability);
+  if (dma_chan == NULL) {
+    gdma_channel_alloc_config_t dma_chan_config = {
+        .sibling_chan = NULL,
+        .direction = GDMA_CHANNEL_DIRECTION_TX,
+        .flags = {.reserve_sibling = 0}};
+    gdma_new_channel(&dma_chan_config, &dma_chan);
+    gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
+    gdma_strategy_config_t strategy_config = {.owner_check = false,
+                                              .auto_update_desc = false};
+    gdma_apply_strategy(dma_chan, &strategy_config);
+    gdma_transfer_ability_t ability = {
+        .sram_trans_align = 0,
+        .psram_trans_align = 0,
+    };
+    gdma_set_transfer_ability(dma_chan, &ability);
+  }
   gdma_start(dma_chan, (intptr_t)&desc);
 
   // Enable TRANS_DONE interrupt. Note that we do NOT require nor install
