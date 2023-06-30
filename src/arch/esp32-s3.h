@@ -160,7 +160,6 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // See notes near top of this file for what's done with this info.
 }
 
-
 void _PM_timerInit(Protomatter_core *core) {
   // On S3, initialize the LCD_CAM peripheral and DMA.
 
@@ -236,7 +235,7 @@ void _PM_timerInit(Protomatter_core *core) {
       .direction = GDMA_CHANNEL_DIRECTION_TX,
       .flags = {.reserve_sibling = 0}};
   esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
-  (void) ret;
+  (void)ret;
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
   gdma_strategy_config_t strategy_config = {.owner_check = false,
                                             .auto_update_desc = false};
@@ -290,7 +289,6 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   dmaSetupTime = (uint32_t)value;
   // See notes near top of this file for what's done with this info.
 }
-
 
 static void _PM_timerInit(Protomatter_core *core) {
 
