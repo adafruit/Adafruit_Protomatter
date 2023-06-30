@@ -25,8 +25,10 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 
+#if defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 #include "components/esp_rom/include/esp_rom_sys.h"
 #include "components/heap/include/esp_heap_caps.h"
+#endif
 
 // Use DMA-capable RAM (not PSRAM) for framebuffer:
 #define _PM_allocate(x) heap_caps_malloc(x, MALLOC_CAP_DMA | MALLOC_CAP_8BIT)
@@ -115,6 +117,18 @@ static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
 static dma_descriptor_t desc;
 static gdma_channel_handle_t dma_chan;
 
+// If using custom "blast" function(s), all three must be declared.
+// Unused ones can be empty, that's fine, just need to exist.
+IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
+IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
+
+static void pinmux(int8_t pin, uint8_t signal) {
+  esp_rom_gpio_connect_out_signal(pin, signal, false, false);
+  gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
+  gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_MAX);
+}
+
+#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 // LCD_CAM requires a complete replacement of the "blast" functions in order
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
@@ -142,25 +156,9 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 
   // Timer was cleared to 0 before calling blast_byte(), so this
   // is the state of the timer immediately after DMA started:
-  uint64_t value;
-  timer_index_t *timer = (timer_index_t *)core->timer;
-  timer_get_counter_value(timer->group, timer->idx, &value);
-  dmaSetupTime = (uint32_t)value;
+  dmaSetupTime = (uint32_t)timerRead((hw_timer_t *)core->timer);
   // See notes near top of this file for what's done with this info.
 }
-
-// If using custom "blast" function(s), all three must be declared.
-// Unused ones can be empty, that's fine, just need to exist.
-IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
-IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
-
-static void pinmux(int8_t pin, uint8_t signal) {
-  esp_rom_gpio_connect_out_signal(pin, signal, false, false);
-  gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
-  gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_MAX);
-}
-
-#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 void _PM_timerInit(Protomatter_core *core) {
   // On S3, initialize the LCD_CAM peripheral and DMA.
@@ -237,6 +235,7 @@ void _PM_timerInit(Protomatter_core *core) {
       .direction = GDMA_CHANNEL_DIRECTION_TX,
       .flags = {.reserve_sibling = 0}};
   esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
+  (void)ret;
   gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
   gdma_strategy_config_t strategy_config = {.owner_check = false,
                                             .auto_update_desc = false};
@@ -257,6 +256,39 @@ void _PM_timerInit(Protomatter_core *core) {
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
+// LCD_CAM requires a complete replacement of the "blast" functions in order
+// to use the DMA-based peripheral.
+#define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
+IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
+  // Reset LCD DOUT parameters each time (required).
+  // IN PRINCIPLE, cyclelen should be chainBits-1 (resulting in chainBits
+  // cycles). But due to the required dummy phases at start of transfer,
+  // extend by 1; set to chainBits, issue chainBits+1 cycles.
+  LCD_CAM.lcd_user.lcd_dout_cyclelen = core->chainBits;
+  LCD_CAM.lcd_user.lcd_dout = 1;
+  LCD_CAM.lcd_user.lcd_update = 1;
+
+  // Reset LCD TX FIFO each time, else we see old data. When doing this,
+  // it's REQUIRED in the setup code to enable at least one dummy pulse,
+  // else the PCLK & data are randomly misaligned by 1-2 clocks!
+  LCD_CAM.lcd_misc.lcd_afifo_reset = 1;
+
+  // Partially re-init descriptor each time (required)
+  desc.dw0.size = desc.dw0.length = core->chainBits;
+  desc.buffer = data;
+  gdma_start(dma_chan, (intptr_t)&desc);
+  esp_rom_delay_us(1); // Necessary before starting xfer
+
+  LCD_CAM.lcd_user.lcd_start = 1; // Begin LCD DMA xfer
+
+  // Timer was cleared to 0 before calling blast_byte(), so this
+  // is the state of the timer immediately after DMA started:
+  uint64_t value;
+  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_get_counter_value(timer->group, timer->idx, &value);
+  dmaSetupTime = (uint32_t)value;
+  // See notes near top of this file for what's done with this info.
+}
 
 static void _PM_timerInit(Protomatter_core *core) {
 

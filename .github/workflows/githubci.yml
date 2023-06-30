@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arduino-platform: ["metro_m0", "metro_m4", "nrf52840", "esp32"]
+        arduino-platform: ["metro_m0", "metro_m4", "metroesp32s2", "feather_esp32s3", "feather_rp2040", "nrf52840", "esp32"]
 
     runs-on: ubuntu-latest
     
