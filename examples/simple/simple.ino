@@ -28,7 +28,7 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t oePin      = 16;
 #elif defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) // MatrixPortal ESP32-S3
   uint8_t rgbPins[]  = {42, 41, 40, 38, 39, 37};
-  uint8_t addrPins[] = {35, 36, 48, 45, 21};
+  uint8_t addrPins[] = {45, 36, 48, 35, 21};
   uint8_t clockPin   = 2;
   uint8_t latchPin   = 47;
   uint8_t oePin      = 14;

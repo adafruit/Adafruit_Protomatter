@@ -60,7 +60,7 @@ uint8_t oePin = 16;
 #define NEXT_BUTTON 3
 #elif defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3)
 uint8_t rgbPins[] = {42, 41, 40, 38, 39, 37};
-uint8_t addrPins[] = {35, 36, 48, 45, 21}; // 16/32/64 pixels tall
+uint8_t addrPins[] = {45, 36, 48, 35, 21}; // 16/32/64 pixels tall
 uint8_t clockPin = 2;
 uint8_t latchPin = 47;
 uint8_t oePin = 14;
