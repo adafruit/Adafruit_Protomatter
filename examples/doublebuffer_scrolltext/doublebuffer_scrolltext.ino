@@ -121,17 +121,16 @@ Adafruit_Protomatter matrix(
 
 // Sundry globals used for animation ---------------------------------------
 
-int16_t  textX = matrix.width(), // Current text position (X)
-         textY,                  // Current text position (Y)
-         textMin,                // Text pos. (X) when scrolled off left edge
-         hue = 0;
-char     str[50];                // Buffer to hold scrolling message text
-int8_t   ball[3][4] = {
-  {  3,  0,  1,  1 },            // Initial X,Y pos+velocity of 3 bouncy balls
+int16_t  textX;        // Current text position (X)
+int16_t  textY;        // Current text position (Y)
+int16_t  textMin;      // Text pos. (X) when scrolled off left edge
+char     str[64];      // Buffer to hold scrolling message text
+int16_t  ball[3][4] = {
+  {  3,  0,  1,  1 },  // Initial X,Y pos+velocity of 3 bouncy balls
   { 17, 15,  1, -1 },
   { 27,  4, -1,  1 }
 };
-uint16_t ballcolor[3];           // Colors for bouncy balls (init in setup())
+uint16_t ballcolor[3]; // Colors for bouncy balls (init in setup())
 
 // SETUP - RUNS ONCE AT PROGRAM START --------------------------------------
 
@@ -160,6 +159,7 @@ void setup(void) {
   uint16_t w, h;
   matrix.getTextBounds(str, 0, 0, &x1, &y1, &w, &h); // How big is it?
   textMin = -w; // All text is off left edge when it reaches this point
+  textX = matrix.width(); // Start off right edge
   textY = matrix.height() / 2 - (y1 + h / 2); // Center text vertically
   // Note: when making scrolling text like this, the setTextWrap(false)
   // call is REQUIRED (to allow text to go off the edge of the matrix),
@@ -169,7 +169,7 @@ void setup(void) {
   // Set up the colors of the bouncy balls.
   ballcolor[0] = matrix.color565(0, 20, 0); // Dark green
   ballcolor[1] = matrix.color565(0, 0, 20); // Dark blue
-  ballcolor[2] = matrix.color565(20, 0, 0); // ark red
+  ballcolor[2] = matrix.color565(20, 0, 0); // Dark red
 }
 
 // LOOP - RUNS REPEATEDLY AFTER SETUP --------------------------------------
