@@ -20,6 +20,8 @@
 #if defined(ESP32) ||                                                          \
     defined(ESP_PLATFORM) // *All* ESP32 variants (OG, S2, S3, etc.)
 
+extern volatile uint8_t bitz;
+
 #include "esp_idf_version.h"
 
 // NOTE: there is some intentional repetition in the macros and functions
@@ -58,6 +60,7 @@ static hw_timer_t *_PM_esp32timer = NULL;
 #define _PM_TIMER_DEFAULT &_PM_esp32timer
 
 extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core); // In core.c
+extern IRAM_ATTR void _PM_OE_off(Protomatter_core *core);
 
 // Timer interrupt handler. This, _PM_row_handler() and any functions
 // called by _PM_row_handler() should all have the IRAM_ATTR attribute
@@ -65,7 +68,13 @@ extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core); // In core.c
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
 IRAM_ATTR static void _PM_esp32timerCallback(void) {
-  _PM_row_handler(_PM_protoPtr); // In core.c
+  bitz |= 2;
+  if (bitz == 3) {
+    _PM_row_handler(_PM_protoPtr); // In core.c
+  } else {
+    _PM_OE_off(_PM_protoPtr);
+    _PM_timerStop(_PM_protoPtr);
+  }
 }
 
 // Set timer period, initialize count value to zero, enable timer.

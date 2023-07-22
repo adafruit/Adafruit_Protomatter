@@ -341,6 +341,7 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
   uint32_t minPeriodPerFrame = _PM_timerFreq / _PM_MAX_REFRESH_HZ;
   uint32_t minPeriodPerLine = minPeriodPerFrame / core->numRowPairs;
   core->minPeriod = minPeriodPerLine / ((1 << core->numPlanes) - 1);
+core->minPeriod = _PM_minMinPeriod;
   if (core->minPeriod < _PM_minMinPeriod) {
     core->minPeriod = _PM_minMinPeriod;
   }
@@ -487,6 +488,13 @@ void _PM_deallocate(Protomatter_core *core) {
   }
 }
 
+volatile uint8_t bitz = 3;
+
+IRAM_ATTR void _PM_OE_off(Protomatter_core *core) {
+  _PM_clearReg(core->oe);
+  _PM_setReg(core->oe); // Disable LED output
+}
+
 // ISR function (in arch.h) calls this function which it extern'd.
 // Profuse apologies for the ESP32-specific IRAM_ATTR here -- the goal was
 // for all architecture-specific detauls to be in arch.h -- but the need
@@ -497,6 +505,7 @@ void _PM_deallocate(Protomatter_core *core) {
 // specific section of arch.h. Sorry. :/
 // Any functions called by this function should also be IRAM_ATTR'd.
 IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
+  bitz = 0;
 
   _PM_setReg(core->oe); // Disable LED output
 
@@ -577,7 +586,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
 
   // Set timer and enable LED output for data loaded on PRIOR pass:
   _PM_timerStart(core, core->bitZeroPeriod << prevPlane);
-  _PM_delayMicroseconds(1); // Appease Teensy4
+//  _PM_delayMicroseconds(1); // Appease Teensy4
   _PM_clearReg(core->oe);   // Enable LED output
 
   uint32_t elementsPerLine =
@@ -610,7 +619,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core *core) {
     // Timer is still running and counting up at this point.
     uint32_t elapsed = _PM_timerGetCount(core);
     // Nudge the plane-zero time up or down (filtering to avoid jitter)
-    core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed + 4) / 8;
+//    core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed + 4) / 8;
     // But don't allow it to drop below the minimum period calculated during
     // begin(), that's a hard limit and would just waste cycles.
     if (core->bitZeroPeriod < core->minPeriod) {

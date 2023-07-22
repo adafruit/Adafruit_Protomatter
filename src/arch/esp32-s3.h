@@ -79,7 +79,8 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // slightly different length of time, but duty cycle scales with this so it's
 // perceptually consistent; don't see bright or dark rows.
 
-#define _PM_minMinPeriod (200 + (uint32_t)core->chainBits * 2)
+//#define _PM_minMinPeriod (200 + (uint32_t)core->chainBits * 2)
+#define _PM_minMinPeriod 40
 
 #if (ESP_IDF_VERSION_MAJOR == 5)
 #include <esp_private/periph_ctrl.h>
@@ -129,6 +130,7 @@ static void pinmux(int8_t pin, uint8_t signal) {
 }
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
+
 // LCD_CAM requires a complete replacement of the "blast" functions in order
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
@@ -158,6 +160,19 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // is the state of the timer immediately after DMA started:
   dmaSetupTime = (uint32_t)timerRead((hw_timer_t *)core->timer);
   // See notes near top of this file for what's done with this info.
+}
+
+volatile uint32_t bloop = 0;
+extern volatile uint8_t bitz;
+extern IRAM_ATTR void _PM_OE_off(Protomatter_core *core);
+
+IRAM_ATTR static bool dma_callback(gdma_channel_handle_t dma_chan,
+  gdma_event_data_t *event_data, void *user_data) {
+  bitz |= 1; // DMA xfer has finished
+  if (bitz == 3)
+    _PM_row_handler(_PM_protoPtr); // In core.c
+  bloop++;
+  return true;
 }
 
 void _PM_timerInit(Protomatter_core *core) {
@@ -247,9 +262,11 @@ void _PM_timerInit(Protomatter_core *core) {
   gdma_set_transfer_ability(dma_chan, &ability);
   gdma_start(dma_chan, (intptr_t)&desc);
 
-  // Enable TRANS_DONE interrupt. Note that we do NOT require nor install
-  // an interrupt service routine, but DO need to enable the TRANS_DONE
-  // flag to make the LCD DMA transfer work.
+  // Enable DMA transfer callback
+  gdma_tx_event_callbacks_t tx_cbs = {
+    .on_trans_eof = dma_callback
+  };  
+  gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, NULL);
   LCD_CAM.lc_dma_int_ena.val |= LCD_LL_EVENT_TRANS_DONE & 0x03;
 
   _PM_esp32commonTimerInit(core); // In esp32-common.h
