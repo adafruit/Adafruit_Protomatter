@@ -67,11 +67,11 @@ static uint32_t dmaSetupTime = 100;
 // timer frequency (40 MHz), i.e. 2 cycles/column, to return a fair estimate
 // of the one-scanline transfer time, from which everything is extrapolated:
 IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  // Time estimate seems to come in a little high, so the -25 here is an
+  // Time estimate seems to come in a little high, so the -10 here is an
   // empirically-derived fudge factor that may yield ever-so-slightly better
   // refresh in some edge cases. If visual glitches are encountered, might
-  // need to dial back this number a bit.
-  return dmaSetupTime + core->chainBits * 2 - 25;
+  // need to dial back this number a bit or remove it.
+  return dmaSetupTime + core->chainBits * 2 - 10;
 }
 // Note that dmaSetupTime can vary from line to line, potentially influenced
 // by interrupts, nondeterministic DMA channel clearing times, etc., which is
