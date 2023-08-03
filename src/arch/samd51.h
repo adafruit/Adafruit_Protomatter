@@ -199,16 +199,16 @@ uint32_t _PM_timerStop(Protomatter_core *core) {
 // See notes in core.c before the "blast" functions
 #if F_CPU >= 200000000
 #define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop");
-#define _PM_clockHoldLow asm("nop; nop");
+#define _PM_clockHoldLow asm("nop; nop; nop; nop");
 #elif F_CPU >= 180000000
 #define _PM_clockHoldHigh asm("nop; nop; nop; nop");
-#define _PM_clockHoldLow asm("nop");
+#define _PM_clockHoldLow asm("nop; nop; nop");
 #elif F_CPU >= 150000000
-#define _PM_clockHoldHigh asm("nop; nop; nop");
-#define _PM_clockHoldLow asm("nop");
+#define _PM_clockHoldHigh asm("nop; nop; nop; nop");
+#define _PM_clockHoldLow asm("nop; nop; nop");
 #else
 #define _PM_clockHoldHigh asm("nop; nop; nop");
-#define _PM_clockHoldLow asm("nop");
+#define _PM_clockHoldLow asm("nop; nop");
 #endif
 
 #define _PM_minMinPeriod 160
