@@ -337,8 +337,15 @@ ProtomatterStatus _PM_begin(Protomatter_core *core) {
     }
   }
 
-  // Estimate minimum bitplane #0 period for _PM_MAX_REFRESH_HZ rate.
-  uint32_t minPeriodPerFrame = _PM_timerFreq / _PM_MAX_REFRESH_HZ;
+  // Estimate minimum bitplane #0 period from _PM_SHIFT_REG_CLK (arch directory)
+  // TODO: Scale _PM_SHIFT_REG_CLK based on system clock provided by user
+  uint32_t numShifts = columns * core->numRowPairs;
+  numShifts *= (1 << core->numPlanes) - 1;
+  uint32_t refresh = _PM_SHIFT_REG_CLK / numShifts;
+  if (refresh > _PM_MAX_REFRESH_HZ) {
+    refresh = _PM_MAX_REFRESH_HZ;
+  }
+  uint32_t minPeriodPerFrame = _PM_timerFreq / refresh;
   uint32_t minPeriodPerLine = minPeriodPerFrame / core->numRowPairs;
   core->minPeriod = minPeriodPerLine / ((1 << core->numPlanes) - 1);
   if (core->minPeriod < _PM_minMinPeriod) {
