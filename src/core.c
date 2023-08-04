@@ -726,7 +726,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   _PM_PORT_TYPE rgbclock = core->rgbAndClockMask; // RGB + clock bit
 #endif
   _PM_PORT_TYPE clock = core->clockMask; // Clock bit
-  uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
+  uint16_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
 
   // PORT has already been initialized with RGB data + clock bits
   // all LOW, so we don't need to initialize that state here.
