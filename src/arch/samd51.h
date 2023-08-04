@@ -196,19 +196,29 @@ uint32_t _PM_timerStop(Protomatter_core *core) {
   return count;
 }
 
-// See notes in core.c before the "blast" functions
+// See notes in core.c before the "blast" functions.
+// The NOP counts here were derived by monitoring on a fast logic analyzer,
+// aiming for 20 MHz clock at 50% duty cycle (for the unrolled parts of the
+// 'blast' loop...every Nth bit is somewhat longer), and tested for each
+// F_CPU setting. This seems to have the broadest compatibility across many
+// matrix varieties. Only one, a 64x32 flex matrix, showed some artifacts at
+// the end of a 4-matrix chain at 120-150 MHz F_CPU -- either use in shorter
+// chains, or can kludge it by running at 180-200 MHz or by moving one NOP
+// from the Low to High section (but which then causes issues with other
+// matrix types, so it's not done here), unfortunately no means of run-time
+// configuration for this.
 #if F_CPU >= 200000000
-#define _PM_clockHoldHigh asm("nop; nop; nop; nop; nop");
-#define _PM_clockHoldLow asm("nop; nop");
+#define _PM_clockHoldHigh asm("nop; nop");
+#define _PM_clockHoldLow asm("nop; nop; nop; nop; nop");
 #elif F_CPU >= 180000000
-#define _PM_clockHoldHigh asm("nop; nop; nop; nop");
-#define _PM_clockHoldLow asm("nop");
+#define _PM_clockHoldHigh asm("nop; nop");
+#define _PM_clockHoldLow asm("nop; nop; nop; nop");
 #elif F_CPU >= 150000000
-#define _PM_clockHoldHigh asm("nop; nop; nop");
-#define _PM_clockHoldLow asm("nop");
+#define _PM_clockHoldHigh asm("nop");
+#define _PM_clockHoldLow asm("nop; nop; nop");
 #else
-#define _PM_clockHoldHigh asm("nop; nop; nop");
-#define _PM_clockHoldLow asm("nop");
+#define _PM_clockHoldHigh asm("nop");
+#define _PM_clockHoldLow asm("nop; nop");
 #endif
 
 #define _PM_minMinPeriod 160
