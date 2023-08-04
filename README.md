@@ -115,3 +115,18 @@ compile-time).
 Most macros and functions begin with the prefix **\_PM\_** in order to
 avoid naming collisions with other code (exception being static functions,
 which can't be seen outside their source file).
+
+# Pull Requests
+
+If you encounter artifacts (noise, sparkles, dropouts and other issues) and
+it seems to resolve by adjusting the NOP counts, please do not submit this
+as a PR claiming a fix. Quite often what improves stability for one matrix
+type can make things worse for other types. Instead, open an issue and
+describe the hardware (both microcontroller and RGB matrix) and what worked
+for you. A general solution working across all matrix types typically
+involves monitoring the signals on a logic analyzer and aiming for a 50%
+duty cycle on the CLK signal, 20 MHz or less, and then testing across a
+wide variety of different matrix types to confirm; trial and error on just
+a single matrix type is problematic. Maintainers: this goes for you too.
+Don't merge a "fix" unless you've checked it out on a 'scope and on tested
+across a broad range of matrices.
