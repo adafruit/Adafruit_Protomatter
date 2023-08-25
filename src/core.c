@@ -922,6 +922,10 @@ static void _PM_resetFM6126A(Protomatter_core *core) {
   _PM_rgbState(core, 0); // Set all RGB low so port toggle can work
 }
 
+uint8_t _PM_duty = _PM_defaultDuty;
+
+void _PM_setDuty(uint8_t d) { _PM_duty = (d > _PM_maxDuty) ? _PM_maxDuty : d; }
+
 #if defined(ARDUINO) || defined(CIRCUITPY)
 
 // Arduino and CircuitPython happen to use the same internal canvas
@@ -956,7 +960,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     dest += core->bufferSize * (1 - core->activeBuffer);
   }
 
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
 #if !defined(_PM_STRICT_32BIT_IO)
   // core->clockMask mask is already an 8-bit value
@@ -1016,7 +1020,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
     uint32_t greenBit = initialGreenBit;
     uint32_t blueBit = initialBlueBit;
     for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
       uint8_t prior = clockMask; // Set clock bit on 1st out
 #endif
@@ -1062,7 +1066,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
           if (lowerRGB & blueBit)
             result |= pinMask[5];
 // THIS is where toggle format (without toggle reg.) messes up
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
           *d2++ = result ^ prior;
           prior = result | clockMask; // Set clock bit on next out
@@ -1084,7 +1088,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
         redBit = 0b0000100000000000;
         blueBit = 0b0000000000000001;
       }
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
       // If using bit-toggle register, erase the toggle bit on the
       // first element of each bitplane & row pair. The matrix-driving
@@ -1135,7 +1139,7 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
   // register exists, "clear" really means the clock mask is set in all
   // but the first element on a scanline (per bitplane). If no toggle
   // register, can just zero everything out.
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
   // No per-chain loop is required; one clock bit handles all chains
   uint32_t offset = 0; // Current position in the 'dest' buffer
@@ -1160,7 +1164,7 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
       uint32_t greenBit = initialGreenBit;
       uint32_t blueBit = initialBlueBit;
       for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
         // Since we're ORing in bits over an existing clock bit,
         // prior is 0 rather than clockMask as in the byte case.
@@ -1209,7 +1213,7 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
               result |= pinMask[5];
               // Main difference here vs byte converter is each chain
               // ORs new bits into place (vs single-pass overwrite).
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
             *d2++ |= result ^ prior; // Bitwise OR
             prior = result;
@@ -1262,7 +1266,7 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
     initialBlueBit = 0b0000000000000001 << shiftLeft;
   }
 
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
   // No per-chain loop is required; one clock bit handles all chains
   uint32_t offset = 0; // Current position in the 'dest' buffer
@@ -1286,7 +1290,7 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
       uint32_t greenBit = initialGreenBit;
       uint32_t blueBit = initialBlueBit;
       for (uint8_t plane = 0; plane < core->numPlanes; plane++) {
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
         uint32_t prior = 0;
 #endif
@@ -1333,7 +1337,7 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
               result |= pinMask[5];
               // Main difference here vs byte converter is each chain
               // ORs new bits into place (vs single-pass overwrite).
-//#if defined(_PM_portToggleRegister)
+// #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
             *d2++ |= result ^ prior; // Bitwise OR
             prior = result;

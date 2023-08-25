@@ -242,3 +242,11 @@ _PM_CUSTOM_BLAST             If defined, instructs core code to not compile
 #if !defined(_PM_PORT_TYPE)
 #define _PM_PORT_TYPE uint32_t ///< PORT register size/type
 #endif
+
+#if !defined(_PM_maxDuty)
+#define _PM_maxDuty 0 ///< Max duty cycle setting (where supported)
+#endif
+
+#if !defined(_PM_defaultDuty)
+#define _PM_defaultDuty 0 ///< Default duty cycle setting (where supported)
+#endif

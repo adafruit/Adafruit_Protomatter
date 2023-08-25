@@ -255,6 +255,16 @@ extern uint32_t _PM_timerGetCount(Protomatter_core *core);
 */
 extern void _PM_swapbuffer_maybe(Protomatter_core *core);
 
+/*!
+  @brief  Adjust duty cycle of HUB75 clock signal. This is not supported on
+          all architectures.
+  @param  d  Duty setting, 0 minimum. Increasing values generate higher clock
+             duty cycles at the same frequency. Arbitrary granular units, max
+             varies by architecture and CPU speed, if supported at all.
+             e.g. SAMD51 @ 120 MHz supports 0 (~50% duty) through 2 (~75%).
+*/
+extern void _PM_setDuty(uint8_t d);
+
 #if defined(ARDUINO) || defined(CIRCUITPY)
 
 /*!

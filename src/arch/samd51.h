@@ -196,30 +196,184 @@ uint32_t _PM_timerStop(Protomatter_core *core) {
   return count;
 }
 
-// See notes in core.c before the "blast" functions.
-// The NOP counts here were derived by monitoring on a fast logic analyzer,
-// aiming for 20 MHz clock at 50% duty cycle (for the unrolled parts of the
-// 'blast' loop...every Nth bit is somewhat longer), and tested for each
-// F_CPU setting. This seems to have the broadest compatibility across many
-// matrix varieties. Only one, a 64x32 flex matrix, showed some artifacts at
-// the end of a 4-matrix chain at 120-150 MHz F_CPU -- either use in shorter
-// chains, or can kludge it by running at 180-200 MHz or by moving one NOP
-// from the Low to High section (but which then causes issues with other
-// matrix types, so it's not done here), unfortunately no means of run-time
-// configuration for this.
-#if F_CPU >= 200000000
-#define _PM_clockHoldHigh asm("nop; nop");
-#define _PM_clockHoldLow asm("nop; nop; nop; nop; nop");
-#elif F_CPU >= 180000000
-#define _PM_clockHoldHigh asm("nop; nop");
-#define _PM_clockHoldLow asm("nop; nop; nop; nop");
-#elif F_CPU >= 150000000
-#define _PM_clockHoldHigh asm("nop");
-#define _PM_clockHoldLow asm("nop; nop; nop");
-#else
-#define _PM_clockHoldHigh asm("nop");
-#define _PM_clockHoldLow asm("nop; nop");
+// SAMD51 takes a WEIRD TURN here, in an attempt to make the HUB75 clock
+// waveform slightly adjustable. Old vs new matrices seem to have different
+// preferences, and this tries to address that. If this works well then the
+// approach might be applied to other architectures (which are all fixed
+// duty cycle right now). THE CHALLENGE is that Protomatter works in a bit-
+// bangingly way (this is on purpose and by design, avoiding peripherals
+// that might work only on certain pins, for better compatibility with
+// existing shields and wings from the AVR era), we're aiming for nearly a
+// 20 MHz signal, and the SAMD51 cycle clock is ostensibly 120 MHz. With
+// just a few cycles to toggle the data and clock lines, that doesn't even
+// leave enough time for a counter loop.
+
+#define _PM_CUSTOM_BLAST ///< Disable blast_*() functions in core.c
+
+#define _PM_chunkSize 8 ///< Data-stuffing loop is unrolled to this size
+
+extern uint8_t _PM_duty; // In core.c
+
+// The approach is to use a small list of pointers, with a clock-toggling
+// value written to each one in succession. Most of the pointers are aimed
+// on a nonsense "bit bucket" variable, effectively becoming NOPs, and just
+// one is set to the PORT toggle register, raising the clock. A couple of
+// actual traditional NOPs are also present because concurrent PORT writes
+// on SAMD51 incur a 1-cycle delay, so the NOPs keep the clock frequency
+// constant (tradeoff is that the clock is now 7 rather than 6 cycles --
+// ~17.1 MHz rather than 20 with F_CPU at 120 MHz). The NOPs could be
+// removed and duty range increased by one, but the tradeoff then is
+// inconsistent timing at different duty settings. That 1-cycle delay is
+// also why this uses a list of pointers with a common value, rather than
+// a common pointer (the PORT reg) with a list of values -- because those
+// writes would all take 2 cycles, way too slow. A counter loop would also
+// take 2 cycles/count, because of the branch.
+
+#if F_CPU >= 200000000 // 200 MHz; 10 cycles/bit; 20 MHz, 6 duty settings
+
+#define _PM_maxDuty 5     ///< Allow duty settings 0-5
+#define _PM_defaultDuty 2 ///< ~60%
+
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
+  *ptr2 = clock;                                                               \
+  *ptr3 = clock;                                                               \
+  *ptr4 = clock;                                                               \
+  *ptr5 = clock;
+
+#elif F_CPU >= 180000000 // 180 MHz; 9 cycles/bit; 20 MHz, 5 duty settings
+
+#define _PM_maxDuty 4     ///< Allow duty settings 0-4
+#define _PM_defaultDuty 1 ///< ~50%
+
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
+  *ptr2 = clock;                                                               \
+  *ptr3 = clock;                                                               \
+  *ptr4 = clock;
+
+#elif F_CPU >= 150000000 // 150 MHz; 8 cycles/bit; 18.75 MHz, 4 duty settings
+
+#define _PM_maxDuty 3     ///< Allow duty settings 0-3
+#define _PM_defaultDuty 1 ///< ~55%
+
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
+  *ptr2 = clock;                                                               \
+  *ptr3 = clock;
+
+#else // 120 MHz; 7 cycles/bit; 17.1 MHz, 3 duty settings
+
+#define _PM_maxDuty 2     ///< Allow duty settings 0-2
+#define _PM_defaultDuty 0 ///< ~50%
+
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
+  *ptr2 = clock;
+
 #endif
+
+static void blast_byte(Protomatter_core *core, uint8_t *data) {
+  // If here, it was established in begin() that the RGB data bits and
+  // clock are all within the same byte of a PORT register, else we'd be
+  // in the word- or long-blasting functions now. So we just need an
+  // 8-bit pointer to the PORT:
+  uint8_t *toggle = (uint8_t *)core->toggleReg + core->portOffset;
+  uint8_t bucket, clock = core->clockMask;
+  // Pointer list must be distinct vars, not an array, else slow.
+  uint8_t *ptr0 = (_PM_duty == _PM_maxDuty) ? toggle : &bucket;
+  uint8_t *ptr1 = (_PM_duty == (_PM_maxDuty - 1)) ? toggle : &bucket;
+  uint8_t *ptr2 = (_PM_duty == (_PM_maxDuty - 2)) ? toggle : &bucket;
+#if _PM_maxDuty >= 3
+  uint8_t *ptr3 = (_PM_duty == (_PM_maxDuty - 3)) ? toggle : &bucket;
+#endif
+#if _PM_maxDuty >= 4
+  uint8_t *ptr4 = (_PM_duty == (_PM_maxDuty - 4)) ? toggle : &bucket;
+#endif
+#if _PM_maxDuty >= 5
+  uint8_t *ptr5 = (_PM_duty == (_PM_maxDuty - 5)) ? toggle : &bucket;
+#endif
+  uint16_t chunks = core->chainBits / 8;
+
+  // PORT has already been initialized with RGB data + clock bits
+  // all LOW, so we don't need to initialize that state here.
+
+  do {
+    PEW PEW PEW PEW PEW PEW PEW PEW
+  } while (--chunks);
+
+  // Want the PORT left with RGB data and clock LOW on function exit
+  // (so it's easier to see on 'scope, and to prime it for the next call).
+  // This is implicit in the no-toggle case (due to how the PEW macro
+  // works), but toggle case requires explicitly clearing those bits.
+  // rgbAndClockMask is an 8-bit value when toggling, hence offset here.
+  *((volatile uint8_t *)core->clearReg + core->portOffset) =
+      core->rgbAndClockMask;
+}
+
+// This is a copypasta of blast_byte() with types changed to uint16_t.
+static void blast_word(Protomatter_core *core, uint16_t *data) {
+  uint16_t *toggle = (uint16_t *)core->toggleReg + core->portOffset;
+  uint16_t bucket, clock = core->clockMask;
+  uint16_t *ptr0 = (_PM_duty == _PM_maxDuty) ? toggle : &bucket;
+  uint16_t *ptr1 = (_PM_duty == (_PM_maxDuty - 1)) ? toggle : &bucket;
+  uint16_t *ptr2 = (_PM_duty == (_PM_maxDuty - 2)) ? toggle : &bucket;
+#if _PM_maxDuty >= 3
+  uint16_t *ptr3 = (_PM_duty == (_PM_maxDuty - 3)) ? toggle : &bucket;
+#endif
+#if _PM_maxDuty >= 4
+  uint16_t *ptr4 = (_PM_duty == (_PM_maxDuty - 4)) ? toggle : &bucket;
+#endif
+#if _PM_maxDuty >= 5
+  uint16_t *ptr5 = (_PM_duty == (_PM_maxDuty - 5)) ? toggle : &bucket;
+#endif
+  uint16_t chunks = core->chainBits / 8;
+  do {
+    PEW PEW PEW PEW PEW PEW PEW PEW
+  } while (--chunks);
+  *((volatile uint16_t *)core->clearReg + core->portOffset) =
+      core->rgbAndClockMask;
+}
+
+// This is a copypasta of blast_byte() with types changed to uint32_t.
+static void blast_long(Protomatter_core *core, uint32_t *data) {
+  uint32_t *toggle = (uint32_t *)core->toggleReg;
+  uint32_t bucket, clock = core->clockMask;
+  uint32_t *ptr0 = (_PM_duty == _PM_maxDuty) ? toggle : &bucket;
+  uint32_t *ptr1 = (_PM_duty == (_PM_maxDuty - 1)) ? toggle : &bucket;
+  uint32_t *ptr2 = (_PM_duty == (_PM_maxDuty - 2)) ? toggle : &bucket;
+#if _PM_maxDuty >= 3
+  uint32_t *ptr3 = (_PM_duty == (_PM_maxDuty - 3)) ? toggle : &bucket;
+#endif
+#if _PM_maxDuty >= 4
+  uint32_t *ptr4 = (_PM_duty == (_PM_maxDuty - 4)) ? toggle : &bucket;
+#endif
+#if _PM_maxDuty >= 5
+  uint32_t *ptr5 = (_PM_duty == (_PM_maxDuty - 5)) ? toggle : &bucket;
+#endif
+  uint16_t chunks = core->chainBits / 8;
+  do {
+    PEW PEW PEW PEW PEW PEW PEW PEW
+  } while (--chunks);
+  *((volatile uint32_t *)core->clearReg + core->portOffset) =
+      core->rgbAndClockMask;
+}
 
 #define _PM_minMinPeriod 160
 
