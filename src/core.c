@@ -922,6 +922,12 @@ static void _PM_resetFM6126A(Protomatter_core *core) {
   _PM_rgbState(core, 0); // Set all RGB low so port toggle can work
 }
 
+uint8_t _PM_duty = 0;
+
+void _PM_setDuty(uint8_t d) {
+  _PM_duty = (d > _PM_maxDuty) ? _PM_maxDuty : d;
+}
+
 #if defined(ARDUINO) || defined(CIRCUITPY)
 
 // Arduino and CircuitPython happen to use the same internal canvas

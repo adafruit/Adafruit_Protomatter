@@ -196,6 +196,59 @@ uint32_t _PM_timerStop(Protomatter_core *core) {
   return count;
 }
 
+#define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
+
+#define _PM_maxDuty 2
+extern uint8_t _PM_duty;
+
+// Concurrent PORT accesses incur a 1-cycle delay, so these NOPs keep the
+// unrolled part of the loop at a constant 17.24 MHz (@ 120 MHz F_CPU).
+// Could remove them and perhaps add a fourth duty configuration, but
+// the tradeoff is a slower loop at min & max duty settings.
+#define PEW \
+  asm("nop"); \
+  *toggle = *data++; \
+  asm("nop"); \
+  *ptr[0] = clock; \
+  *ptr[1] = clock; \
+  *ptr[2] = clock;
+
+static void blast_byte(Protomatter_core *core, uint8_t *data) {
+  // If here, it was established in begin() that the RGB data bits and
+  // clock are all within the same byte of a PORT register, else we'd be
+  // in the word- or long-blasting functions now. So we just need an
+  // 8-bit pointer to the PORT.
+  uint8_t *toggle = (uint8_t *)core->toggleReg + core->portOffset;
+  uint16_t chunks = core->chainBits / 8;
+
+  // PORT has already been initialized with RGB data + clock bits
+  // all LOW, so we don't need to initialize that state here.
+
+  uint8_t *ptr[_PM_maxDuty + 1], bucket, clock = core->clockMask;
+  for (uint8_t i=0; i<=_PM_maxDuty; i++) {
+    ptr[i] = (_PM_duty == (_PM_maxDuty - i)) ? toggle : &bucket;
+  }
+
+  do {
+    PEW PEW PEW PEW PEW PEW PEW PEW
+  } while(--chunks);
+
+  // Want the PORT left with RGB data and clock LOW on function exit
+  // (so it's easier to see on 'scope, and to prime it for the next call).
+  // This is implicit in the no-toggle case (due to how the PEW macro
+  // works), but toggle case requires explicitly clearing those bits.
+  // rgbAndClockMask is an 8-bit value when toggling, hence offset here.
+  *((volatile uint8_t *)core->clearReg + core->portOffset) =
+      core->rgbAndClockMask;
+}
+
+static void blast_word(Protomatter_core *core, uint16_t *data) {
+}
+
+static void blast_long(Protomatter_core *core, uint32_t *data) {
+}
+
+#if 0
 // See notes in core.c before the "blast" functions.
 // The NOP counts here were derived by monitoring on a fast logic analyzer,
 // aiming for 20 MHz clock at 50% duty cycle (for the unrolled parts of the
@@ -220,6 +273,7 @@ uint32_t _PM_timerStop(Protomatter_core *core) {
 #define _PM_clockHoldHigh asm("nop");
 #define _PM_clockHoldLow asm("nop; nop");
 #endif
+#endif // 0
 
 #define _PM_minMinPeriod 160
 
