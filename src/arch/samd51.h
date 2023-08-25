@@ -231,60 +231,60 @@ extern uint8_t _PM_duty; // In core.c
 
 #if F_CPU >= 200000000 // 200 MHz; 10 cycles/bit; 20 MHz, 6 duty settings
 
-#define _PM_maxDuty 5 ///< Allow duty settings 0-5
+#define _PM_maxDuty 5     ///< Allow duty settings 0-5
 #define _PM_defaultDuty 2 ///< ~60%
 
-#define PEW \
-  asm("nop"); \
-  *toggle = *data++; \
-  asm("nop"); \
-  *ptr0 = clock; \
-  *ptr1 = clock; \
-  *ptr2 = clock; \
-  *ptr3 = clock; \
-  *ptr4 = clock; \
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
+  *ptr2 = clock;                                                               \
+  *ptr3 = clock;                                                               \
+  *ptr4 = clock;                                                               \
   *ptr5 = clock;
 
 #elif F_CPU >= 180000000 // 180 MHz; 9 cycles/bit; 20 MHz, 5 duty settings
 
-#define _PM_maxDuty 4 ///< Allow duty settings 0-4
+#define _PM_maxDuty 4     ///< Allow duty settings 0-4
 #define _PM_defaultDuty 1 ///< ~50%
 
-#define PEW \
-  asm("nop"); \
-  *toggle = *data++; \
-  asm("nop"); \
-  *ptr0 = clock; \
-  *ptr1 = clock; \
-  *ptr2 = clock; \
-  *ptr3 = clock; \
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
+  *ptr2 = clock;                                                               \
+  *ptr3 = clock;                                                               \
   *ptr4 = clock;
 
 #elif F_CPU >= 150000000 // 150 MHz; 8 cycles/bit; 18.75 MHz, 4 duty settings
 
-#define _PM_maxDuty 3 ///< Allow duty settings 0-3
+#define _PM_maxDuty 3     ///< Allow duty settings 0-3
 #define _PM_defaultDuty 1 ///< ~55%
 
-#define PEW \
-  asm("nop"); \
-  *toggle = *data++; \
-  asm("nop"); \
-  *ptr0 = clock; \
-  *ptr1 = clock; \
-  *ptr2 = clock; \
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
+  *ptr2 = clock;                                                               \
   *ptr3 = clock;
 
 #else // 120 MHz; 7 cycles/bit; 17.1 MHz, 3 duty settings
 
-#define _PM_maxDuty 2 ///< Allow duty settings 0-2
+#define _PM_maxDuty 2     ///< Allow duty settings 0-2
 #define _PM_defaultDuty 0 ///< ~50%
 
-#define PEW \
-  asm("nop"); \
-  *toggle = *data++; \
-  asm("nop"); \
-  *ptr0 = clock; \
-  *ptr1 = clock; \
+#define PEW                                                                    \
+  asm("nop");                                                                  \
+  *toggle = *data++;                                                           \
+  asm("nop");                                                                  \
+  *ptr0 = clock;                                                               \
+  *ptr1 = clock;                                                               \
   *ptr2 = clock;
 
 #endif
@@ -316,7 +316,7 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
 
   do {
     PEW PEW PEW PEW PEW PEW PEW PEW
-  } while(--chunks);
+  } while (--chunks);
 
   // Want the PORT left with RGB data and clock LOW on function exit
   // (so it's easier to see on 'scope, and to prime it for the next call).
@@ -346,7 +346,7 @@ static void blast_word(Protomatter_core *core, uint16_t *data) {
   uint16_t chunks = core->chainBits / 8;
   do {
     PEW PEW PEW PEW PEW PEW PEW PEW
-  } while(--chunks);
+  } while (--chunks);
   *((volatile uint16_t *)core->clearReg + core->portOffset) =
       core->rgbAndClockMask;
 }
@@ -370,7 +370,7 @@ static void blast_long(Protomatter_core *core, uint32_t *data) {
   uint16_t chunks = core->chainBits / 8;
   do {
     PEW PEW PEW PEW PEW PEW PEW PEW
-  } while(--chunks);
+  } while (--chunks);
   *((volatile uint32_t *)core->clearReg + core->portOffset) =
       core->rgbAndClockMask;
 }
