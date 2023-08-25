@@ -144,6 +144,16 @@ public:
   */
   uint16_t colorHSV(uint16_t hue, uint8_t sat = 255, uint8_t val = 255);
 
+  /*!
+    @brief   Adjust HUB clock signal duty cycle on architectures that support
+             this (currently SAMD51 only) (else ignored).
+    @param   Duty setting, 0 minimum. Increasing values generate higher clock
+             duty cycles at the same frequency. Arbitrary granular units, max
+             varies by architecture and CPU speed, if supported at all.
+             e.g. SAMD51 @ 120 MHz supports 0 (~50% duty) through 2 (~75%).
+  */
+  void setDuty(uint8_t d) { _PM_setDuty(d); };
+
 private:
   Protomatter_core core;             // Underlying C struct
   void convert_byte(uint8_t *dest);  // GFXcanvas16-to-matrix

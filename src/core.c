@@ -922,7 +922,7 @@ static void _PM_resetFM6126A(Protomatter_core *core) {
   _PM_rgbState(core, 0); // Set all RGB low so port toggle can work
 }
 
-uint8_t _PM_duty = 0;
+uint8_t _PM_duty = _PM_defaultDuty;
 
 void _PM_setDuty(uint8_t d) {
   _PM_duty = (d > _PM_maxDuty) ? _PM_maxDuty : d;
