@@ -25,6 +25,9 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 
+#define GPIO_DRIVE_STRENGTH GPIO_DRIVE_CAP_3
+#define LCD_CLK_PRESCALE 9 // 8, 9, 10 allowed. Bit clock = 160 MHz / this.
+
 #if defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 #include "components/esp_rom/include/esp_rom_sys.h"
 #include "components/heap/include/esp_heap_caps.h"
@@ -62,16 +65,16 @@
 // dmaSetupTime (measured in blast_byte()) measures the number of timer
 // cycles to set up and trigger the DMA transfer...
 static uint32_t dmaSetupTime = 100;
-// ...then, the version of _PM_timerGetCount() here uses that figure as a
-// starting point, plus the known constant DMA transfer speed (20 MHz) and
-// timer frequency (40 MHz), i.e. 2 cycles/column, to return a fair estimate
-// of the one-scanline transfer time, from which everything is extrapolated:
+// ...then, the version of _PM_timerGetCount() here uses that as a starting
+// point, plus the known constant DMA xfer speed (160/LCD_CLK_PRESCALE MHz)
+// and timer frequency (40 MHz), to return an estimate of the one-scanline
+// transfer time, from which everything is extrapolated:
 IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
   // Time estimate seems to come in a little high, so the -10 here is an
   // empirically-derived fudge factor that may yield ever-so-slightly better
   // refresh in some edge cases. If visual glitches are encountered, might
   // need to dial back this number a bit or remove it.
-  return dmaSetupTime + core->chainBits * 2 - 10;
+  return dmaSetupTime + core->chainBits * 40 * LCD_CLK_PRESCALE / 160 - 10;
 }
 // Note that dmaSetupTime can vary from line to line, potentially influenced
 // by interrupts, nondeterministic DMA channel clearing times, etc., which is
@@ -79,7 +82,8 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // slightly different length of time, but duty cycle scales with this so it's
 // perceptually consistent; don't see bright or dark rows.
 
-#define _PM_minMinPeriod (200 + (uint32_t)core->chainBits * 2)
+#define _PM_minMinPeriod                                                       \
+  (200 + (uint32_t)core->chainBits * 40 * LCD_CLK_PRESCALE / 160)
 
 #if (ESP_IDF_VERSION_MAJOR == 5)
 #include <esp_private/periph_ctrl.h>
@@ -125,10 +129,11 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
 static void pinmux(int8_t pin, uint8_t signal) {
   esp_rom_gpio_connect_out_signal(pin, signal, false, false);
   gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
-  gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_MAX);
+  gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_STRENGTH);
 }
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
+
 // LCD_CAM requires a complete replacement of the "blast" functions in order
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
@@ -172,11 +177,17 @@ void _PM_timerInit(Protomatter_core *core) {
   esp_rom_delay_us(100);
 
   // Configure LCD clock
-  LCD_CAM.lcd_clock.clk_en = 1;             // Enable clock
-  LCD_CAM.lcd_clock.lcd_clk_sel = 3;        // PLL160M source
-  LCD_CAM.lcd_clock.lcd_clkm_div_a = 1;     // 1/1 fractional divide,
-  LCD_CAM.lcd_clock.lcd_clkm_div_b = 1;     // plus '7' below yields...
-  LCD_CAM.lcd_clock.lcd_clkm_div_num = 7;   // 1:8 prescale (20 MHz CLK)
+  LCD_CAM.lcd_clock.clk_en = 1;         // Enable clock
+  LCD_CAM.lcd_clock.lcd_clk_sel = 3;    // PLL160M source
+  LCD_CAM.lcd_clock.lcd_clkm_div_a = 1; // 1/1 fractional divide,
+  LCD_CAM.lcd_clock.lcd_clkm_div_b = 1; // plus prescale below yields...
+#if LCD_CLK_PRESCALE == 8
+  LCD_CAM.lcd_clock.lcd_clkm_div_num = 7; // 1:8 prescale (20 MHz CLK)
+#elif LCD_CLK_PRESCALE == 9
+  LCD_CAM.lcd_clock.lcd_clkm_div_num = 8; // 1:9 prescale (17.8 MHz CLK)
+#else
+  LCD_CAM.lcd_clock.lcd_clkm_div_num = 9; // 1:10 prescale (16 MHz CLK)
+#endif
   LCD_CAM.lcd_clock.lcd_ck_out_edge = 0;    // PCLK low in first half of cycle
   LCD_CAM.lcd_clock.lcd_ck_idle_edge = 0;   // PCLK low idle
   LCD_CAM.lcd_clock.lcd_clk_equ_sysclk = 1; // PCLK = CLK (ignore CLKCNT_N)
@@ -212,10 +223,10 @@ void _PM_timerInit(Protomatter_core *core) {
   for (int i = 0; i < 6; i++)
     pinmux(core->rgbPins[i], signal[i]);
   pinmux(core->clockPin, LCD_PCLK_IDX);
-  gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_CAP_MAX);
-  gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_CAP_MAX);
+  gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_STRENGTH);
+  gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_STRENGTH);
   for (uint8_t i = 0; i < core->numAddressLines; i++) {
-    gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
+    gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_STRENGTH);
   }
 
   // Disable LCD_CAM interrupts, clear any pending interrupt
@@ -256,6 +267,7 @@ void _PM_timerInit(Protomatter_core *core) {
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
+
 // LCD_CAM requires a complete replacement of the "blast" functions in order
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
@@ -312,8 +324,14 @@ static void _PM_timerInit(Protomatter_core *core) {
   LCD_CAM.lcd_clock.clk_en = 1;             // Enable clock
   LCD_CAM.lcd_clock.lcd_clk_sel = 3;        // PLL160M source
   LCD_CAM.lcd_clock.lcd_clkm_div_a = 1;     // 1/1 fractional divide,
-  LCD_CAM.lcd_clock.lcd_clkm_div_b = 1;     // plus '7' below yields...
+  LCD_CAM.lcd_clock.lcd_clkm_div_b = 1;     // plus prescale below yields...
+#if LCD_CLK_PRESCALE == 8
   LCD_CAM.lcd_clock.lcd_clkm_div_num = 7;   // 1:8 prescale (20 MHz CLK)
+#elif LCD_CLK_PRESCALE == 9
+  LCD_CAM.lcd_clock.lcd_clkm_div_num = 8; // 1:9 prescale (17.8 MHz CLK)
+#else
+  LCD_CAM.lcd_clock.lcd_clkm_div_num = 9; // 1:10 prescale (16 MHz CLK)
+#endif
   LCD_CAM.lcd_clock.lcd_ck_out_edge = 0;    // PCLK low in first half of cycle
   LCD_CAM.lcd_clock.lcd_ck_idle_edge = 0;   // PCLK low idle
   LCD_CAM.lcd_clock.lcd_clk_equ_sysclk = 1; // PCLK = CLK (ignore CLKCNT_N)
@@ -349,10 +367,10 @@ static void _PM_timerInit(Protomatter_core *core) {
   for (int i = 0; i < 6; i++)
     pinmux(core->rgbPins[i], signal[i]);
   pinmux(core->clockPin, LCD_PCLK_IDX);
-  gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_CAP_MAX);
-  gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_CAP_MAX);
+  gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_STRENGTH);
+  gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_STRENGTH);
   for (uint8_t i = 0; i < core->numAddressLines; i++) {
-    gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_CAP_MAX);
+    gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_STRENGTH);
   }
 
   // Disable LCD_CAM interrupts, clear any pending interrupt
