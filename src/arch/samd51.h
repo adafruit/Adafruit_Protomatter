@@ -294,20 +294,27 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // clock are all within the same byte of a PORT register, else we'd be
   // in the word- or long-blasting functions now. So we just need an
   // 8-bit pointer to the PORT:
-  uint8_t *toggle = (uint8_t *)core->toggleReg + core->portOffset;
+  volatile uint8_t *toggle =
+      (volatile uint8_t *)core->toggleReg + core->portOffset;
   uint8_t bucket, clock = core->clockMask;
   // Pointer list must be distinct vars, not an array, else slow.
-  uint8_t *ptr0 = (_PM_duty == _PM_maxDuty) ? toggle : &bucket;
-  uint8_t *ptr1 = (_PM_duty == (_PM_maxDuty - 1)) ? toggle : &bucket;
-  uint8_t *ptr2 = (_PM_duty == (_PM_maxDuty - 2)) ? toggle : &bucket;
+  volatile uint8_t *ptr0 =
+      (_PM_duty == _PM_maxDuty) ? toggle : (volatile uint8_t *)&bucket;
+  volatile uint8_t *ptr1 =
+      (_PM_duty == (_PM_maxDuty - 1)) ? toggle : (volatile uint8_t *)&bucket;
+  volatile uint8_t *ptr2 =
+      (_PM_duty == (_PM_maxDuty - 2)) ? toggle : (volatile uint8_t *)&bucket;
 #if _PM_maxDuty >= 3
-  uint8_t *ptr3 = (_PM_duty == (_PM_maxDuty - 3)) ? toggle : &bucket;
+  volatile uint8_t *ptr3 =
+      (_PM_duty == (_PM_maxDuty - 3)) ? toggle : (volatile uint8_t *)&bucket;
 #endif
 #if _PM_maxDuty >= 4
-  uint8_t *ptr4 = (_PM_duty == (_PM_maxDuty - 4)) ? toggle : &bucket;
+  volatile uint8_t *ptr4 =
+      (_PM_duty == (_PM_maxDuty - 4)) ? toggle : (volatile uint8_t *)&bucket;
 #endif
 #if _PM_maxDuty >= 5
-  uint8_t *ptr5 = (_PM_duty == (_PM_maxDuty - 5)) ? toggle : &bucket;
+  volatile uint8_t *ptr5 =
+      (_PM_duty == (_PM_maxDuty - 5)) ? toggle : (volatile uint8_t *)&bucket;
 #endif
   uint16_t chunks = core->chainBits / 8;
 
@@ -329,19 +336,25 @@ static void blast_byte(Protomatter_core *core, uint8_t *data) {
 
 // This is a copypasta of blast_byte() with types changed to uint16_t.
 static void blast_word(Protomatter_core *core, uint16_t *data) {
-  uint16_t *toggle = (uint16_t *)core->toggleReg + core->portOffset;
+  volatile uint16_t *toggle = (uint16_t *)core->toggleReg + core->portOffset;
   uint16_t bucket, clock = core->clockMask;
-  uint16_t *ptr0 = (_PM_duty == _PM_maxDuty) ? toggle : &bucket;
-  uint16_t *ptr1 = (_PM_duty == (_PM_maxDuty - 1)) ? toggle : &bucket;
-  uint16_t *ptr2 = (_PM_duty == (_PM_maxDuty - 2)) ? toggle : &bucket;
+  volatile uint16_t *ptr0 =
+      (_PM_duty == _PM_maxDuty) ? toggle : (volatile uint16_t *)&bucket;
+  volatile uint16_t *ptr1 =
+      (_PM_duty == (_PM_maxDuty - 1)) ? toggle : (volatile uint16_t *)&bucket;
+  volatile uint16_t *ptr2 =
+      (_PM_duty == (_PM_maxDuty - 2)) ? toggle : (volatile uint16_t *)&bucket;
 #if _PM_maxDuty >= 3
-  uint16_t *ptr3 = (_PM_duty == (_PM_maxDuty - 3)) ? toggle : &bucket;
+  volatile uint16_t *ptr3 =
+      (_PM_duty == (_PM_maxDuty - 3)) ? toggle : (volatile uint16_t *)&bucket;
 #endif
 #if _PM_maxDuty >= 4
-  uint16_t *ptr4 = (_PM_duty == (_PM_maxDuty - 4)) ? toggle : &bucket;
+  volatile uint16_t *ptr4 =
+      (_PM_duty == (_PM_maxDuty - 4)) ? toggle : (volatile uint16_t *)&bucket;
 #endif
 #if _PM_maxDuty >= 5
-  uint16_t *ptr5 = (_PM_duty == (_PM_maxDuty - 5)) ? toggle : &bucket;
+  volatile uint16_t *ptr5 =
+      (_PM_duty == (_PM_maxDuty - 5)) ? toggle : (volatile uint16_t *)&bucket;
 #endif
   uint16_t chunks = core->chainBits / 8;
   do {
@@ -353,19 +366,25 @@ static void blast_word(Protomatter_core *core, uint16_t *data) {
 
 // This is a copypasta of blast_byte() with types changed to uint32_t.
 static void blast_long(Protomatter_core *core, uint32_t *data) {
-  uint32_t *toggle = (uint32_t *)core->toggleReg;
+  volatile uint32_t *toggle = (uint32_t *)core->toggleReg;
   uint32_t bucket, clock = core->clockMask;
-  uint32_t *ptr0 = (_PM_duty == _PM_maxDuty) ? toggle : &bucket;
-  uint32_t *ptr1 = (_PM_duty == (_PM_maxDuty - 1)) ? toggle : &bucket;
-  uint32_t *ptr2 = (_PM_duty == (_PM_maxDuty - 2)) ? toggle : &bucket;
+  volatile uint32_t *ptr0 =
+      (_PM_duty == _PM_maxDuty) ? toggle : (volatile uint32_t *)&bucket;
+  volatile uint32_t *ptr1 =
+      (_PM_duty == (_PM_maxDuty - 1)) ? toggle : (volatile uint32_t *)&bucket;
+  volatile uint32_t *ptr2 =
+      (_PM_duty == (_PM_maxDuty - 2)) ? toggle : (volatile uint32_t *)&bucket;
 #if _PM_maxDuty >= 3
-  uint32_t *ptr3 = (_PM_duty == (_PM_maxDuty - 3)) ? toggle : &bucket;
+  volatile uint32_t *ptr3 =
+      (_PM_duty == (_PM_maxDuty - 3)) ? toggle : (volatile uint32_t *)&bucket;
 #endif
 #if _PM_maxDuty >= 4
-  uint32_t *ptr4 = (_PM_duty == (_PM_maxDuty - 4)) ? toggle : &bucket;
+  volatile uint32_t *ptr4 =
+      (_PM_duty == (_PM_maxDuty - 4)) ? toggle : (volatile uint32_t *)&bucket;
 #endif
 #if _PM_maxDuty >= 5
-  uint32_t *ptr5 = (_PM_duty == (_PM_maxDuty - 5)) ? toggle : &bucket;
+  volatile uint32_t *ptr5 =
+      (_PM_duty == (_PM_maxDuty - 5)) ? toggle : (volatile uint32_t *)&bucket;
 #endif
   uint16_t chunks = core->chainBits / 8;
   do {
