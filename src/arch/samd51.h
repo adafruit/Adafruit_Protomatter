@@ -47,6 +47,21 @@
 
 #define F_CPU (120000000)
 
+// Enable high output driver strength on one pin. Arduino does this by
+// default on pinMode(OUTPUT), but CircuitPython requires the motions...
+static void _hi_drive(uint8_t pin) {
+  // For Arduino testing only:
+  // pin = g_APinDescription[pin].ulPort * 32 + g_APinDescription[pin].ulPin;
+
+  // Input, pull-up and peripheral MUX are disabled as we're only using
+  // vanilla PORT writes on Protomatter GPIO.
+  PORT->Group[pin / 32].WRCONFIG.reg =
+      (pin & 16)
+          ? PORT_WRCONFIG_WRPINCFG | PORT_WRCONFIG_DRVSTR |
+                PORT_WRCONFIG_HWSEL | (1 << (pin & 15))
+          : PORT_WRCONFIG_WRPINCFG | PORT_WRCONFIG_DRVSTR | (1 << (pin & 15));
+}
+
 #else
 
 // Other port register lookups go here
@@ -157,6 +172,20 @@ void _PM_timerInit(Protomatter_core *core) {
   NVIC_EnableIRQ(timer[timerNum].IRQn);
 
   // Timer is configured but NOT enabled by default
+
+#if defined(CIRCUITPY) // See notes earlier; Arduino doesn't need this.
+  // Enable high drive strength on all Protomatter pins. TBH this is kind
+  // of a jerky place to do this (it's not actually related to the timer
+  // peripheral) but Protomatter doesn't really have a spot for it.
+  uint8_t i;
+  for (i = 0; i < core->parallel * 6; i++)
+    _hi_drive(core->rgbPins[i]);
+  for (i = 0; i < core->numAddressLines; i++)
+    _hi_drive(core->addr[i].pin);
+  _hi_drive(core->clockPin);
+  _hi_drive(core->latch.pin);
+  _hi_drive(core->oe.pin);
+#endif
 }
 
 // Set timer period, initialize count value to zero, enable timer.
