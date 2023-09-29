@@ -127,7 +127,7 @@ static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 
 // Set timer period, initialize count value to zero, enable timer.
 #if (ESP_IDF_VERSION_MAJOR == 5)
-static IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   timer_index_t *timer = (timer_index_t *)core->timer;
   timer_ll_enable_counter(timer->hw, timer->idx, false);
   timer_ll_set_reload_value(timer->hw, timer->idx, 0);
