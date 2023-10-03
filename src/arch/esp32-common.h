@@ -162,9 +162,13 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
   timer_index_t *timer = (timer_index_t *)core->timer;
+  #if (ESP_IDF_VERSION_MAJOR == 5)
+  return (uint32_t)timer_ll_get_counter_value(timer->hw, timer->idx);
+  #else
   uint64_t result;
   timer_ll_get_counter_value(timer->hw, timer->idx, &result);
   return (uint32_t)result;
+  #endif
 }
 #endif
 
