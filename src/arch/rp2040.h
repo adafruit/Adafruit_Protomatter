@@ -240,10 +240,10 @@ uint32_t _PM_timerStop(Protomatter_core *core) {
 #define _PM_clockHoldLow asm("nop; nop; nop;");
 #define _PM_clockHoldHigh asm("nop; nop; nop;");
 #elif (F_CPU >= 175000000)
-#define _PM_clockHoldLow asm("nop; nop;");
+#define _PM_clockHoldLow asm("nop; nop; nop;");
 #define _PM_clockHoldHigh asm("nop;");
 #elif (F_CPU >= 125000000)
-#define _PM_clockHoldLow asm("nop;");
+#define _PM_clockHoldLow asm("nop; nop; nop;");
 #define _PM_clockHoldHigh asm("nop;");
 #elif (F_CPU >= 100000000)
 #define _PM_clockHoldLow asm("nop;");
