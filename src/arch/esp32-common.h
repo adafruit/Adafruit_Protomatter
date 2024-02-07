@@ -106,8 +106,8 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
 #include "esp_idf_version.h"
 #include "hal/timer_ll.h"
 #if ESP_IDF_VERSION_MAJOR == 5
-#include "esp_memory_utils.h"
 #include "driver/gptimer.h"
+#include "esp_memory_utils.h"
 #else
 #include "driver/timer.h"
 #endif
@@ -123,17 +123,22 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
 #if ESP_IDF_VERSION_MAJOR == 5
-// This is "private" for now. We link to it anyway because there isn't a more public method yet.
+// This is "private" for now. We link to it anyway because there isn't a more
+// public method yet.
 extern bool spi_flash_cache_enabled(void);
-static IRAM_ATTR bool _PM_esp32timerCallback(gptimer_handle_t timer, const gptimer_alarm_event_data_t * event, void * unused) {
+static IRAM_ATTR bool
+_PM_esp32timerCallback(gptimer_handle_t timer,
+                       const gptimer_alarm_event_data_t *event, void *unused) {
 #else
 static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 #endif
 #if ESP_IDF_VERSION_MAJOR == 5
-  if (_PM_protoPtr && ((!esp_ptr_external_ram(_PM_protoPtr) && esp_ptr_external_ram(_PM_protoPtr->screenData)) || spi_flash_cache_enabled())) {
-    #else
+  if (_PM_protoPtr && ((!esp_ptr_external_ram(_PM_protoPtr) &&
+                        esp_ptr_external_ram(_PM_protoPtr->screenData)) ||
+                       spi_flash_cache_enabled())) {
+#else
   if (_PM_protoPtr) {
-    #endif
+#endif
     _PM_row_handler(_PM_protoPtr); // In core.c
   }
   return false;
@@ -142,10 +147,10 @@ static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 // Set timer period, initialize count value to zero, enable timer.
 #if (ESP_IDF_VERSION_MAJOR == 5)
 IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
-  gptimer_handle_t timer = (gptimer_handle_t) core->timer;
+  gptimer_handle_t timer = (gptimer_handle_t)core->timer;
 
   gptimer_alarm_config_t alarm_config = {
-      .reload_count = 0, // counter will reload with 0 on alarm event
+      .reload_count = 0,     // counter will reload with 0 on alarm event
       .alarm_count = period, // period in ms
       .flags.auto_reload_on_alarm = true, // enable auto-reload
   };
@@ -167,7 +172,7 @@ IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
 // Timer must be previously initialized.
 IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
 #if (ESP_IDF_VERSION_MAJOR == 5)
-  gptimer_handle_t timer = (gptimer_handle_t) core->timer;
+  gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   gptimer_stop(timer);
 #else
   timer_index_t *timer = (timer_index_t *)core->timer;
@@ -179,7 +184,7 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
 #if (ESP_IDF_VERSION_MAJOR == 5)
-  gptimer_handle_t timer = (gptimer_handle_t) core->timer;
+  gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   uint64_t raw_count;
   gptimer_get_raw_count(timer, &raw_count);
   return (uint32_t)raw_count;
@@ -197,15 +202,15 @@ IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // set up its own special peripherals, then call this.
 static void _PM_esp32commonTimerInit(Protomatter_core *core) {
 
-  #if (ESP_IDF_VERSION_MAJOR == 5)
-  gptimer_handle_t timer = (gptimer_handle_t) core->timer;
+#if (ESP_IDF_VERSION_MAJOR == 5)
+  gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   gptimer_event_callbacks_t cbs = {
       .on_alarm = _PM_esp32timerCallback, // register user callback
   };
   gptimer_register_event_callbacks(timer, &cbs, NULL);
 
   gptimer_enable(timer);
-  #else
+#else
   timer_index_t *timer = (timer_index_t *)core->timer;
   const timer_config_t config = {
       .alarm_en = false,
@@ -220,7 +225,7 @@ static void _PM_esp32commonTimerInit(Protomatter_core *core) {
   timer_isr_callback_add(timer->group, timer->idx, _PM_esp32timerCallback, NULL,
                          0);
   timer_enable_intr(timer->group, timer->idx);
-  #endif
+#endif
 }
 
 #endif // END CIRCUITPYTHON ------------------------------------------------
