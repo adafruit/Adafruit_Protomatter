@@ -296,8 +296,14 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // Timer was cleared to 0 before calling blast_byte(), so this
   // is the state of the timer immediately after DMA started:
   uint64_t value;
+
+#if (ESP_IDF_VERSION_MAJOR == 5)
+  gptimer_handle_t timer = (gptimer_handle_t)core->timer;
+  gptimer_get_raw_count(timer, &value);
+#else
   timer_index_t *timer = (timer_index_t *)core->timer;
   timer_get_counter_value(timer->group, timer->idx, &value);
+#endif
   dmaSetupTime = (uint32_t)value;
   // See notes near top of this file for what's done with this info.
 }
