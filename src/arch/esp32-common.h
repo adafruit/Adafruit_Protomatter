@@ -133,9 +133,10 @@ _PM_esp32timerCallback(gptimer_handle_t timer,
 static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 #endif
 #if ESP_IDF_VERSION_MAJOR == 5
-  if (_PM_protoPtr && ((!esp_ptr_external_ram(_PM_protoPtr) &&
-                        esp_ptr_external_ram(_PM_protoPtr->screenData)) ||
-                       spi_flash_cache_enabled())) {
+  // Some functions and data used by _PM_row_handler may exist in external flash
+  // or PSRAM so we can't run them when their access is disabled (through the
+  // flash cache.)
+  if (_PM_protoPtr && spi_flash_cache_enabled()) {
 #else
   if (_PM_protoPtr) {
 #endif
