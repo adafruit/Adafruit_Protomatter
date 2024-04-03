@@ -90,6 +90,7 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 #else
 #include <driver/periph_ctrl.h>
 #endif
+#include <driver/gpio.h>
 #include <esp_private/gdma.h>
 #include <esp_rom_gpio.h>
 #include <hal/dma_types.h>

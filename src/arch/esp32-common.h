@@ -20,6 +20,8 @@
 #if defined(ESP32) ||                                                          \
     defined(ESP_PLATFORM) // *All* ESP32 variants (OG, S2, S3, etc.)
 
+#include <inttypes.h>
+
 #include "esp_idf_version.h"
 
 // NOTE: there is some intentional repetition in the macros and functions
@@ -38,7 +40,13 @@ Protomatter_core *_PM_protoPtr;
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 #define _PM_timerNum 0 // Timer #0 (can be 0-3)
+static hw_timer_t *_PM_esp32timer = NULL;
+#define _PM_TIMER_DEFAULT &_PM_esp32timer
+#else
+#define _PM_TIMER_DEFAULT ((void *)-1) // some non-NULL but non valid pointer
+#endif
 
 // The following defines and functions are common to all ESP32 variants in
 // the Arduino platform. Anything unique to one variant (or a subset of
@@ -47,16 +55,7 @@ Protomatter_core *_PM_protoPtr;
 // started down that path, it's okay, but move the code out of here and
 // into the variant-specific headers.
 
-// This is the default aforementioned singular timer. IN THEORY, other
-// timers could be used, IF an Arduino sketch passes the address of its
-// own hw_timer_t* to the Protomatter constructor and initializes that
-// timer using ESP32's timerBegin(). All of the timer-related functions
-// below pass around a handle rather than accessing _PM_esp32timer directly,
-// in case that's ever actually used in the future.
-static hw_timer_t *_PM_esp32timer = NULL;
-#define _PM_TIMER_DEFAULT &_PM_esp32timer
-
-extern IRAM_ATTR void _PM_row_handler(Protomatter_core *core); // In core.c
+extern void _PM_row_handler(Protomatter_core *core); // In core.c
 
 // Timer interrupt handler. This, _PM_row_handler() and any functions
 // called by _PM_row_handler() should all have the IRAM_ATTR attribute
@@ -70,9 +69,15 @@ IRAM_ATTR static void _PM_esp32timerCallback(void) {
 // Set timer period, initialize count value to zero, enable timer.
 IRAM_ATTR inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   hw_timer_t *timer = (hw_timer_t *)core->timer;
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
   timerAlarmWrite(timer, period, true);
   timerAlarmEnable(timer);
   timerStart(timer);
+#else
+  timerWrite(timer, 0);
+  timerAlarm(timer, period ? period : 1, true, 0);
+  timerStart(timer);
+#endif
 }
 
 // Disable timer and return current count value.
@@ -86,11 +91,19 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.
 void _PM_esp32commonTimerInit(Protomatter_core *core) {
-  hw_timer_t *timer = (hw_timer_t *)core->timer; // pointer-to-pointer
-  if (timer == _PM_TIMER_DEFAULT) {
+  hw_timer_t *timer_in = (hw_timer_t *)core->timer;
+  if (!timer_in || timer_in == _PM_TIMER_DEFAULT) {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     core->timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
+#else
+    core->timer = timerBegin(_PM_timerFreq);
+#endif
   }
-  timerAttachInterrupt(timer, &_PM_esp32timerCallback, true);
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+  timerAttachInterrupt(core->timer, &_PM_esp32timerCallback, true);
+#else
+  timerAttachInterrupt(core->timer, _PM_esp32timerCallback);
+#endif
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
