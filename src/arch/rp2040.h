@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if defined(ARDUINO_ARCH_RP2040) || defined(PICO_BOARD) || defined(__RP2040__)
+#if defined(ARDUINO_ARCH_RP2040) || defined(PICO_BOARD) || defined(__RP2040__) || defined(__RP2350__)
 
 #include "../../hardware_pwm/include/hardware/pwm.h"
 #include "hardware/irq.h"
@@ -105,7 +105,12 @@ void _PM_timerInit(Protomatter_core *core) {
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
 #if !defined(F_CPU)     // Not sure if CircuitPython build defines this
+#ifdef __RP2040__
 #define F_CPU 125000000 // Standard RP2040 clock speed
+#endif
+#ifdef __RP2350__
+#define F_CPU 150000000 // Standard RP2350 clock speed
+#endif
 #endif
 
 // 'pin' here is GPXX #
