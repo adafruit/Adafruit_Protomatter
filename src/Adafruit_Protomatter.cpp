@@ -139,3 +139,18 @@ uint16_t Adafruit_Protomatter::colorHSV(uint16_t hue, uint8_t sat,
          ((((((g * s1) >> 8) + s2) * v1) & 0xFC00) >> 5) |
          (((((b * s1) >> 8) + s2) * v1) >> 11);
 }
+
+
+// 16-bit RGB565 output for GFX lib rather than 24-bit.
+// accepts a 24 bit color value packed into an int.
+// bits 23-16 = red, bits 15-8 = green, bits 7-0 = blue
+// returns RGB color in 565 format
+uint16_t Adafruit_Protomatter::color24bit(int c) {
+  uint8_t r = (c >> 16) & 0xFF;
+  uint8_t g = (c >> 8) & 0xFF;
+  uint8_t b = c & 0xFF;
+  return color565(r,g,b);
+}
+
+
+

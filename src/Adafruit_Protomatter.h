@@ -128,6 +128,21 @@ public:
   }
 
   /*!
+    @brief  Converts 24-bit color (parameter passed as int) used in
+            a lot of existing graphics code, down to the "565" color format
+            used by Adafruit_GFX. Might get further quantized by matrix if
+            using less than 6-bit depth.
+    @param  24 bit RGB value packed into an int
+            top 8 bits  Red 
+            middle 8 bits Green 
+            bottom 8 bits Blue
+    @return Packed 16-bit (uint16_t) color value suitable for GFX drawing
+            functions.
+  */
+  uint16_t color24bit(int color);
+ 
+
+  /*!
     @brief   Convert hue, saturation and value into a packed 16-bit RGB color
              that can be passed to GFX drawing functions.
     @param   hue  An unsigned 16-bit value, 0 to 65535, representing one full
