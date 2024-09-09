@@ -83,7 +83,7 @@ volatile uint16_t *_PM_portClearRegister(uint32_t pin) {
 // TODO: this is no longer true, should it change?
 void *_PM_protoPtr = NULL;
 
-STATIC TIM_HandleTypeDef tim_handle;
+static TIM_HandleTypeDef tim_handle;
 
 // Timer interrupt service routine
 void _PM_IRQ_HANDLER(void) {
