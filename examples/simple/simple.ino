@@ -66,11 +66,11 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t latchPin   = 0;
   uint8_t oePin      = 1;
 #elif defined(_SAMD21_) // Feather M0 variants
-  uint8_t rgbPins[]  = {6, 7, 10, 11, 12, 13};
-  uint8_t addrPins[] = {0, 1, 2, 3};
-  uint8_t clockPin   = SDA;
-  uint8_t latchPin   = 4;
-  uint8_t oePin      = 5;
+  uint8_t rgbPins[]  = {6, 5, 9, 11, 10, 12};
+  uint8_t addrPins[] = {A5, A4, A3, A2};
+  uint8_t clockPin   = 13;
+  uint8_t latchPin   = 0;
+  uint8_t oePin      = 1;
 #elif defined(NRF52_SERIES) // Special nRF52840 FeatherWing pinout
   uint8_t rgbPins[]  = {6, A5, A1, A0, A4, 11};
   uint8_t addrPins[] = {10, 5, 13, 9};
