@@ -263,7 +263,7 @@ static void _PM_timerInit(Protomatter_core *core) {
     esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
     (void)ret;
 #elif defined(CIRCUITPY)
-    gdma_new_channel(&dma_chan_config, &dma_chan);
+  gdma_new_channel(&dma_chan_config, &dma_chan);
 #endif
     gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
     gdma_strategy_config_t strategy_config = {.owner_check = false,
