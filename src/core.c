@@ -95,8 +95,9 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
                            uint8_t addrCount, uint8_t *addrList,
                            uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
                            bool doubleBuffer, int8_t tile, void *timer) {
-  if (!core)
+  if (!core) {
     return PROTOMATTER_ERR_ARG;
+  }
 
   // bitDepth is NOT constrained here, handle in calling function
   // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
@@ -1199,18 +1200,24 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
             uint16_t upperRGB = upperSrc[srcIdx]; // Pixel in upper half
             uint16_t lowerRGB = lowerSrc[srcIdx]; // Pixel in lower half
             uint16_t result = 0;
-            if (upperRGB & redBit)
+            if (upperRGB & redBit) {
               result |= pinMask[0];
-            if (upperRGB & greenBit)
+            }
+            if (upperRGB & greenBit) {
               result |= pinMask[1];
-            if (upperRGB & blueBit)
+            }
+            if (upperRGB & blueBit) {
               result |= pinMask[2];
-            if (lowerRGB & redBit)
+            }
+            if (lowerRGB & redBit) {
               result |= pinMask[3];
-            if (lowerRGB & greenBit)
+            }
+            if (lowerRGB & greenBit) {
               result |= pinMask[4];
-            if (lowerRGB & blueBit)
+            }
+            if (lowerRGB & blueBit) {
               result |= pinMask[5];
+            }
             // Main difference here vs byte converter is each chain
             // ORs new bits into place (vs single-pass overwrite).
 // #if defined(_PM_portToggleRegister)
@@ -1323,18 +1330,24 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
             uint16_t upperRGB = upperSrc[srcIdx]; // Pixel in upper half
             uint16_t lowerRGB = lowerSrc[srcIdx]; // Pixel in lower half
             uint32_t result = 0;
-            if (upperRGB & redBit)
+            if (upperRGB & redBit) {
               result |= pinMask[0];
-            if (upperRGB & greenBit)
+            }
+            if (upperRGB & greenBit) {
               result |= pinMask[1];
-            if (upperRGB & blueBit)
+            }
+            if (upperRGB & blueBit) {
               result |= pinMask[2];
-            if (lowerRGB & redBit)
+            }
+            if (lowerRGB & redBit) {
               result |= pinMask[3];
-            if (lowerRGB & greenBit)
+            }
+            if (lowerRGB & greenBit) {
               result |= pinMask[4];
-            if (lowerRGB & blueBit)
+            }
+            if (lowerRGB & blueBit) {
               result |= pinMask[5];
+            }
             // Main difference here vs byte converter is each chain
             // ORs new bits into place (vs single-pass overwrite).
 // #if defined(_PM_portToggleRegister)
