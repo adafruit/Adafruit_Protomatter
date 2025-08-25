@@ -129,11 +129,9 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
 
 static void pinmux(int8_t pin, uint8_t signal) {
   esp_rom_gpio_connect_out_signal(pin, signal, false, false);
-  gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
+  PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
   gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_STRENGTH);
 }
-
-#if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 // LCD_CAM requires a complete replacement of the "blast" functions in order
 // to use the DMA-based peripheral.
@@ -162,11 +160,23 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 
   // Timer was cleared to 0 before calling blast_byte(), so this
   // is the state of the timer immediately after DMA started:
+#if defined(ARDUINO)
   dmaSetupTime = (uint32_t)timerRead((hw_timer_t *)core->timer);
+#elif defined(CIRCUITPY)
+  uint64_t value;
+#if (ESP_IDF_VERSION_MAJOR == 5)
+  gptimer_handle_t timer = (gptimer_handle_t)core->timer;
+  gptimer_get_raw_count(timer, &value);
+#else
+  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_get_counter_value(timer->group, timer->idx, &value);
+#endif
+  dmaSetupTime = (uint32_t)value;
+#endif
   // See notes near top of this file for what's done with this info.
 }
 
-void _PM_timerInit(Protomatter_core *core) {
+static void _PM_timerInit(Protomatter_core *core) {
   // On S3, initialize the LCD_CAM peripheral and DMA.
 
   // LCD_CAM isn't enabled by default -- MUST begin with this:
@@ -242,157 +252,9 @@ void _PM_timerInit(Protomatter_core *core) {
   desc.next = NULL;
 
   // Alloc DMA channel & connect it to LCD periph
-  gdma_channel_alloc_config_t dma_chan_config = {
-      .sibling_chan = NULL,
-      .direction = GDMA_CHANNEL_DIRECTION_TX,
-      .flags = {.reserve_sibling = 0}};
-  esp_err_t ret = gdma_new_channel(&dma_chan_config, &dma_chan);
-  (void)ret;
-  gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
-  gdma_strategy_config_t strategy_config = {.owner_check = false,
-                                            .auto_update_desc = false};
-  gdma_apply_strategy(dma_chan, &strategy_config);
-  gdma_transfer_ability_t ability = {
-      .sram_trans_align = 0,
-      .psram_trans_align = 0,
-  };
-  gdma_set_transfer_ability(dma_chan, &ability);
-  gdma_start(dma_chan, (intptr_t)&desc);
-
-  // Enable TRANS_DONE interrupt. Note that we do NOT require nor install
-  // an interrupt service routine, but DO need to enable the TRANS_DONE
-  // flag to make the LCD DMA transfer work.
-  LCD_CAM.lc_dma_int_ena.val |= LCD_LL_EVENT_TRANS_DONE & 0x03;
-
-  _PM_esp32commonTimerInit(core); // In esp32-common.h
-}
-
-#elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
-
-// LCD_CAM requires a complete replacement of the "blast" functions in order
-// to use the DMA-based peripheral.
-#define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
-IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
-  // Reset LCD DOUT parameters each time (required).
-  // IN PRINCIPLE, cyclelen should be chainBits-1 (resulting in chainBits
-  // cycles). But due to the required dummy phases at start of transfer,
-  // extend by 1; set to chainBits, issue chainBits+1 cycles.
-  LCD_CAM.lcd_user.lcd_dout_cyclelen = core->chainBits;
-  LCD_CAM.lcd_user.lcd_dout = 1;
-  LCD_CAM.lcd_user.lcd_update = 1;
-
-  // Reset LCD TX FIFO each time, else we see old data. When doing this,
-  // it's REQUIRED in the setup code to enable at least one dummy pulse,
-  // else the PCLK & data are randomly misaligned by 1-2 clocks!
-  LCD_CAM.lcd_misc.lcd_afifo_reset = 1;
-
-  // Partially re-init descriptor each time (required)
-  desc.dw0.size = desc.dw0.length = core->chainBits;
-  desc.buffer = data;
-  gdma_start(dma_chan, (intptr_t)&desc);
-  esp_rom_delay_us(1); // Necessary before starting xfer
-
-  LCD_CAM.lcd_user.lcd_start = 1; // Begin LCD DMA xfer
-
-  // Timer was cleared to 0 before calling blast_byte(), so this
-  // is the state of the timer immediately after DMA started:
-  uint64_t value;
-
-#if (ESP_IDF_VERSION_MAJOR == 5)
-  gptimer_handle_t timer = (gptimer_handle_t)core->timer;
-  gptimer_get_raw_count(timer, &value);
-#else
-  timer_index_t *timer = (timer_index_t *)core->timer;
-  timer_get_counter_value(timer->group, timer->idx, &value);
-#endif
-  dmaSetupTime = (uint32_t)value;
-  // See notes near top of this file for what's done with this info.
-}
-
-static void _PM_timerInit(Protomatter_core *core) {
-
-  // TO DO: adapt this function for any CircuitPython-specific changes.
-  // If none are required, this function can be deleted and the version
-  // above can be moved before the ARDUIO/CIRCUITPY checks. If minimal
-  // changes, consider a single _PM_timerInit() implementation with
-  // ARDUINO/CIRCUITPY checks inside. It's all good.
-
-  // On S3, initialize the LCD_CAM peripheral and DMA.
-
-  // LCD_CAM isn't enabled by default -- MUST begin with this:
-  periph_module_enable(PERIPH_LCD_CAM_MODULE);
-  periph_module_reset(PERIPH_LCD_CAM_MODULE);
-
-  // Reset LCD bus
-  LCD_CAM.lcd_user.lcd_reset = 1;
-  esp_rom_delay_us(100);
-
-  // Configure LCD clock
-  LCD_CAM.lcd_clock.clk_en = 1;             // Enable clock
-  LCD_CAM.lcd_clock.lcd_clk_sel = 3;        // PLL160M source
-  LCD_CAM.lcd_clock.lcd_clkm_div_a = 1;     // 1/1 fractional divide,
-  LCD_CAM.lcd_clock.lcd_clkm_div_b = 1;     // plus prescale below yields...
-#if LCD_CLK_PRESCALE == 8
-  LCD_CAM.lcd_clock.lcd_clkm_div_num = 7;   // 1:8 prescale (20 MHz CLK)
-#elif LCD_CLK_PRESCALE == 9
-  LCD_CAM.lcd_clock.lcd_clkm_div_num = 8; // 1:9 prescale (17.8 MHz CLK)
-#else
-  LCD_CAM.lcd_clock.lcd_clkm_div_num = 9; // 1:10 prescale (16 MHz CLK)
-#endif
-  LCD_CAM.lcd_clock.lcd_ck_out_edge = 0;    // PCLK low in first half of cycle
-  LCD_CAM.lcd_clock.lcd_ck_idle_edge = 0;   // PCLK low idle
-  LCD_CAM.lcd_clock.lcd_clk_equ_sysclk = 1; // PCLK = CLK (ignore CLKCNT_N)
-
-  // Configure frame format. Some of these could probably be skipped and
-  // use defaults, but being verbose for posterity...
-  LCD_CAM.lcd_ctrl.lcd_rgb_mode_en = 0;    // i8080 mode (not RGB)
-  LCD_CAM.lcd_rgb_yuv.lcd_conv_bypass = 0; // Disable RGB/YUV converter
-  LCD_CAM.lcd_misc.lcd_next_frame_en = 0;  // Do NOT auto-frame
-  LCD_CAM.lcd_data_dout_mode.val = 0;      // No data delays
-  LCD_CAM.lcd_user.lcd_always_out_en = 0;  // Only when requested
-  LCD_CAM.lcd_user.lcd_8bits_order = 0;    // Do not swap bytes
-  LCD_CAM.lcd_user.lcd_bit_order = 0;      // Do not reverse bit order
-  LCD_CAM.lcd_user.lcd_2byte_en = 0;       // 8-bit data mode
-  // MUST enable at least one dummy phase at start of output, else clock and
-  // data are randomly misaligned by 1-2 cycles following required TX FIFO
-  // reset in blast_byte(). One phase MOSTLY works but sparkles a tiny bit
-  // (as in still very occasionally misaligned by 1 cycle). Two seems ideal;
-  // no sparkle. Since HUB75 is just a shift register, the extra clock ticks
-  // are harmless and the zero-data shifts off end of the chain.
-  LCD_CAM.lcd_user.lcd_dummy = 1;          // Enable dummy phase(s) @ LCD start
-  LCD_CAM.lcd_user.lcd_dummy_cyclelen = 1; // 2 dummy phases
-  LCD_CAM.lcd_user.lcd_cmd = 0;            // No command at LCD start
-  LCD_CAM.lcd_user.lcd_cmd_2_cycle_en = 0;
-  LCD_CAM.lcd_user.lcd_update = 1;
-
-  // Configure signal pins. IN THEORY this could be expanded to support
-  // 2 parallel chains, but the rest of the LCD & DMA setup is not currently
-  // written for that, so it's limited to a single chain for now.
-  const uint8_t signal[] = {LCD_DATA_OUT0_IDX, LCD_DATA_OUT1_IDX,
-                            LCD_DATA_OUT2_IDX, LCD_DATA_OUT3_IDX,
-                            LCD_DATA_OUT4_IDX, LCD_DATA_OUT5_IDX};
-  for (int i = 0; i < 6; i++)
-    pinmux(core->rgbPins[i], signal[i]);
-  pinmux(core->clockPin, LCD_PCLK_IDX);
-  gpio_set_drive_capability(core->latch.pin, GPIO_DRIVE_STRENGTH);
-  gpio_set_drive_capability(core->oe.pin, GPIO_DRIVE_STRENGTH);
-  for (uint8_t i = 0; i < core->numAddressLines; i++) {
-    gpio_set_drive_capability(core->addr[i].pin, GPIO_DRIVE_STRENGTH);
-  }
-
-  // Disable LCD_CAM interrupts, clear any pending interrupt
-  LCD_CAM.lc_dma_int_ena.val &= ~LCD_LL_EVENT_TRANS_DONE;
-  LCD_CAM.lc_dma_int_clr.val = 0x03;
-
-  // Set up DMA TX descriptor
-  desc.dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
-  desc.dw0.suc_eof = 1;
-  desc.dw0.size = desc.dw0.length = core->chainBits;
-  desc.buffer = core->screenData;
-  desc.next = NULL;
-
-  // Alloc DMA channel & connect it to LCD periph
+#if defined(CIRCUITPY)
   if (dma_chan == NULL) {
+#endif
     gdma_channel_alloc_config_t dma_chan_config = {
         .sibling_chan = NULL,
         .direction = GDMA_CHANNEL_DIRECTION_TX,
@@ -407,7 +269,9 @@ static void _PM_timerInit(Protomatter_core *core) {
         .psram_trans_align = 0,
     };
     gdma_set_transfer_ability(dma_chan, &ability);
+#if defined(CIRCUITPY)
   }
+#endif
   gdma_start(dma_chan, (intptr_t)&desc);
 
   // Enable TRANS_DONE interrupt. Note that we do NOT require nor install
@@ -417,7 +281,5 @@ static void _PM_timerInit(Protomatter_core *core) {
 
   _PM_esp32commonTimerInit(core); // In esp32-common.h
 }
-
-#endif // END CIRCUITPYTHON ------------------------------------------------
 
 #endif // END ESP32S3

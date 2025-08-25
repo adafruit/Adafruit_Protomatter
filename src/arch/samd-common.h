@@ -64,7 +64,7 @@ void _PM_IRQ_HANDLER(void) {
 #define _PM_pinInput(pin) gpio_set_pin_direction(pin, GPIO_DIRECTION_IN)
 #define _PM_pinHigh(pin) gpio_set_pin_level(pin, 1)
 #define _PM_pinLow(pin) gpio_set_pin_level(pin, 0)
-#define _PM_portBitMask(pin) (1u << ((pin)&31))
+#define _PM_portBitMask(pin) (1u << ((pin) & 31))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)
