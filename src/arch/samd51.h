@@ -78,43 +78,43 @@ void _PM_timerInit(Protomatter_core *core) {
     uint8_t GCLK_ID; // Peripheral channel # for clock source
   } timer[] = {
 #if defined(TC0)
-    {TC0, TC0_IRQn, TC0_GCLK_ID},
+      {TC0, TC0_IRQn, TC0_GCLK_ID},
 #endif
 #if defined(TC1)
-    {TC1, TC1_IRQn, TC1_GCLK_ID},
+      {TC1, TC1_IRQn, TC1_GCLK_ID},
 #endif
 #if defined(TC2)
-    {TC2, TC2_IRQn, TC2_GCLK_ID},
+      {TC2, TC2_IRQn, TC2_GCLK_ID},
 #endif
 #if defined(TC3)
-    {TC3, TC3_IRQn, TC3_GCLK_ID},
+      {TC3, TC3_IRQn, TC3_GCLK_ID},
 #endif
 #if defined(TC4)
-    {TC4, TC4_IRQn, TC4_GCLK_ID},
+      {TC4, TC4_IRQn, TC4_GCLK_ID},
 #endif
 #if defined(TC5)
-    {TC5, TC5_IRQn, TC5_GCLK_ID},
+      {TC5, TC5_IRQn, TC5_GCLK_ID},
 #endif
 #if defined(TC6)
-    {TC6, TC6_IRQn, TC6_GCLK_ID},
+      {TC6, TC6_IRQn, TC6_GCLK_ID},
 #endif
 #if defined(TC7)
-    {TC7, TC7_IRQn, TC7_GCLK_ID},
+      {TC7, TC7_IRQn, TC7_GCLK_ID},
 #endif
 #if defined(TC8)
-    {TC8, TC8_IRQn, TC8_GCLK_ID},
+      {TC8, TC8_IRQn, TC8_GCLK_ID},
 #endif
 #if defined(TC9)
-    {TC9, TC9_IRQn, TC9_GCLK_ID},
+      {TC9, TC9_IRQn, TC9_GCLK_ID},
 #endif
 #if defined(TC10)
-    {TC10, TC10_IRQn, TC10_GCLK_ID},
+      {TC10, TC10_IRQn, TC10_GCLK_ID},
 #endif
 #if defined(TC11)
-    {TC11, TC11_IRQn, TC11_GCLK_ID},
+      {TC11, TC11_IRQn, TC11_GCLK_ID},
 #endif
 #if defined(TC12)
-    {TC12, TC12_IRQn, TC12_GCLK_ID},
+      {TC12, TC12_IRQn, TC12_GCLK_ID},
 #endif
   };
 #define NUM_TIMERS (sizeof timer / sizeof timer[0])

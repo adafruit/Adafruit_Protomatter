@@ -95,12 +95,13 @@ ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
                            uint8_t addrCount, uint8_t *addrList,
                            uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
                            bool doubleBuffer, int8_t tile, void *timer) {
-  if (!core)
+  if (!core) {
     return PROTOMATTER_ERR_ARG;
+  }
 
-    // bitDepth is NOT constrained here, handle in calling function
-    // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
-    // but might be more or less elsewhere)
+  // bitDepth is NOT constrained here, handle in calling function
+  // (varies with implementation, e.g. GFX lib is max 6 bitplanes,
+  // but might be more or less elsewhere)
 #if defined(_PM_bytesPerElement)
 #if _PM_bytesPerElement == 1
   if (rgbCount > 1)
@@ -780,9 +781,9 @@ IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {
   volatile uint16_t *toggle =
       (volatile uint16_t *)core->toggleReg + core->portOffset;
 #else
-  volatile uint16_t *set;                         // For RGB data set
-  volatile _PM_PORT_TYPE *set_full;               // For clock set
-  volatile _PM_PORT_TYPE *clear_full;             // For RGB data + clock clear
+  volatile uint16_t *set;             // For RGB data set
+  volatile _PM_PORT_TYPE *set_full;   // For clock set
+  volatile _PM_PORT_TYPE *clear_full; // For RGB data + clock clear
   set = (volatile uint16_t *)core->setReg + core->portOffset;
   set_full = (volatile _PM_PORT_TYPE *)core->setReg;
   clear_full = (volatile _PM_PORT_TYPE *)core->clearReg;
@@ -829,7 +830,7 @@ IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {
   // Note in this case two copies exist of the PORT set register.
   // The optimizer will most likely simplify this; leaving as-is, not
   // wanting a special case of the PEW macro due to divergence risk.
-  volatile uint32_t *set;           // For RGB data set
+  volatile uint32_t *set; // For RGB data set
 #if !defined(_PM_STRICT_32BIT_IO)
   volatile _PM_PORT_TYPE *set_full; // For clock set
   set_full = (volatile _PM_PORT_TYPE *)core->setReg;
@@ -1074,7 +1075,7 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
           *d2++ = result;
 #endif
         } // end x
-      }   // end tile
+      } // end tile
 
       greenBit <<= 1;
       if (plane || (core->numPlanes < 6)) {
@@ -1100,8 +1101,8 @@ __attribute__((noinline)) void _PM_convert_565_byte(Protomatter_core *core,
       dest[-pad] &= ~clockMask; // Negative index is legal & intentional
 #endif
       dest += bitplaneSize; // Advance one scanline in dest buffer
-    }                       // end plane
-  }                         // end row
+    } // end plane
+  } // end row
 }
 
 // Corresponding function for word output -- either 12 RGB bits (2 parallel
@@ -1199,20 +1200,26 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
             uint16_t upperRGB = upperSrc[srcIdx]; // Pixel in upper half
             uint16_t lowerRGB = lowerSrc[srcIdx]; // Pixel in lower half
             uint16_t result = 0;
-            if (upperRGB & redBit)
+            if (upperRGB & redBit) {
               result |= pinMask[0];
-            if (upperRGB & greenBit)
+            }
+            if (upperRGB & greenBit) {
               result |= pinMask[1];
-            if (upperRGB & blueBit)
+            }
+            if (upperRGB & blueBit) {
               result |= pinMask[2];
-            if (lowerRGB & redBit)
+            }
+            if (lowerRGB & redBit) {
               result |= pinMask[3];
-            if (lowerRGB & greenBit)
+            }
+            if (lowerRGB & greenBit) {
               result |= pinMask[4];
-            if (lowerRGB & blueBit)
+            }
+            if (lowerRGB & blueBit) {
               result |= pinMask[5];
-              // Main difference here vs byte converter is each chain
-              // ORs new bits into place (vs single-pass overwrite).
+            }
+            // Main difference here vs byte converter is each chain
+            // ORs new bits into place (vs single-pass overwrite).
 // #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
             *d2++ |= result ^ prior; // Bitwise OR
@@ -1221,7 +1228,7 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
             *d2++ |= result; // Bitwise OR
 #endif
           } // end x
-        }   // end tile
+        } // end tile
         greenBit <<= 1;
         if (plane || (core->numPlanes < 6)) {
           redBit <<= 1;
@@ -1231,9 +1238,9 @@ void _PM_convert_565_word(Protomatter_core *core, uint16_t *source,
           blueBit = 0b0000000000000001;
         }
         dest += bitplaneSize; // Advance one scanline in dest buffer
-      }                       // end plane
-    }                         // end row
-    pinMask += 6;             // Next chain's RGB pin masks
+      } // end plane
+    } // end row
+    pinMask += 6; // Next chain's RGB pin masks
   }
 }
 
@@ -1323,20 +1330,26 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
             uint16_t upperRGB = upperSrc[srcIdx]; // Pixel in upper half
             uint16_t lowerRGB = lowerSrc[srcIdx]; // Pixel in lower half
             uint32_t result = 0;
-            if (upperRGB & redBit)
+            if (upperRGB & redBit) {
               result |= pinMask[0];
-            if (upperRGB & greenBit)
+            }
+            if (upperRGB & greenBit) {
               result |= pinMask[1];
-            if (upperRGB & blueBit)
+            }
+            if (upperRGB & blueBit) {
               result |= pinMask[2];
-            if (lowerRGB & redBit)
+            }
+            if (lowerRGB & redBit) {
               result |= pinMask[3];
-            if (lowerRGB & greenBit)
+            }
+            if (lowerRGB & greenBit) {
               result |= pinMask[4];
-            if (lowerRGB & blueBit)
+            }
+            if (lowerRGB & blueBit) {
               result |= pinMask[5];
-              // Main difference here vs byte converter is each chain
-              // ORs new bits into place (vs single-pass overwrite).
+            }
+            // Main difference here vs byte converter is each chain
+            // ORs new bits into place (vs single-pass overwrite).
 // #if defined(_PM_portToggleRegister)
 #if defined(_PM_USE_TOGGLE_FORMAT)
             *d2++ |= result ^ prior; // Bitwise OR
@@ -1345,7 +1358,7 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
             *d2++ |= result; // Bitwise OR
 #endif
           } // end x
-        }   // end tile
+        } // end tile
         greenBit <<= 1;
         if (plane || (core->numPlanes < 6)) {
           redBit <<= 1;
@@ -1355,9 +1368,9 @@ void _PM_convert_565_long(Protomatter_core *core, uint16_t *source,
           blueBit = 0b0000000000000001;
         }
         dest += bitplaneSize; // Advance one scanline in dest buffer
-      }                       // end plane
-    }                         // end row
-    pinMask += 6;             // Next chain's RGB pin masks
+      } // end plane
+    } // end row
+    pinMask += 6; // Next chain's RGB pin masks
   }
 }
 

@@ -32,7 +32,7 @@
 #define _PM_portClearRegister(pin)                                             \
   (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
 
-#define _PM_portBitMask(pin) (1U << ((pin)&31))
+#define _PM_portBitMask(pin) (1U << ((pin) & 31))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)

@@ -51,19 +51,19 @@ void _PM_timerInit(Protomatter_core *core) {
     uint8_t GCM_ID; // GCLK selection ID
   } timer[] = {
 #if defined(TC0)
-    {TC0, TC0_IRQn, GCM_TCC0_TCC1},
+      {TC0, TC0_IRQn, GCM_TCC0_TCC1},
 #endif
 #if defined(TC1)
-    {TC1, TC1_IRQn, GCM_TCC0_TCC1},
+      {TC1, TC1_IRQn, GCM_TCC0_TCC1},
 #endif
 #if defined(TC2)
-    {TC2, TC2_IRQn, GCM_TCC2_TC3},
+      {TC2, TC2_IRQn, GCM_TCC2_TC3},
 #endif
 #if defined(TC3)
-    {TC3, TC3_IRQn, GCM_TCC2_TC3},
+      {TC3, TC3_IRQn, GCM_TCC2_TC3},
 #endif
 #if defined(TC4)
-    {TC4, TC4_IRQn, GCM_TC4_TC5},
+      {TC4, TC4_IRQn, GCM_TC4_TC5},
 #endif
   };
 #define NUM_TIMERS (sizeof timer / sizeof timer[0])

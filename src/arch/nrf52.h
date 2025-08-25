@@ -99,7 +99,7 @@ volatile uint32_t *_PM_portClearRegister(uint32_t pin) {
 #define _PM_pinInput(pin) nrf_gpio_cfg_input(pin)
 #define _PM_pinHigh(pin) nrf_gpio_pin_set(pin)
 #define _PM_pinLow(pin) nrf_gpio_pin_clear(pin)
-#define _PM_portBitMask(pin) (1u << ((pin)&31))
+#define _PM_portBitMask(pin) (1u << ((pin) & 31))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define _PM_byteOffset(pin) ((pin & 31) / 8)
@@ -142,19 +142,19 @@ void _PM_timerInit(Protomatter_core *core) {
     IRQn_Type IRQn;     // Interrupt number
   } timer[] = {
 #if defined(NRF_TIMER0)
-    {NRF_TIMER0, TIMER0_IRQn},
+      {NRF_TIMER0, TIMER0_IRQn},
 #endif
 #if defined(NRF_TIMER1)
-    {NRF_TIMER1, TIMER1_IRQn},
+      {NRF_TIMER1, TIMER1_IRQn},
 #endif
 #if defined(NRF_TIMER2)
-    {NRF_TIMER2, TIMER2_IRQn},
+      {NRF_TIMER2, TIMER2_IRQn},
 #endif
 #if defined(NRF_TIMER3)
-    {NRF_TIMER3, TIMER3_IRQn},
+      {NRF_TIMER3, TIMER3_IRQn},
 #endif
 #if defined(NRF_TIMER4)
-    {NRF_TIMER4, TIMER4_IRQn},
+      {NRF_TIMER4, TIMER4_IRQn},
 #endif
   };
 #define NUM_TIMERS (sizeof timer / sizeof timer[0])
