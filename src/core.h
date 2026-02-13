@@ -38,8 +38,8 @@ typedef enum {
     RGB data but do NOT need the set or clear registers, so those items are
     also declared as separate things in the core structure that follows. */
 typedef struct {
-  volatile void *setReg;   ///< GPIO bit set register
-  volatile void *clearReg; ///< GPIO bit clear register
+  volatile void* setReg;   ///< GPIO bit set register
+  volatile void* clearReg; ///< GPIO bit clear register
   uint32_t bit;            ///< GPIO bitmask
   uint8_t pin;             ///< Some unique ID, e.g. Arduino pin #
 } _PM_pin;
@@ -55,19 +55,19 @@ typedef struct {
     to put any toggle-specific stuff at the end of the struct with an ifdef
     check, but that's just dirty pool and asking for trouble.) */
 typedef struct {
-  void *timer;                   ///< Arch-specific timer/counter info
-  void *setReg;                  ///< RGBC bit set register (cast to use)
-  void *clearReg;                ///< RGBC bit clear register "
-  void *toggleReg;               ///< RGBC bit toggle register "
-  uint8_t *rgbPins;              ///< Array of RGB data pins (mult of 6)
-  void *rgbMask;                 ///< PORT bit mask for each RGB pin
+  void* timer;                   ///< Arch-specific timer/counter info
+  void* setReg;                  ///< RGBC bit set register (cast to use)
+  void* clearReg;                ///< RGBC bit clear register "
+  void* toggleReg;               ///< RGBC bit toggle register "
+  uint8_t* rgbPins;              ///< Array of RGB data pins (mult of 6)
+  void* rgbMask;                 ///< PORT bit mask for each RGB pin
   uint32_t clockMask;            ///< PORT bit mask for RGB clock
   uint32_t rgbAndClockMask;      ///< PORT bit mask for RGB data + clock
-  volatile void *addrPortToggle; ///< See singleAddrPort below
-  void *screenData;              ///< Per-bitplane RGB data for matrix
+  volatile void* addrPortToggle; ///< See singleAddrPort below
+  void* screenData;              ///< Per-bitplane RGB data for matrix
   _PM_pin latch;                 ///< RGB data latch
   _PM_pin oe;                    ///< !OE (LOW out enable)
-  _PM_pin *addr;                 ///< Array of address pins
+  _PM_pin* addr;                 ///< Array of address pins
   uint32_t bufferSize;           ///< Bytes per matrix buffer
   uint32_t bitZeroPeriod;        ///< Bitplane 0 timer period
   uint32_t minPeriod;            ///< Plane 0 timer period for ~250Hz
@@ -157,12 +157,12 @@ typedef struct {
           PROTOMATTER_ERR_ARG if a bad value (core or timer pointer) was
           passed in.
 */
-extern ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
+extern ProtomatterStatus _PM_init(Protomatter_core* core, uint16_t bitWidth,
                                   uint8_t bitDepth, uint8_t rgbCount,
-                                  uint8_t *rgbList, uint8_t addrCount,
-                                  uint8_t *addrList, uint8_t clockPin,
+                                  uint8_t* rgbList, uint8_t addrCount,
+                                  uint8_t* addrList, uint8_t clockPin,
                                   uint8_t latchPin, uint8_t oePin,
-                                  bool doubleBuffer, int8_t tile, void *timer);
+                                  bool doubleBuffer, int8_t tile, void* timer);
 
 /*!
   @brief  Allocate display buffers and populate additional elements of a
@@ -176,7 +176,7 @@ extern ProtomatterStatus _PM_init(Protomatter_core *core, uint16_t bitWidth,
           memory.
           PROTOMATTER_ERR_ARG if a bad value.
 */
-extern ProtomatterStatus _PM_begin(Protomatter_core *core);
+extern ProtomatterStatus _PM_begin(Protomatter_core* core);
 
 /*!
   @brief  Disable (but do not deallocate) a Protomatter matrix. Disables
@@ -184,14 +184,14 @@ extern ProtomatterStatus _PM_begin(Protomatter_core *core);
           matrix shift registers, so it won't halt with lit LEDs.
   @param  core  Pointer to Protomatter_core structure.
 */
-extern void _PM_stop(Protomatter_core *core);
+extern void _PM_stop(Protomatter_core* core);
 
 /*!
   @brief  Start or restart a matrix. Initialize counters, configure and
           start timer.
   @param  core  Pointer to Protomatter_core structure.
 */
-extern void _PM_resume(Protomatter_core *core);
+extern void _PM_resume(Protomatter_core* core);
 
 /*!
   @brief  Deallocate memory associated with Protomatter_core structure
@@ -199,14 +199,14 @@ extern void _PM_resume(Protomatter_core *core);
           deallocate the structure itself.
   @param  core  Pointer to Protomatter_core structure.
 */
-extern void _PM_deallocate(Protomatter_core *core);
+extern void _PM_deallocate(Protomatter_core* core);
 
 /*!
   @brief  Matrix "row handler" that's called by the timer interrupt.
           Handles row address lines and issuing data to matrix.
   @param  core  Pointer to Protomatter_core structure.
 */
-extern void _PM_row_handler(Protomatter_core *core);
+extern void _PM_row_handler(Protomatter_core* core);
 
 // *********************************************************************
 // NOTE: AS OF 1.3.0, TIMER-RELATED FUNCTIONS REQUIRE A Protomatter_core
@@ -222,7 +222,7 @@ extern void _PM_row_handler(Protomatter_core *core);
   @param  core  Pointer to Protomatter_core structure.
   @return Frame count since previous call to function, as a uint32_t.
 */
-extern uint32_t _PM_getFrameCount(Protomatter_core *core);
+extern uint32_t _PM_getFrameCount(Protomatter_core* core);
 
 /*!
   @brief  Start (or restart) a timer/counter peripheral.
@@ -230,7 +230,7 @@ extern uint32_t _PM_getFrameCount(Protomatter_core *core);
                   details can be derived.
   @param  period  Timer 'top' / rollover value.
 */
-extern void _PM_timerStart(Protomatter_core *core, uint32_t period);
+extern void _PM_timerStart(Protomatter_core* core, uint32_t period);
 
 /*!
   @brief  Stop timer/counter peripheral.
@@ -238,7 +238,7 @@ extern void _PM_timerStart(Protomatter_core *core, uint32_t period);
                   details can be derived.
   @return Counter value when timer was stopped.
 */
-extern uint32_t _PM_timerStop(Protomatter_core *core);
+extern uint32_t _PM_timerStop(Protomatter_core* core);
 
 /*!
   @brief  Query a timer/counter peripheral's current count.
@@ -246,14 +246,14 @@ extern uint32_t _PM_timerStop(Protomatter_core *core);
                   details can be derived.
   @return Counter value.
 */
-extern uint32_t _PM_timerGetCount(Protomatter_core *core);
+extern uint32_t _PM_timerGetCount(Protomatter_core* core);
 
 /*!
   @brief  Pauses until the next vertical blank to avoid 'tearing' animation
           (if display is double-buffered). If single-buffered, has no effect.
   @param  core  Pointer to Protomatter_core structure.
 */
-extern void _PM_swapbuffer_maybe(Protomatter_core *core);
+extern void _PM_swapbuffer_maybe(Protomatter_core* core);
 
 /*!
   @brief  Adjust duty cycle of HUB75 clock signal. This is not supported on
@@ -276,7 +276,7 @@ extern void _PM_setDuty(uint8_t d);
   @param  width   Width of canvas in pixels, as this may be different than
                   the matrix pixel width due to row padding.
 */
-extern void _PM_convert_565(Protomatter_core *core, uint16_t *source,
+extern void _PM_convert_565(Protomatter_core* core, uint16_t* source,
                             uint16_t width);
 
 #endif // END ARDUINO || CIRCUITPY

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#if defined(ESP32) ||                                                          \
+#if defined(ESP32) || \
     defined(ESP_PLATFORM) // *All* ESP32 variants (OG, S2, S3, etc.)
 
 #include <inttypes.h>
@@ -34,7 +34,7 @@
 
 // As currently written, only one instance of the Protomatter_core struct
 // is allowed, set up when calling begin()...so it's just a global here:
-Protomatter_core *_PM_protoPtr;
+Protomatter_core* _PM_protoPtr;
 
 #define _PM_timerFreq 40000000 // 40 MHz (1:2 prescale)
 
@@ -42,10 +42,10 @@ Protomatter_core *_PM_protoPtr;
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 #define _PM_timerNum 0 // Timer #0 (can be 0-3)
-static hw_timer_t *_PM_esp32timer = NULL;
+static hw_timer_t* _PM_esp32timer = NULL;
 #define _PM_TIMER_DEFAULT &_PM_esp32timer
 #else
-#define _PM_TIMER_DEFAULT ((void *)-1) // some non-NULL but non valid pointer
+#define _PM_TIMER_DEFAULT ((void*)-1) // some non-NULL but non valid pointer
 #endif
 
 // The following defines and functions are common to all ESP32 variants in
@@ -55,7 +55,7 @@ static hw_timer_t *_PM_esp32timer = NULL;
 // started down that path, it's okay, but move the code out of here and
 // into the variant-specific headers.
 
-extern void _PM_row_handler(Protomatter_core *core); // In core.c
+extern void _PM_row_handler(Protomatter_core* core); // In core.c
 
 // Timer interrupt handler. This, _PM_row_handler() and any functions
 // called by _PM_row_handler() should all have the IRAM_ATTR attribute
@@ -67,8 +67,8 @@ IRAM_ATTR static void _PM_esp32timerCallback(void) {
 }
 
 // Set timer period, initialize count value to zero, enable timer.
-IRAM_ATTR inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
-  hw_timer_t *timer = (hw_timer_t *)core->timer;
+IRAM_ATTR inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
+  hw_timer_t* timer = (hw_timer_t*)core->timer;
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
   timerAlarmWrite(timer, period, true);
   timerAlarmEnable(timer);
@@ -82,16 +82,16 @@ IRAM_ATTR inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
-  timerStop((hw_timer_t *)core->timer);
+IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core* core) {
+  timerStop((hw_timer_t*)core->timer);
   return _PM_timerGetCount(core);
 }
 
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.
-void _PM_esp32commonTimerInit(Protomatter_core *core) {
-  hw_timer_t *timer_in = (hw_timer_t *)core->timer;
+void _PM_esp32commonTimerInit(Protomatter_core* core) {
+  hw_timer_t* timer_in = (hw_timer_t*)core->timer;
   if (!timer_in || timer_in == _PM_TIMER_DEFAULT) {
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     core->timer = timerBegin(_PM_timerNum, 2, true); // 1:2 prescale, count up
@@ -139,11 +139,11 @@ void _PM_esp32commonTimerInit(Protomatter_core *core) {
 // This is "private" for now. We link to it anyway because there isn't a more
 // public method yet.
 extern bool spi_flash_cache_enabled(void);
-static IRAM_ATTR bool
-_PM_esp32timerCallback(gptimer_handle_t timer,
-                       const gptimer_alarm_event_data_t *event, void *unused) {
+static IRAM_ATTR bool _PM_esp32timerCallback(
+    gptimer_handle_t timer, const gptimer_alarm_event_data_t* event,
+    void* unused) {
 #else
-static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
+static IRAM_ATTR bool _PM_esp32timerCallback(void* unused) {
 #endif
 #if ESP_IDF_VERSION_MAJOR == 5
   // Some functions and data used by _PM_row_handler may exist in external flash
@@ -160,7 +160,7 @@ static IRAM_ATTR bool _PM_esp32timerCallback(void *unused) {
 
 // Set timer period, initialize count value to zero, enable timer.
 #if (ESP_IDF_VERSION_MAJOR == 5)
-IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+IRAM_ATTR void _PM_timerStart(Protomatter_core* core, uint32_t period) {
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
 
   gptimer_alarm_config_t alarm_config = {
@@ -172,8 +172,8 @@ IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   gptimer_start(timer);
 }
 #else
-IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
-  timer_index_t *timer = (timer_index_t *)core->timer;
+IRAM_ATTR void _PM_timerStart(Protomatter_core* core, uint32_t period) {
+  timer_index_t* timer = (timer_index_t*)core->timer;
   timer_ll_set_counter_enable(timer->hw, timer->idx, false);
   timer_ll_set_counter_value(timer->hw, timer->idx, 0);
   timer_ll_set_alarm_value(timer->hw, timer->idx, period);
@@ -184,26 +184,26 @@ IRAM_ATTR void _PM_timerStart(Protomatter_core *core, uint32_t period) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core *core) {
+IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core* core) {
 #if (ESP_IDF_VERSION_MAJOR == 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   gptimer_stop(timer);
 #else
-  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_index_t* timer = (timer_index_t*)core->timer;
   timer_ll_set_counter_enable(timer->hw, timer->idx, false);
 #endif
   return _PM_timerGetCount(core);
 }
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
-IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
+IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core* core) {
 #if (ESP_IDF_VERSION_MAJOR == 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   uint64_t raw_count;
   gptimer_get_raw_count(timer, &raw_count);
   return (uint32_t)raw_count;
 #else
-  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_index_t* timer = (timer_index_t*)core->timer;
   uint64_t result;
   timer_ll_get_counter_value(timer->hw, timer->idx, &result);
   return (uint32_t)result;
@@ -214,7 +214,7 @@ IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // Initialize, but do not start, timer. This function contains timer setup
 // that's common to all ESP32 variants; code in variant-specific files might
 // set up its own special peripherals, then call this.
-static void _PM_esp32commonTimerInit(Protomatter_core *core) {
+static void _PM_esp32commonTimerInit(Protomatter_core* core) {
 
 #if (ESP_IDF_VERSION_MAJOR == 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
@@ -225,7 +225,7 @@ static void _PM_esp32commonTimerInit(Protomatter_core *core) {
 
   gptimer_enable(timer);
 #else
-  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_index_t* timer = (timer_index_t*)core->timer;
   const timer_config_t config = {
       .alarm_en = false,
       .counter_en = false,

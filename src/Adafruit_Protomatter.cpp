@@ -40,14 +40,14 @@
 
 #include "Adafruit_Protomatter.h" // Also includes core.h & Adafruit_GFX.h
 
-extern Protomatter_core *_PM_protoPtr; ///< In core.c (via arch.h)
+extern Protomatter_core* _PM_protoPtr; ///< In core.c (via arch.h)
 
 Adafruit_Protomatter::Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth,
-                                           uint8_t rgbCount, uint8_t *rgbList,
-                                           uint8_t addrCount, uint8_t *addrList,
+                                           uint8_t rgbCount, uint8_t* rgbList,
+                                           uint8_t addrCount, uint8_t* addrList,
                                            uint8_t clockPin, uint8_t latchPin,
                                            uint8_t oePin, bool doubleBuffer,
-                                           int8_t tile, void *timer)
+                                           int8_t tile, void* timer)
     : GFXcanvas16(bitWidth, (2 << min((int)addrCount, 5)) *
                                 min((int)rgbCount, 5) *
                                 (tile ? abs(tile) : 1)) {

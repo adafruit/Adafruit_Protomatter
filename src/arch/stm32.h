@@ -32,46 +32,46 @@
 #define _PM_byteOffset(pin) ((pin & 15) / 8)
 #define _PM_wordOffset(pin) ((pin & 15) / 16)
 
-#define _PM_pinOutput(pin_)                                                    \
-  do {                                                                         \
-    int8_t pin = (pin_);                                                       \
-    GPIO_InitTypeDef GPIO_InitStruct = {0};                                    \
-    GPIO_InitStruct.Pin = 1 << (pin & 15);                                     \
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;                                \
-    GPIO_InitStruct.Pull = GPIO_NOPULL;                                        \
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;                         \
-    HAL_GPIO_Init(pin_port(pin / 16), &GPIO_InitStruct);                       \
+#define _PM_pinOutput(pin_)                              \
+  do {                                                   \
+    int8_t pin = (pin_);                                 \
+    GPIO_InitTypeDef GPIO_InitStruct = {0};              \
+    GPIO_InitStruct.Pin = 1 << (pin & 15);               \
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;          \
+    GPIO_InitStruct.Pull = GPIO_NOPULL;                  \
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;   \
+    HAL_GPIO_Init(pin_port(pin / 16), &GPIO_InitStruct); \
   } while (0)
-#define _PM_pinInput(pin_)                                                     \
-  do {                                                                         \
-    int8_t pin = (pin_);                                                       \
-    GPIO_InitTypeDef GPIO_InitStruct = {0};                                    \
-    GPIO_InitStruct.Pin = 1 << (pin & 15);                                     \
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;                                    \
-    GPIO_InitStruct.Pull = GPIO_NOPULL;                                        \
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;                         \
-    HAL_GPIO_Init(pin_port(pin / 16), &GPIO_InitStruct);                       \
+#define _PM_pinInput(pin_)                               \
+  do {                                                   \
+    int8_t pin = (pin_);                                 \
+    GPIO_InitTypeDef GPIO_InitStruct = {0};              \
+    GPIO_InitStruct.Pin = 1 << (pin & 15);               \
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;              \
+    GPIO_InitStruct.Pull = GPIO_NOPULL;                  \
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;   \
+    HAL_GPIO_Init(pin_port(pin / 16), &GPIO_InitStruct); \
   } while (0)
-#define _PM_pinHigh(pin)                                                       \
+#define _PM_pinHigh(pin) \
   HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin & 15), GPIO_PIN_SET)
-#define _PM_pinLow(pin)                                                        \
+#define _PM_pinLow(pin) \
   HAL_GPIO_WritePin(pin_port(pin / 16), 1 << (pin & 15), GPIO_PIN_RESET)
 
 #define _PM_PORT_TYPE uint16_t
 
-volatile uint16_t *_PM_portOutRegister(uint32_t pin) {
-  return (uint16_t *)&pin_port(pin / 16)->ODR;
+volatile uint16_t* _PM_portOutRegister(uint32_t pin) {
+  return (uint16_t*)&pin_port(pin / 16)->ODR;
 }
 
-volatile uint16_t *_PM_portSetRegister(uint32_t pin) {
-  return (uint16_t *)&pin_port(pin / 16)->BSRR;
+volatile uint16_t* _PM_portSetRegister(uint32_t pin) {
+  return (uint16_t*)&pin_port(pin / 16)->BSRR;
 }
 
 // To make things interesting, STM32F4xx places the set and clear
 // GPIO bits within a single register.  The "clear" bits are upper, so
 // offset by 1 in uint16_ts
-volatile uint16_t *_PM_portClearRegister(uint32_t pin) {
-  return 1 + (uint16_t *)&pin_port(pin / 16)->BSRR;
+volatile uint16_t* _PM_portClearRegister(uint32_t pin) {
+  return 1 + (uint16_t*)&pin_port(pin / 16)->BSRR;
 }
 
 // TODO: was this somehow specific to TIM6?
@@ -81,7 +81,7 @@ volatile uint16_t *_PM_portClearRegister(uint32_t pin) {
 // one instance of the Protomatter_core struct. The Arduino library
 // sets up this pointer when calling begin().
 // TODO: this is no longer true, should it change?
-void *_PM_protoPtr = NULL;
+void* _PM_protoPtr = NULL;
 
 static TIM_HandleTypeDef tim_handle;
 
@@ -93,8 +93,8 @@ void _PM_IRQ_HANDLER(void) {
 }
 
 // Initialize, but do not start, timer
-void _PM_timerInit(Protomatter_core *core) {
-  TIM_TypeDef *tim_instance = (TIM_TypeDef *)core->timer;
+void _PM_timerInit(Protomatter_core* core) {
+  TIM_TypeDef* tim_instance = (TIM_TypeDef*)core->timer;
   stm_peripherals_timer_reserve(tim_instance);
   // Set IRQs at max priority and start clock
   stm_peripherals_timer_preinit(tim_instance, 0, _PM_IRQ_HANDLER);
@@ -114,8 +114,8 @@ void _PM_timerInit(Protomatter_core *core) {
   NVIC_SetPriority(tim_irq, 0); // Top priority
 }
 
-inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
-  TIM_TypeDef *tim = core->timer;
+inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
+  TIM_TypeDef* tim = core->timer;
   tim->SR = 0;
   tim->ARR = period;
   tim->CR1 |= TIM_CR1_CEN;
@@ -123,13 +123,13 @@ inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
   HAL_NVIC_EnableIRQ(stm_peripherals_timer_get_irqnum(tim));
 }
 
-inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  TIM_TypeDef *tim = core->timer;
+inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
+  TIM_TypeDef* tim = core->timer;
   return tim->CNT;
 }
 
-uint32_t _PM_timerStop(Protomatter_core *core) {
-  TIM_TypeDef *tim = core->timer;
+uint32_t _PM_timerStop(Protomatter_core* core) {
+  TIM_TypeDef* tim = core->timer;
   HAL_NVIC_DisableIRQ(stm_peripherals_timer_get_irqnum(tim));
   tim->CR1 &= ~TIM_CR1_CEN;
   tim->DIER &= ~TIM_DIER_UIE;

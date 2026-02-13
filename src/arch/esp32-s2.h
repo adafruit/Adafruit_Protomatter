@@ -25,12 +25,12 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S2)
 
-#define _PM_portOutRegister(pin)                                               \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
-#define _PM_portSetRegister(pin)                                               \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
-#define _PM_portClearRegister(pin)                                             \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
+#define _PM_portOutRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
+#define _PM_portSetRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
+#define _PM_portClearRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
 
 // On ESP32-S2, use the Dedicated GPIO peripheral, which allows faster bit-
 // toggling than the conventional GPIO registers. Unfortunately NOT present
@@ -84,7 +84,7 @@ static uint16_t _bit_toggle[128] = {
 // returns a 7-bit mask for the pin within the Direct GPIO register *IF* it's
 // one of the RGB bits or the clock bit...this requires comparing against pin
 // numbers in the core struct.
-static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
+static uint32_t _PM_directBitMask(Protomatter_core* core, int pin) {
   if (pin == core->clockPin)
     return 1 << 6;
   for (uint8_t i = 0; i < 6; i++) {
@@ -101,8 +101,8 @@ static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
 // Dedicated GPIO requires a complete replacement of the "blast" functions
 // in order to get sufficient speed.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
-IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
-  volatile uint32_t *gpio = &DEDIC_GPIO.gpio_out_idv.val;
+IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
+  volatile uint32_t* gpio = &DEDIC_GPIO.gpio_out_idv.val;
 
   // GPIO has already been initialized with RGB data + clock bits
   // all LOW, so we don't need to initialize that state here.
@@ -136,13 +136,12 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
 
 // If using custom "blast" function(s), all three must be declared.
 // Unused ones can be empty, that's fine, just need to exist.
-IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
-IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
+IRAM_ATTR static void blast_word(Protomatter_core* core, uint16_t* data) {}
+IRAM_ATTR static void blast_long(Protomatter_core* core, uint32_t* data) {}
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
-void _PM_timerInit(Protomatter_core *core) {
-
+void _PM_timerInit(Protomatter_core* core) {
   // On S2, initialize the Dedicated GPIO peripheral using the RGB pin list
   // list from the core struct, plus the clock pin (7 pins total). Unsure if
   // these structs & arrays need to be persistent. Declaring static just in
@@ -170,14 +169,13 @@ void _PM_timerInit(Protomatter_core *core) {
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
 // This function is the same on all ESP32 parts EXCEPT S3.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  return (uint32_t)timerRead((hw_timer_t *)core->timer);
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
+  return (uint32_t)timerRead((hw_timer_t*)core->timer);
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------
 
-void _PM_timerInit(Protomatter_core *core) {
-
+void _PM_timerInit(Protomatter_core* core) {
   // TO DO: adapt this function for any CircuitPython-specific changes.
   // If none are required, this function can be deleted and the version
   // above can be moved before the ARDUIO/CIRCUITPY checks. If minimal

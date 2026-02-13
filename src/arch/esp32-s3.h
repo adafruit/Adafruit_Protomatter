@@ -37,12 +37,12 @@
 #define _PM_allocate(x) heap_caps_malloc(x, MALLOC_CAP_DMA | MALLOC_CAP_8BIT)
 #define _PM_free(x) heap_caps_free(x)
 
-#define _PM_portOutRegister(pin)                                               \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
-#define _PM_portSetRegister(pin)                                               \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
-#define _PM_portClearRegister(pin)                                             \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
+#define _PM_portOutRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
+#define _PM_portSetRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
+#define _PM_portClearRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
 
 // On ESP32-S3, use the LCD_CAM peripheral for fast parallel output.
 // Thanks to ESP's pin MUXing, matrix data in RAM can ALWAYS be stored in
@@ -69,7 +69,7 @@ static uint32_t dmaSetupTime = 100;
 // point, plus the known constant DMA xfer speed (160/LCD_CLK_PRESCALE MHz)
 // and timer frequency (40 MHz), to return an estimate of the one-scanline
 // transfer time, from which everything is extrapolated:
-IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
   // Time estimate seems to come in a little high, so the -10 here is an
   // empirically-derived fudge factor that may yield ever-so-slightly better
   // refresh in some edge cases. If visual glitches are encountered, might
@@ -82,7 +82,7 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // slightly different length of time, but duty cycle scales with this so it's
 // perceptually consistent; don't see bright or dark rows.
 
-#define _PM_minMinPeriod                                                       \
+#define _PM_minMinPeriod \
   (200 + (uint32_t)core->chainBits * 40 * LCD_CLK_PRESCALE / 160)
 
 #if (ESP_IDF_VERSION_MAJOR == 5)
@@ -104,7 +104,7 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // returns a 7-bit mask for the pin within the LCD_CAM data order *IF* it's
 // one of the RGB bits or the clock bit...this requires comparing against pin
 // numbers in the core struct.
-static uint32_t _PM_directBitMask(Protomatter_core *core, int pin) {
+static uint32_t _PM_directBitMask(Protomatter_core* core, int pin) {
   if (pin == core->clockPin)
     return 1 << 6;
   for (uint8_t i = 0; i < 6; i++) {
@@ -124,8 +124,8 @@ static gdma_channel_handle_t dma_chan;
 
 // If using custom "blast" function(s), all three must be declared.
 // Unused ones can be empty, that's fine, just need to exist.
-IRAM_ATTR static void blast_word(Protomatter_core *core, uint16_t *data) {}
-IRAM_ATTR static void blast_long(Protomatter_core *core, uint32_t *data) {}
+IRAM_ATTR static void blast_word(Protomatter_core* core, uint16_t* data) {}
+IRAM_ATTR static void blast_long(Protomatter_core* core, uint32_t* data) {}
 
 static void pinmux(int8_t pin, uint8_t signal) {
   esp_rom_gpio_connect_out_signal(pin, signal, false, false);
@@ -136,7 +136,7 @@ static void pinmux(int8_t pin, uint8_t signal) {
 // LCD_CAM requires a complete replacement of the "blast" functions in order
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
-IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
+IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
   // Reset LCD DOUT parameters each time (required).
   // IN PRINCIPLE, cyclelen should be chainBits-1 (resulting in chainBits
   // cycles). But due to the required dummy phases at start of transfer,
@@ -161,14 +161,14 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // Timer was cleared to 0 before calling blast_byte(), so this
   // is the state of the timer immediately after DMA started:
 #if defined(ARDUINO)
-  dmaSetupTime = (uint32_t)timerRead((hw_timer_t *)core->timer);
+  dmaSetupTime = (uint32_t)timerRead((hw_timer_t*)core->timer);
 #elif defined(CIRCUITPY)
   uint64_t value;
 #if (ESP_IDF_VERSION_MAJOR == 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   gptimer_get_raw_count(timer, &value);
 #else
-  timer_index_t *timer = (timer_index_t *)core->timer;
+  timer_index_t* timer = (timer_index_t*)core->timer;
   timer_get_counter_value(timer->group, timer->idx, &value);
 #endif
   dmaSetupTime = (uint32_t)value;
@@ -176,7 +176,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core *core, uint8_t *data) {
   // See notes near top of this file for what's done with this info.
 }
 
-static void _PM_timerInit(Protomatter_core *core) {
+static void _PM_timerInit(Protomatter_core* core) {
   // On S3, initialize the LCD_CAM peripheral and DMA.
 
   // LCD_CAM isn't enabled by default -- MUST begin with this:

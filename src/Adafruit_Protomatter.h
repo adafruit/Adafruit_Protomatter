@@ -3,8 +3,9 @@
 
 #pragma once
 
-#include "core.h"
 #include <Adafruit_GFX.h>
+
+#include "core.h"
 
 /*!
     @brief  Class representing the Arduino-facing side of the Protomatter
@@ -12,7 +13,7 @@
             the drawing operations.
 */
 class Adafruit_Protomatter : public GFXcanvas16 {
-public:
+ public:
   /*!
     @brief  Adafruit_Protomatter constructor.
     @param  bitWidth      Total width of RGB matrix chain, in pixels.
@@ -67,9 +68,9 @@ public:
                           use a default timer ID (also arch-dependent).
   */
   Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth, uint8_t rgbCount,
-                       uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList,
+                       uint8_t* rgbList, uint8_t addrCount, uint8_t* addrList,
                        uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-                       bool doubleBuffer, int8_t tile = 1, void *timer = NULL);
+                       bool doubleBuffer, int8_t tile = 1, void* timer = NULL);
   ~Adafruit_Protomatter(void);
 
   /*!
@@ -95,12 +96,16 @@ public:
   /*!
     @brief Disable (but do not deallocate) a Protomatter matrix.
   */
-  void stop(void) { _PM_stop(&core); }
+  void stop(void) {
+    _PM_stop(&core);
+  }
 
   /*!
     @brief Resume a previously-stopped matrix.
   */
-  void resume(void) { _PM_resume(&core); }
+  void resume(void) {
+    _PM_resume(&core);
+  }
 
   /*!
     @brief  Returns current value of frame counter and resets its value
@@ -152,11 +157,13 @@ public:
              varies by architecture and CPU speed, if supported at all.
              e.g. SAMD51 @ 120 MHz supports 0 (~50% duty) through 2 (~75%).
   */
-  void setDuty(uint8_t d) { _PM_setDuty(d); };
+  void setDuty(uint8_t d) {
+    _PM_setDuty(d);
+  };
 
-private:
+ private:
   Protomatter_core core;             // Underlying C struct
-  void convert_byte(uint8_t *dest);  // GFXcanvas16-to-matrix
-  void convert_word(uint16_t *dest); // conversion functions
-  void convert_long(uint32_t *dest); // for 8/16/32 bit bufs
+  void convert_byte(uint8_t* dest);  // GFXcanvas16-to-matrix
+  void convert_word(uint16_t* dest); // conversion functions
+  void convert_long(uint32_t* dest); // for 8/16/32 bit bufs
 };

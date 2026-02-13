@@ -25,12 +25,12 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32) // ORIGINAL ESP32, NOT S2/S3/etc.
 
-#define _PM_portOutRegister(pin)                                               \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
-#define _PM_portSetRegister(pin)                                               \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
-#define _PM_portClearRegister(pin)                                             \
-  (volatile uint32_t *)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
+#define _PM_portOutRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out : &GPIO.out1.val)
+#define _PM_portSetRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out_w1ts : &GPIO.out1_w1ts.val)
+#define _PM_portClearRegister(pin) \
+  (volatile uint32_t*)((pin < 32) ? &GPIO.out_w1tc : &GPIO.out1_w1tc.val)
 
 #define _PM_portBitMask(pin) (1U << ((pin) & 31))
 
@@ -48,8 +48,8 @@
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
 // This function is the same on all ESP32 parts EXCEPT S3.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  return (uint32_t)timerRead((hw_timer_t *)core->timer);
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
+  return (uint32_t)timerRead((hw_timer_t*)core->timer);
 }
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
@@ -62,11 +62,11 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // S2, S3 replace the whole "blast" functions and don't use PEW. C3 can use
 // the default PEW.
 #if !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32S2)
-#define PEW                                                                    \
-  *set = *data++;         /* Set RGB data high */                              \
-  *clear_full = 0;        /* ESP32 MUST sync before 2nd 'set' */               \
-  *set_full = clock;      /* Set clock high */                                 \
-  *clear_full = rgbclock; /* Clear RGB data + clock */                         \
+#define PEW                                                      \
+  *set = *data++;         /* Set RGB data high */                \
+  *clear_full = 0;        /* ESP32 MUST sync before 2nd 'set' */ \
+  *set_full = clock;      /* Set clock high */                   \
+  *clear_full = rgbclock; /* Clear RGB data + clock */           \
   ///< Bitbang one set of RGB data bits to matrix
 #endif // end !ESP32S3/S2
 
@@ -79,11 +79,11 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 // actually atomic. If two writes are made in quick succession, the second
 // has no effect. One option is NOPs, other is to write a 0 (no effect) to
 // the opposing register (set vs clear) to synchronize the next write.
-#define PEW                                                                    \
-  *set = (*data++) << shift; /* Set RGB data high */                           \
-  *clear_full = 0;           /* ESP32 MUST sync before 2nd 'set' */            \
-  *set = clock;              /* Set clock high */                              \
-  *clear_full = rgbclock;    /* Clear RGB data + clock */                      \
+#define PEW                                                         \
+  *set = (*data++) << shift; /* Set RGB data high */                \
+  *clear_full = 0;           /* ESP32 MUST sync before 2nd 'set' */ \
+  *set = clock;              /* Set clock high */                   \
+  *clear_full = rgbclock;    /* Clear RGB data + clock */           \
   ///< Bitbang one set of RGB data bits to matrix
 
 #endif // END CIRCUITPYTHON ------------------------------------------------

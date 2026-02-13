@@ -25,7 +25,7 @@
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
 
 static const struct {
-  volatile uint32_t *base; ///< GPIO base address for pin
+  volatile uint32_t* base; ///< GPIO base address for pin
   uint8_t bit;             ///< GPIO bit number for pin (0-31)
 } _PM_teensyPins[] = {
     {&CORE_PIN0_PORTREG, CORE_PIN0_BIT},
@@ -82,21 +82,21 @@ static const struct {
 #define _PM_wordOffset(pin) (1 - (_PM_teensyPins[pin].bit / 16))
 #endif
 
-#define _PM_portOutRegister(pin) (void *)_PM_teensyPins[pin].base
+#define _PM_portOutRegister(pin) (void*)_PM_teensyPins[pin].base
 
-#define _PM_portSetRegister(pin)                                               \
-  ((volatile uint32_t *)_PM_teensyPins[pin].base + _PM_SET_OFFSET)
+#define _PM_portSetRegister(pin) \
+  ((volatile uint32_t*)_PM_teensyPins[pin].base + _PM_SET_OFFSET)
 
-#define _PM_portClearRegister(pin)                                             \
-  ((volatile uint32_t *)_PM_teensyPins[pin].base + _PM_CLEAR_OFFSET)
+#define _PM_portClearRegister(pin) \
+  ((volatile uint32_t*)_PM_teensyPins[pin].base + _PM_CLEAR_OFFSET)
 
-#define _PM_portToggleRegister(pin)                                            \
-  ((volatile uint32_t *)_PM_teensyPins[pin].base + _PM_TOGGLE_OFFSET)
+#define _PM_portToggleRegister(pin) \
+  ((volatile uint32_t*)_PM_teensyPins[pin].base + _PM_TOGGLE_OFFSET)
 
 // As written, because it's tied to a specific timer right now, the
 // Arduino lib only permits one instance of the Protomatter_core struct,
 // which it sets up when calling begin().
-void *_PM_protoPtr = NULL;
+void* _PM_protoPtr = NULL;
 
 // Code as written works with the Periodic Interrupt Timer directly,
 // rather than using the Teensy IntervalTimer library, reason being we
@@ -112,14 +112,14 @@ void *_PM_protoPtr = NULL;
 
 // Interrupt service routine for Periodic Interrupt Timer
 static void _PM_timerISR(void) {
-  IMXRT_PIT_CHANNEL_t *timer = _PM_TIMER_DEFAULT;
+  IMXRT_PIT_CHANNEL_t* timer = _PM_TIMER_DEFAULT;
   _PM_row_handler(_PM_protoPtr); // In core.c
   timer->TFLG = 1;               // Clear timer interrupt
 }
 
 // Initialize, but do not start, timer.
-void _PM_timerInit(Protomatter_core *core) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
+void _PM_timerInit(Protomatter_core* core) {
+  IMXRT_PIT_CHANNEL_t* timer = (IMXRT_PIT_CHANNEL_t*)core->timer;
   CCM_CCGR1 |= CCM_CCGR1_PIT(CCM_CCGR_ON); // Enable clock signal to PIT
   PIT_MCR = 1;                             // Enable PIT
   timer->TCTRL = 0;                        // Disable timer and interrupt
@@ -130,8 +130,8 @@ void _PM_timerInit(Protomatter_core *core) {
 }
 
 // Set timer period, initialize count value to zero, enable timer.
-inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
+inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
+  IMXRT_PIT_CHANNEL_t* timer = (IMXRT_PIT_CHANNEL_t*)core->timer;
   timer->TCTRL = 0;      // Disable timer and interrupt
   timer->LDVAL = period; // Set load value
   // timer->CVAL = period; // And current value (just in case?)
@@ -141,24 +141,24 @@ inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
+inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
+  IMXRT_PIT_CHANNEL_t* timer = (IMXRT_PIT_CHANNEL_t*)core->timer;
   return (timer->LDVAL - timer->CVAL);
 }
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-uint32_t _PM_timerStop(Protomatter_core *core) {
-  IMXRT_PIT_CHANNEL_t *timer = (IMXRT_PIT_CHANNEL_t *)core->timer;
+uint32_t _PM_timerStop(Protomatter_core* core) {
+  IMXRT_PIT_CHANNEL_t* timer = (IMXRT_PIT_CHANNEL_t*)core->timer;
   timer->TCTRL = 0; // Disable timer and interrupt
   return _PM_timerGetCount(core);
 }
 
-#define _PM_clockHoldHigh                                                      \
-  asm("nop; nop; nop; nop; nop; nop; nop;");                                   \
+#define _PM_clockHoldHigh                    \
+  asm("nop; nop; nop; nop; nop; nop; nop;"); \
   asm("nop; nop; nop; nop; nop; nop; nop;");
-#define _PM_clockHoldLow                                                       \
-  asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");                    \
+#define _PM_clockHoldLow                                    \
+  asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;"); \
   asm("nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;");
 
 #define _PM_chunkSize 1 ///< DON'T unroll loop, Teensy 4 is SO FAST
