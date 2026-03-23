@@ -31,6 +31,7 @@
 // see if the same should be applied!
 
 #include "soc/gpio_periph.h"
+#include "soc/gpio_struct.h"
 
 // As currently written, only one instance of the Protomatter_core struct
 // is allowed, set up when calling begin()...so it's just a global here:
