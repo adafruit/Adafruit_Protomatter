@@ -97,6 +97,37 @@ ProtomatterStatus _PM_init(Protomatter_core* core, uint16_t bitWidth,
                            uint8_t addrCount, uint8_t* addrList,
                            uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
                            bool doubleBuffer, int8_t tile, void* timer) {
+  // Preserve the existing C entry point for CircuitPython and other callers.
+  return _PM_init_with_row_address_mode(core, bitWidth, bitDepth, rgbCount,
+                                        rgbList, addrCount, addrList, clockPin,
+                                        latchPin, oePin, doubleBuffer, tile,
+                                        timer, PROTOMATTER_ROW_ADDRESS_BINARY);
+}
+
+/**
+ * @brief Initialize a matrix with an explicit row selection protocol.
+ * @param core Pointer to Protomatter_core structure.
+ * @param bitWidth Matrix chain width in pixels.
+ * @param bitDepth Number of color bitplanes.
+ * @param rgbCount Number of parallel RGB pin sets.
+ * @param rgbList Six RGB pins per parallel set, as in _PM_init().
+ * @param addrCount Log2 of the number of row pairs (5 for a 64-row panel).
+ * @param addrList Binary address pins, or exactly three pins A, B, C for ABC.
+ * @param clockPin Pixel clock pin.
+ * @param latchPin Pixel data latch pin.
+ * @param oePin Active-low output enable pin.
+ * @param doubleBuffer Whether to allocate two display buffers.
+ * @param tile Signed vertical tile count, as in _PM_init().
+ * @param timer Timer peripheral, or NULL for the default.
+ * @param rowAddressMode Row selection protocol. ABC does not change the height
+ *                      specified by addrCount; it changes the pin list length.
+ * @return Initialization status, as in _PM_init().
+ */
+ProtomatterStatus _PM_init_with_row_address_mode(
+    Protomatter_core* core, uint16_t bitWidth, uint8_t bitDepth,
+    uint8_t rgbCount, uint8_t* rgbList, uint8_t addrCount, uint8_t* addrList,
+    uint8_t clockPin, uint8_t latchPin, uint8_t oePin, bool doubleBuffer,
+    int8_t tile, void* timer, ProtomatterRowAddressMode rowAddressMode) {
   if (!core) {
     return PROTOMATTER_ERR_ARG;
   }
@@ -141,6 +172,12 @@ ProtomatterStatus _PM_init(Protomatter_core* core, uint16_t bitWidth,
   core->chainBits = bitWidth * abs(tile); // Total matrix chain bits
   core->numPlanes = bitDepth;
   core->parallel = rgbCount;
+  core->numRowPairs = 1 << addrCount;
+  core->rowAddressMode = rowAddressMode;
+  if (rowAddressMode == PROTOMATTER_ROW_ADDRESS_ABC) {
+    // Height and physical pin count are independent for serial row drivers.
+    addrCount = 3;
+  }
   core->numAddressLines = addrCount;
   core->clockPin = clockPin;
   core->latch.pin = latchPin;
@@ -247,7 +284,6 @@ ProtomatterStatus _PM_begin(Protomatter_core* core) {
 #endif // end RGB+clock PORT check & bytesPerElement calc
 
   // Planning for screen data allocation...
-  core->numRowPairs = 1 << core->numAddressLines;
   uint8_t chunks = (core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize;
   uint16_t columns = chunks * _PM_chunkSize; // Padded matrix width
   uint32_t screenBytes =
@@ -382,14 +418,15 @@ ProtomatterStatus _PM_begin(Protomatter_core* core) {
   core->addrPortToggle = _PM_portToggleRegister(core->addr[0].pin);
   core->singleAddrPort = 1;
 #endif
-  core->prevRow = (1 << core->numAddressLines) - 2;
+  core->prevRow = core->numRowPairs - 2;
   for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
        line++, bit <<= 1) {
     core->addr[line].setReg = _PM_portSetRegister(core->addr[line].pin);
     core->addr[line].clearReg = _PM_portClearRegister(core->addr[line].pin);
     core->addr[line].bit = _PM_portBitMask(core->addr[line].pin);
     _PM_pinOutput(core->addr[line].pin);
-    if (core->prevRow & bit) {
+    if (core->rowAddressMode == PROTOMATTER_ROW_ADDRESS_BINARY &&
+        (core->prevRow & bit)) {
       _PM_pinHigh(core->addr[line].pin);
     } else {
       _PM_pinLow(core->addr[line].pin);
@@ -450,6 +487,25 @@ void _PM_stop(Protomatter_core* core) {
   }
 }
 
+// ABC serial row selection: gate B, present the row bit on C, pulse A.
+// Two-microsecond setup/hold intervals accommodate slow row-switch chips.
+// Shift only when moving to another row, never between color bitplanes.
+IRAM_ATTR static void _PM_shiftRow(Protomatter_core* core, bool firstRow) {
+  _PM_setReg(core->addr[1]);
+  _PM_delayMicroseconds(2);
+  if (firstRow) {
+    _PM_setReg(core->addr[2]);
+  } else {
+    _PM_clearReg(core->addr[2]);
+  }
+  _PM_delayMicroseconds(2);
+  _PM_setReg(core->addr[0]);
+  _PM_delayMicroseconds(2);
+  _PM_clearReg(core->addr[0]);
+  _PM_delayMicroseconds(2);
+  _PM_clearReg(core->addr[1]);
+}
+
 void _PM_resume(Protomatter_core* core) {
   if ((core)) {
     // Init plane & row to max values so they roll over on 1st interrupt
@@ -462,11 +518,25 @@ void _PM_resume(Protomatter_core* core) {
     for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
          line++, bit <<= 1) {
       _PM_pinOutput(core->addr[line].pin);
-      if (core->prevRow & bit) {
+      if (core->rowAddressMode == PROTOMATTER_ROW_ADDRESS_BINARY &&
+          (core->prevRow & bit)) {
         _PM_pinHigh(core->addr[line].pin);
       } else {
         _PM_pinLow(core->addr[line].pin);
       }
+    }
+
+    if (core->rowAddressMode == PROTOMATTER_ROW_ADDRESS_ABC) {
+      _PM_setReg(core->oe);
+      // Clear both banks, then seed two active bits one row-bank apart.
+      // Finish on the last row so the first row-zero shift selects row zero.
+      for (uint16_t row = 0; row < 2 * core->numRowPairs; row++) {
+        _PM_shiftRow(core, false);
+      }
+      for (uint16_t row = 0; row < 2 * core->numRowPairs; row++) {
+        _PM_shiftRow(core, row % core->numRowPairs == 0);
+      }
+      core->prevRow = core->numRowPairs - 1;
     }
 
     _PM_timerInit(core);        // Configure timer & any other periphs
@@ -519,43 +589,49 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core* core) {
   _PM_clearReg(core->latch);       // (split to add a few cycles)
 
   if (prevPlane == 0) { // Plane 0 just finished loading
-#if defined(_PM_portToggleRegister)
-    // If all address lines are on a single PORT (and bit toggle is
-    // available), do address line change all at once. Even doing all
-    // this math takes MUCH less time than the delays required when
-    // doing line-by-line changes.
-    if (core->singleAddrPort) {
-      // Make bitmasks of prior and new row bits
-      uint32_t priorBits = 0, newBits = 0;
-      for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
-           line++, bit <<= 1) {
-        if (core->row & bit) {
-          newBits |= core->addr[line].bit;
-        }
-        if (core->prevRow & bit) {
-          priorBits |= core->addr[line].bit;
-        }
+    if (core->rowAddressMode == PROTOMATTER_ROW_ADDRESS_ABC) {
+      if (core->row != core->prevRow) {
+        _PM_shiftRow(core, core->row == 0);
       }
-      *(volatile _PM_PORT_TYPE*)core->addrPortToggle = newBits ^ priorBits;
-      _PM_delayMicroseconds(_PM_ROW_DELAY);
     } else {
-#endif
-      // Configure row address lines individually, making changes
-      // (with delays) only where necessary.
-      for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
-           line++, bit <<= 1) {
-        if ((core->row & bit) != (core->prevRow & bit)) {
-          if (core->row & bit) { // Set addr line high
-            _PM_setReg(core->addr[line]);
-          } else { // Set addr line low
-            _PM_clearReg(core->addr[line]);
-          }
-          _PM_delayMicroseconds(_PM_ROW_DELAY);
-        }
-      }
 #if defined(_PM_portToggleRegister)
-    }
+      // If all address lines are on a single PORT (and bit toggle is
+      // available), do address line change all at once. Even doing all
+      // this math takes MUCH less time than the delays required when
+      // doing line-by-line changes.
+      if (core->singleAddrPort) {
+        // Make bitmasks of prior and new row bits
+        uint32_t priorBits = 0, newBits = 0;
+        for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
+             line++, bit <<= 1) {
+          if (core->row & bit) {
+            newBits |= core->addr[line].bit;
+          }
+          if (core->prevRow & bit) {
+            priorBits |= core->addr[line].bit;
+          }
+        }
+        *(volatile _PM_PORT_TYPE*)core->addrPortToggle = newBits ^ priorBits;
+        _PM_delayMicroseconds(_PM_ROW_DELAY);
+      } else {
 #endif
+        // Configure row address lines individually, making changes
+        // (with delays) only where necessary.
+        for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
+             line++, bit <<= 1) {
+          if ((core->row & bit) != (core->prevRow & bit)) {
+            if (core->row & bit) { // Set addr line high
+              _PM_setReg(core->addr[line]);
+            } else { // Set addr line low
+              _PM_clearReg(core->addr[line]);
+            }
+            _PM_delayMicroseconds(_PM_ROW_DELAY);
+          }
+        }
+#if defined(_PM_portToggleRegister)
+      }
+#endif
+    }
     core->prevRow = core->row;
   }
 
@@ -924,7 +1000,7 @@ static void _PM_resetFM6126A(Protomatter_core* core) {
   _PM_rgbState(core, 0); // Set all RGB low so port toggle can work
 }
 
-uint8_t _PM_duty = _PM_defaultDuty;
+uint8_t _PM_duty = _PM_defaultDuty; ///< RGB clock duty setting
 
 void _PM_setDuty(uint8_t d) {
   _PM_duty = (d > _PM_maxDuty) ? _PM_maxDuty : d;
