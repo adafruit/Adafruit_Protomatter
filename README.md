@@ -30,8 +30,9 @@ lines. For panels with A as row clock, B as shift enable and C as serial row
 data, pass `PROTOMATTER_ROW_ADDRESS_ABC` as the constructor's final argument.
 The `addrCount` argument still determines panel height (5 for 64 rows), but
 `addrList` contains exactly three pins in A, B, C order. See `abc_panel` for
-a dim scrolling-text example tested on MatrixPortal S3 with a 128x64
-FM6126A panel. The FM6126A pixel driver and a HUB75E connector label do not
+a dim scrolling-text example with the same board pin mappings as `simple`,
+including MatrixPortal M4 and S3. Hardware testing used MatrixPortal S3
+with a 128x64 FM6126A panel. The FM6126A pixel driver and a HUB75E label do not
 by themselves identify the row-selection protocol.
 
 Binary row addressing remains the default. Other matrix variants, such as
