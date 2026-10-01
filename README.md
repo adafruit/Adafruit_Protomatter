@@ -25,15 +25,18 @@ natively display full color and must be quickly refreshed by the driving
 microcontroller, basically PWM-ing the intermediate shades (this in addition
 to the row scanning that must be performed).
 
-There are a few peculiar RGB LED matrices that have the same physical
-connection but work a bit differently -- they might have only have three
-shift register chains rather than six, or might use a shift register for
-the row selection rather than a set of address lines. The code presented
-here DOES NOT support these matrix variants. Aim is to provide support for
-all HUB75 matrices in the Adafruit shop. Please don't submit pull requests
-for these other matrices as we have no means to test them. If you require
-this functionality, it's OK to create a fork of the code, which Git can
-help keep up-to-date with any future changes here!
+Some panels select rows through a shift register instead of binary address
+lines. For panels with A as row clock, B as shift enable and C as serial row
+data, pass `PROTOMATTER_ROW_ADDRESS_ABC` as the constructor's final argument.
+The `addrCount` argument still determines panel height (5 for 64 rows), but
+`addrList` contains exactly three pins in A, B, C order. See `abc_panel` for
+a dim scrolling-text example tested on MatrixPortal S3 with a 128x64
+FM6126A panel. The FM6126A pixel driver and a HUB75E connector label do not
+by themselves identify the row-selection protocol.
+
+Binary row addressing remains the default. Other matrix variants, such as
+panels with only three RGB shift register chains rather than six, are not
+supported.
 
 # Hardware Requirements and Jargon
 

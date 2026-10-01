@@ -251,10 +251,9 @@ static void _PM_timerInit(Protomatter_core* core) {
   desc.buffer = core->screenData;
   desc.next = NULL;
 
-  // Alloc DMA channel & connect it to LCD periph
-#if defined(CIRCUITPY)
+  // Allocate once: resume() reinitializes the peripheral, but the DMA channel
+  // remains connected. A second channel cannot claim the same LCD trigger.
   if (dma_chan == NULL) {
-#endif
     gdma_channel_alloc_config_t dma_chan_config = {
         .sibling_chan = NULL,
         .direction = GDMA_CHANNEL_DIRECTION_TX,
@@ -269,9 +268,7 @@ static void _PM_timerInit(Protomatter_core* core) {
         .psram_trans_align = 0,
     };
     gdma_set_transfer_ability(dma_chan, &ability);
-#if defined(CIRCUITPY)
   }
-#endif
   gdma_start(dma_chan, (intptr_t)&desc);
 
   // Enable TRANS_DONE interrupt. Note that we do NOT require nor install

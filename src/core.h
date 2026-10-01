@@ -31,6 +31,12 @@ typedef enum {
   PROTOMATTER_ERR_ARG,    // Bad input to function
 } ProtomatterStatus;
 
+/** Protocol used to select a pair of matrix rows. */
+typedef enum {
+  PROTOMATTER_ROW_ADDRESS_BINARY, ///< Parallel binary address on A through E
+  PROTOMATTER_ROW_ADDRESS_ABC ///< A clock, B shift enable, C serial row data
+} ProtomatterRowAddressMode;
+
 /** Struct for matrix control lines NOT related to RGB data or clock, i.e.
     latch, OE and address lines. RGB data and clock ("RGBC") are handled
     differently as they have specific requirements (and might use a toggle
@@ -81,8 +87,9 @@ typedef struct {
   uint8_t portOffset;            ///< Active 8- or 16-bit pos. in PORT
   uint8_t numPlanes;             ///< Display bitplanes (1 to 6)
   uint8_t numRowPairs;           ///< Addressable row pairs
-  int8_t tile;                   ///< Vertical tiling repetitions
-  bool doubleBuffer;             ///< 2X buffers for clean switchover
+  ProtomatterRowAddressMode rowAddressMode; ///< Row selection protocol
+  int8_t tile;                              ///< Vertical tiling repetitions
+  bool doubleBuffer;                        ///< 2X buffers for clean switchover
   bool singleAddrPort;           ///< If 1, all addr lines on same PORT
   volatile uint8_t activeBuffer; ///< Index of currently-displayed buf
   volatile uint8_t plane;        ///< Current bitplane (changes in ISR)
@@ -163,6 +170,12 @@ extern ProtomatterStatus _PM_init(Protomatter_core* core, uint16_t bitWidth,
                                   uint8_t* addrList, uint8_t clockPin,
                                   uint8_t latchPin, uint8_t oePin,
                                   bool doubleBuffer, int8_t tile, void* timer);
+
+extern ProtomatterStatus _PM_init_with_row_address_mode(
+    Protomatter_core* core, uint16_t bitWidth, uint8_t bitDepth,
+    uint8_t rgbCount, uint8_t* rgbList, uint8_t addrCount, uint8_t* addrList,
+    uint8_t clockPin, uint8_t latchPin, uint8_t oePin, bool doubleBuffer,
+    int8_t tile, void* timer, ProtomatterRowAddressMode rowAddressMode);
 
 /*!
   @brief  Allocate display buffers and populate additional elements of a
