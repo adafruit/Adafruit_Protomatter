@@ -3,9 +3,8 @@
 
 #pragma once
 
-#include <Adafruit_GFX.h>
-
 #include "core.h"
+#include <Adafruit_GFX.h>
 
 /*!
     @brief  Class representing the Arduino-facing side of the Protomatter
@@ -13,11 +12,69 @@
             the drawing operations.
 */
 class Adafruit_Protomatter : public GFXcanvas16 {
- public:
+public:
+  /*!
+    @brief  Adafruit_Protomatter constructor.
+    @param  bitWidth      Total width of RGB matrix chain, in pixels.
+                          Usu. some multiple of 32, but maybe exceptions.
+    @param  bitDepth      Color "depth" in bitplanes, determines range of
+                          shades of red, green and blue. e.g. passing 4
+                          bits = 16 shades ea. R,G,B = 16x16x16 = 4096
+                          colors. Max is 6, since the GFX library works
+                          with "565" RGB colors (6 bits green, 5 red/blue).
+    @param  rgbCount      Number of "sets" of RGB data pins, each set
+                          containing 6 pins (2 ea. R,G,B). Typically 1,
+                          indicating a single matrix (or matrix chain).
+                          In theory (but not yet extensively tested),
+                          multiple sets of pins can be driven in parallel,
+                          up to 5 on some devices (if the hardware design
+                          provides all those bits on one PORT).
+    @param  rgbList       A uint8_t array of pins (Arduino pin numbering),
+                          6X the prior rgbCount value, corresponding to
+                          the 6 output color bits for a matrix (or chain).
+                          Order is upper-half red, green, blue, lower-half
+                          red, green blue (repeat for each add'l chain).
+                          All the RGB pins (plus the clock pin below on
+                          some architectures) MUST be on the same PORT
+                          register. It's recommended (but not required)
+                          that all RGB pins (and clock depending on arch)
+                          be within the same byte of a PORT (but do not
+                          need to be sequential or contiguous within that
+                          byte) for more efficient RAM utilization. For
+                          two concurrent chains, same principle but 16-bit
+                          word instead of byte.
+    @param  addrCount     Number of row address lines required of matrix.
+                          Total pixel height is then 2 x 2^addrCount, e.g.
+                          32-pixel-tall matrices have 4 row address lines.
+                          In ABC mode, use 5 for 64 rows even though
+                          addrList contains only three pins.
+    @param  addrList      A uint8_t array of pins (Arduino pin numbering),
+                          one per row address line in binary mode. In ABC
+                          mode, exactly three: A clock, B enable, C data.
+    @param  clockPin      RGB clock pin (Arduino pin #).
+    @param  latchPin      RGB data latch pin (Arduino pin #).
+    @param  oePin         Output enable pin (Arduino pin #), active low.
+    @param  doubleBuffer  If true, two matrix buffers are allocated,
+                          so changing display contents doesn't introduce
+                          artifacts mid-conversion. Requires ~2X RAM.
+    @param  tile          If multiple matrices are chained and stacked
+                          vertically (rather than or in addition to
+                          horizontally), the number of vertical tiles is
+                          specified here. Positive values indicate a
+                          "progressive" arrangement (always left-to-right),
+                          negative for a "serpentine" arrangement (alternating
+                          180 degree orientation). Horizontal tiles are implied
+                          in the 'bitWidth' argument.
+    @param  timer         Pointer to timer peripheral or timer-related
+                          struct (architecture-dependent), or NULL to
+                          use a default timer ID (also arch-dependent).
+    @param rowAddressMode Row protocol. Defaults to binary A-E addressing.
+                          Use PROTOMATTER_ROW_ADDRESS_ABC for serial rows.
+  */
   Adafruit_Protomatter(uint16_t bitWidth, uint8_t bitDepth, uint8_t rgbCount,
-                       uint8_t* rgbList, uint8_t addrCount, uint8_t* addrList,
+                       uint8_t *rgbList, uint8_t addrCount, uint8_t *addrList,
                        uint8_t clockPin, uint8_t latchPin, uint8_t oePin,
-                       bool doubleBuffer, int8_t tile = 1, void* timer = NULL,
+                       bool doubleBuffer, int8_t tile = 1, void *timer = NULL,
                        ProtomatterRowAddressMode rowAddressMode =
                            PROTOMATTER_ROW_ADDRESS_BINARY);
   ~Adafruit_Protomatter(void);
@@ -45,16 +102,12 @@ class Adafruit_Protomatter : public GFXcanvas16 {
   /*!
     @brief Disable (but do not deallocate) a Protomatter matrix.
   */
-  void stop(void) {
-    _PM_stop(&core);
-  }
+  void stop(void) { _PM_stop(&core); }
 
   /*!
     @brief Resume a previously-stopped matrix.
   */
-  void resume(void) {
-    _PM_resume(&core);
-  }
+  void resume(void) { _PM_resume(&core); }
 
   /*!
     @brief  Returns current value of frame counter and resets its value
@@ -106,13 +159,11 @@ class Adafruit_Protomatter : public GFXcanvas16 {
              varies by architecture and CPU speed, if supported at all.
              e.g. SAMD51 @ 120 MHz supports 0 (~50% duty) through 2 (~75%).
   */
-  void setDuty(uint8_t d) {
-    _PM_setDuty(d);
-  };
+  void setDuty(uint8_t d) { _PM_setDuty(d); };
 
- private:
+private:
   Protomatter_core core;             // Underlying C struct
-  void convert_byte(uint8_t* dest);  // GFXcanvas16-to-matrix
-  void convert_word(uint16_t* dest); // conversion functions
-  void convert_long(uint32_t* dest); // for 8/16/32 bit bufs
+  void convert_byte(uint8_t *dest);  // GFXcanvas16-to-matrix
+  void convert_word(uint16_t *dest); // conversion functions
+  void convert_long(uint32_t *dest); // for 8/16/32 bit bufs
 };
