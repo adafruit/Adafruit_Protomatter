@@ -63,8 +63,12 @@ extern void _PM_row_handler(Protomatter_core* core); // In core.c
 // (RAM-resident functions). This isn't really the ISR itself, but a
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
+// Ignore pending alarms while stop()/resume() reinitializes the peripheral.
+static volatile bool _PM_esp32timerRunning = false;
 IRAM_ATTR static void _PM_esp32timerCallback(void) {
-  _PM_row_handler(_PM_protoPtr); // In core.c
+  if (_PM_esp32timerRunning) {
+    _PM_row_handler(_PM_protoPtr); // In core.c
+  }
 }
 
 // Set timer period, initialize count value to zero, enable timer.
@@ -79,11 +83,13 @@ IRAM_ATTR inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
   timerAlarm(timer, period ? period : 1, true, 0);
   timerStart(timer);
 #endif
+  _PM_esp32timerRunning = true;
 }
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
 IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core* core) {
+  _PM_esp32timerRunning = false;
   timerStop((hw_timer_t*)core->timer);
   return _PM_timerGetCount(core);
 }

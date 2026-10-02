@@ -162,6 +162,12 @@ IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
   // is the state of the timer immediately after DMA started:
 #if defined(ARDUINO)
   dmaSetupTime = (uint32_t)timerRead((hw_timer_t*)core->timer);
+  // Finish clocking before another callback can latch or stop the panel.
+  // Keep this outside dmaSetupTime: the estimate already includes transfer
+  // time.
+  while (LCD_CAM.lcd_user.lcd_start) {
+  }
+  esp_rom_delay_us(1);
 #elif defined(CIRCUITPY)
   uint64_t value;
 #if (ESP_IDF_VERSION_MAJOR >= 5)
