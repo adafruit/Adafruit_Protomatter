@@ -85,7 +85,7 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
 #define _PM_minMinPeriod \
   (200 + (uint32_t)core->chainBits * 40 * LCD_CLK_PRESCALE / 160)
 
-#if (ESP_IDF_VERSION_MAJOR == 5)
+#if (ESP_IDF_VERSION_MAJOR >= 5)
 #include <esp_private/periph_ctrl.h>
 #else
 #include <driver/periph_ctrl.h>
@@ -164,7 +164,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
   dmaSetupTime = (uint32_t)timerRead((hw_timer_t*)core->timer);
 #elif defined(CIRCUITPY)
   uint64_t value;
-#if (ESP_IDF_VERSION_MAJOR == 5)
+#if (ESP_IDF_VERSION_MAJOR >= 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   gptimer_get_raw_count(timer, &value);
 #else
@@ -254,20 +254,28 @@ static void _PM_timerInit(Protomatter_core* core) {
   // Allocate once: resume() reinitializes the peripheral, but the DMA channel
   // remains connected. A second channel cannot claim the same LCD trigger.
   if (dma_chan == NULL) {
+#if ESP_IDF_VERSION_MAJOR >= 6
+    gdma_channel_alloc_config_t dma_chan_config = {
+        .flags = {.isr_cache_safe = 0}};
+    gdma_new_ahb_channel(&dma_chan_config, &dma_chan, NULL);
+#else
     gdma_channel_alloc_config_t dma_chan_config = {
         .sibling_chan = NULL,
         .direction = GDMA_CHANNEL_DIRECTION_TX,
         .flags = {.reserve_sibling = 0}};
     gdma_new_channel(&dma_chan_config, &dma_chan);
+#endif
     gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
     gdma_strategy_config_t strategy_config = {.owner_check = false,
                                               .auto_update_desc = false};
     gdma_apply_strategy(dma_chan, &strategy_config);
+#if ESP_IDF_VERSION_MAJOR < 6
     gdma_transfer_ability_t ability = {
         .sram_trans_align = 0,
         .psram_trans_align = 0,
     };
     gdma_set_transfer_ability(dma_chan, &ability);
+#endif
   }
   gdma_start(dma_chan, (intptr_t)&desc);
 

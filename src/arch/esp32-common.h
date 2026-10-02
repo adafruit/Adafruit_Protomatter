@@ -31,6 +31,7 @@
 // see if the same should be applied!
 
 #include "soc/gpio_periph.h"
+#include "soc/gpio_struct.h"
 
 // As currently written, only one instance of the Protomatter_core struct
 // is allowed, set up when calling begin()...so it's just a global here:
@@ -118,7 +119,7 @@ void _PM_esp32commonTimerInit(Protomatter_core* core) {
 #include "driver/gpio.h"
 #include "esp_idf_version.h"
 #include "hal/timer_ll.h"
-#if ESP_IDF_VERSION_MAJOR == 5
+#if ESP_IDF_VERSION_MAJOR >= 5
 #include "driver/gptimer.h"
 #include "esp_memory_utils.h"
 #else
@@ -135,17 +136,29 @@ void _PM_esp32commonTimerInit(Protomatter_core* core) {
 // (RAM-resident functions). This isn't really the ISR itself, but a
 // callback invoked by the real ISR (in arduino-esp32's esp32-hal-timer.c)
 // which takes care of interrupt status bits & such.
-#if ESP_IDF_VERSION_MAJOR == 5
+#if ESP_IDF_VERSION_MAJOR >= 5
 // This is "private" for now. We link to it anyway because there isn't a more
 // public method yet.
 extern bool spi_flash_cache_enabled(void);
+
+// Use one-shot alarms: an auto-reloading alarm can fire again while the
+// previous callback is still preparing the next bitplane.
+static IRAM_ATTR void _PM_esp32timerArm(gptimer_handle_t timer,
+                                        uint32_t period) {
+  gptimer_alarm_config_t alarm_config = {
+      .alarm_count = period ? period : 1,
+      .flags.auto_reload_on_alarm = false,
+  };
+  gptimer_set_raw_count(timer, 0);
+  gptimer_set_alarm_action(timer, &alarm_config);
+}
 static IRAM_ATTR bool _PM_esp32timerCallback(
     gptimer_handle_t timer, const gptimer_alarm_event_data_t* event,
     void* unused) {
 #else
 static IRAM_ATTR bool _PM_esp32timerCallback(void* unused) {
 #endif
-#if ESP_IDF_VERSION_MAJOR == 5
+#if ESP_IDF_VERSION_MAJOR >= 5
   // Some functions and data used by _PM_row_handler may exist in external flash
   // or PSRAM so we can't run them when their access is disabled (through the
   // flash cache.)
@@ -154,21 +167,24 @@ static IRAM_ATTR bool _PM_esp32timerCallback(void* unused) {
   if (_PM_protoPtr) {
 #endif
     _PM_row_handler(_PM_protoPtr); // In core.c
+#if ESP_IDF_VERSION_MAJOR >= 5
+  } else if (_PM_protoPtr) {
+    // Keep retrying while flash/PSRAM is unavailable. A one-shot alarm
+    // otherwise stays disabled after a skipped scan callback.
+    gptimer_stop(timer);
+    _PM_esp32timerArm(timer, event->alarm_value);
+    gptimer_start(timer);
+#endif
   }
   return false;
 };
 
 // Set timer period, initialize count value to zero, enable timer.
-#if (ESP_IDF_VERSION_MAJOR == 5)
+#if (ESP_IDF_VERSION_MAJOR >= 5)
 IRAM_ATTR void _PM_timerStart(Protomatter_core* core, uint32_t period) {
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
 
-  gptimer_alarm_config_t alarm_config = {
-      .reload_count = 0,     // counter will reload with 0 on alarm event
-      .alarm_count = period, // period in ms
-      .flags.auto_reload_on_alarm = true, // enable auto-reload
-  };
-  gptimer_set_alarm_action(timer, &alarm_config);
+  _PM_esp32timerArm(timer, period);
   gptimer_start(timer);
 }
 #else
@@ -185,7 +201,7 @@ IRAM_ATTR void _PM_timerStart(Protomatter_core* core, uint32_t period) {
 // Disable timer and return current count value.
 // Timer must be previously initialized.
 IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core* core) {
-#if (ESP_IDF_VERSION_MAJOR == 5)
+#if (ESP_IDF_VERSION_MAJOR >= 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   gptimer_stop(timer);
 #else
@@ -197,7 +213,7 @@ IRAM_ATTR uint32_t _PM_timerStop(Protomatter_core* core) {
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core* core) {
-#if (ESP_IDF_VERSION_MAJOR == 5)
+#if (ESP_IDF_VERSION_MAJOR >= 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   uint64_t raw_count;
   gptimer_get_raw_count(timer, &raw_count);
@@ -216,7 +232,7 @@ IRAM_ATTR uint32_t _PM_timerGetCount(Protomatter_core* core) {
 // set up its own special peripherals, then call this.
 static void _PM_esp32commonTimerInit(Protomatter_core* core) {
 
-#if (ESP_IDF_VERSION_MAJOR == 5)
+#if (ESP_IDF_VERSION_MAJOR >= 5)
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
   gptimer_event_callbacks_t cbs = {
       .on_alarm = _PM_esp32timerCallback, // register user callback
