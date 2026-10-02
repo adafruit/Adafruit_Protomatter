@@ -17,7 +17,7 @@
 
 #pragma once
 
-#if defined(__SAMD51__) || defined(SAM_D5X_E5X) || defined(_SAMD21_) ||        \
+#if defined(__SAMD51__) || defined(SAM_D5X_E5X) || defined(_SAMD21_) || \
     defined(SAMD21)
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
@@ -47,7 +47,7 @@
 // Because it's tied to a specific timer right now, there can be only
 // one instance of the Protomatter_core struct. The Arduino library
 // sets up this pointer when calling begin().
-void *_PM_protoPtr = NULL;
+void* _PM_protoPtr = NULL;
 
 // Timer interrupt service routine
 void _PM_IRQ_HANDLER(void) {
@@ -80,11 +80,11 @@ void _PM_IRQ_HANDLER(void) {
 
 // As currently implemented, there can be only one instance of the
 // Protomatter_core struct. This pointer is set up when starting the matrix.
-void *_PM_protoPtr = NULL;
+void* _PM_protoPtr = NULL;
 
 // Timer interrupt service routine
 void _PM_IRQ_HANDLER(void) {
-  ((Tc *)(((Protomatter_core *)_PM_protoPtr)->timer))->COUNT16.INTFLAG.reg =
+  ((Tc*)(((Protomatter_core*)_PM_protoPtr)->timer))->COUNT16.INTFLAG.reg =
       TC_INTFLAG_OVF;
   _PM_row_handler(_PM_protoPtr); // In core.c
 }

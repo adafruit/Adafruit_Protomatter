@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if defined(ARDUINO_ARCH_RP2040) || defined(PICO_BOARD) ||                     \
+#if defined(ARDUINO_ARCH_RP2040) || defined(PICO_BOARD) || \
     defined(__RP2040__) || defined(__RP2350__)
 
 #include "../../hardware_pwm/include/hardware/pwm.h"
@@ -84,7 +84,7 @@ static void _PM_timerISR(void);
 #endif
 
 // Initialize, but do not start, timer.
-void _PM_timerInit(Protomatter_core *core) {
+void _PM_timerInit(Protomatter_core* core) {
 #if _PM_CLOCK_PWM
   // Enable PWM wrap interrupt
   pwm_clear_irq(_PM_PWM_SLICE);
@@ -142,7 +142,7 @@ int _PM_pwm_slice;
 #endif // end PWM/alarm
 
 // Initialize, but do not start, timer.
-void _PM_timerInit(Protomatter_core *core) {
+void _PM_timerInit(Protomatter_core* core) {
 #if _PM_CLOCK_PWM
   _PM_pwm_slice = (int)core->timer & 0xff;
   // Enable PWM wrap interrupt
@@ -165,10 +165,10 @@ void _PM_timerInit(Protomatter_core *core) {
 // 'pin' here is GPXX #
 #define _PM_portBitMask(pin) (1UL << pin)
 // Same for these -- using GPXX #
-#define _PM_pinOutput(pin)                                                     \
-  {                                                                            \
-    gpio_init(pin);                                                            \
-    gpio_set_dir(pin, GPIO_OUT);                                               \
+#define _PM_pinOutput(pin)       \
+  {                              \
+    gpio_init(pin);              \
+    gpio_set_dir(pin, GPIO_OUT); \
   }
 #define _PM_pinLow(pin) gpio_clr_mask(1UL << pin)
 #define _PM_pinHigh(pin) gpio_set_mask(1UL << pin)
@@ -179,10 +179,10 @@ void _PM_timerInit(Protomatter_core *core) {
 
 #endif // end CIRCUITPY
 
-#define _PM_portOutRegister(pin) ((void *)&sio_hw->gpio_out)
-#define _PM_portSetRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_set)
-#define _PM_portClearRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_clr)
-#define _PM_portToggleRegister(pin) ((volatile uint32_t *)&sio_hw->gpio_togl)
+#define _PM_portOutRegister(pin) ((void*)&sio_hw->gpio_out)
+#define _PM_portSetRegister(pin) ((volatile uint32_t*)&sio_hw->gpio_set)
+#define _PM_portClearRegister(pin) ((volatile uint32_t*)&sio_hw->gpio_clr)
+#define _PM_portToggleRegister(pin) ((volatile uint32_t*)&sio_hw->gpio_togl)
 
 #if !_PM_CLOCK_PWM
 // Unlike timers on other devices, on RP2040 you don't reset a counter to
@@ -194,7 +194,7 @@ static volatile uint32_t _PM_timerSave;
 // Because it's tied to a specific timer right now, there can be only
 // one instance of the Protomatter_core struct. The Arduino library
 // sets up this pointer when calling begin().
-void *_PM_protoPtr = NULL;
+void* _PM_protoPtr = NULL;
 
 #if _PM_CLOCK_PWM // Use PWM for timing
 static void _PM_PWM_ISR(void) {
@@ -209,7 +209,7 @@ static void _PM_timerISR(void) {
 #endif
 
 // Set timer period and enable timer.
-inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
+inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
 #if _PM_CLOCK_PWM
   pwm_set_counter(_PM_PWM_SLICE, 0);
   pwm_set_wrap(_PM_PWM_SLICE, period);
@@ -223,7 +223,7 @@ inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
+inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
 #if _PM_CLOCK_PWM
   return pwm_get_counter(_PM_PWM_SLICE);
 #else
@@ -233,7 +233,7 @@ inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-uint32_t _PM_timerStop(Protomatter_core *core) {
+uint32_t _PM_timerStop(Protomatter_core* core) {
 #if _PM_CLOCK_PWM
   pwm_set_enabled(_PM_PWM_SLICE, false);
 #else

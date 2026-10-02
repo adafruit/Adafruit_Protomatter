@@ -25,9 +25,9 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
 
-#define _PM_portOutRegister(pin) (volatile uint32_t *)&GPIO.out
-#define _PM_portSetRegister(pin) (volatile uint32_t *)&GPIO.out_w1ts
-#define _PM_portClearRegister(pin) (volatile uint32_t *)&GPIO.out_w1tc
+#define _PM_portOutRegister(pin) (volatile uint32_t*)&GPIO.out
+#define _PM_portSetRegister(pin) (volatile uint32_t*)&GPIO.out_w1ts
+#define _PM_portClearRegister(pin) (volatile uint32_t*)&GPIO.out_w1tc
 
 #define _PM_portBitMask(pin) (1U << ((pin) & 31))
 
@@ -46,8 +46,8 @@
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
 // This function is the same on all ESP32 parts EXCEPT S3.
-IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  return (uint32_t)timerRead((hw_timer_t *)core->timer);
+IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
+  return (uint32_t)timerRead((hw_timer_t*)core->timer);
 }
 
 #elif defined(CIRCUITPY) // COMPILING FOR CIRCUITPYTHON --------------------

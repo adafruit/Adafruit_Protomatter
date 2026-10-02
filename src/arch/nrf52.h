@@ -23,18 +23,18 @@
 
 // digitalPinToPort, g_ADigitalPinMap[] are Arduino specific:
 
-void *_PM_portOutRegister(uint32_t pin) {
-  NRF_GPIO_Type *port = digitalPinToPort(pin);
+void* _PM_portOutRegister(uint32_t pin) {
+  NRF_GPIO_Type* port = digitalPinToPort(pin);
   return &port->OUT;
 }
 
-void *_PM_portSetRegister(uint32_t pin) {
-  NRF_GPIO_Type *port = digitalPinToPort(pin);
+void* _PM_portSetRegister(uint32_t pin) {
+  NRF_GPIO_Type* port = digitalPinToPort(pin);
   return &port->OUTSET;
 }
 
-void *_PM_portClearRegister(uint32_t pin) {
-  NRF_GPIO_Type *port = digitalPinToPort(pin);
+void* _PM_portClearRegister(uint32_t pin) {
+  NRF_GPIO_Type* port = digitalPinToPort(pin);
   return &port->OUTCLR;
 }
 
@@ -51,7 +51,7 @@ void *_PM_portClearRegister(uint32_t pin) {
 // Because it's tied to a specific timer right now, there can be only
 // one instance of the Protomatter_core struct. The Arduino library
 // sets up this pointer when calling begin().
-void *_PM_protoPtr = NULL;
+void* _PM_protoPtr = NULL;
 
 // Arduino implementation is tied to a specific timer/counter,
 // Partly because IRQs must be declared at compile-time.
@@ -79,22 +79,22 @@ void _PM_IRQ_HANDLER(void) {
 
 #include "nrf_gpio.h"
 
-volatile uint32_t *_PM_portOutRegister(uint32_t pin) {
-  NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+volatile uint32_t* _PM_portOutRegister(uint32_t pin) {
+  NRF_GPIO_Type* port = nrf_gpio_pin_port_decode(&pin);
   return &port->OUT;
 }
 
-volatile uint32_t *_PM_portSetRegister(uint32_t pin) {
-  NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+volatile uint32_t* _PM_portSetRegister(uint32_t pin) {
+  NRF_GPIO_Type* port = nrf_gpio_pin_port_decode(&pin);
   return &port->OUTSET;
 }
 
-volatile uint32_t *_PM_portClearRegister(uint32_t pin) {
-  NRF_GPIO_Type *port = nrf_gpio_pin_port_decode(&pin);
+volatile uint32_t* _PM_portClearRegister(uint32_t pin) {
+  NRF_GPIO_Type* port = nrf_gpio_pin_port_decode(&pin);
   return &port->OUTCLR;
 }
-#define _PM_pinOutput(pin)                                                     \
-  nrf_gpio_cfg(pin, NRF_GPIO_PIN_DIR_OUTPUT, NRF_GPIO_PIN_INPUT_DISCONNECT,    \
+#define _PM_pinOutput(pin)                                                  \
+  nrf_gpio_cfg(pin, NRF_GPIO_PIN_DIR_OUTPUT, NRF_GPIO_PIN_INPUT_DISCONNECT, \
                NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_H0H1, NRF_GPIO_PIN_NOSENSE)
 #define _PM_pinInput(pin) nrf_gpio_cfg_input(pin)
 #define _PM_pinHigh(pin) nrf_gpio_pin_set(pin)
@@ -116,11 +116,11 @@ volatile uint32_t *_PM_portClearRegister(uint32_t pin) {
 // Because it's tied to a specific timer right now, there can be only
 // one instance of the Protomatter_core struct. The Arduino library
 // sets up this pointer when calling begin().
-void *_PM_protoPtr = NULL;
+void* _PM_protoPtr = NULL;
 
 // Timer interrupt service routine
 void _PM_IRQ_HANDLER(void) {
-  NRF_TIMER_Type *timer = (((Protomatter_core *)_PM_protoPtr)->timer);
+  NRF_TIMER_Type* timer = (((Protomatter_core*)_PM_protoPtr)->timer);
   if (timer->EVENTS_COMPARE[0]) {
     timer->EVENTS_COMPARE[0] = 0;
   }
@@ -136,9 +136,9 @@ void _PM_IRQ_HANDLER(void) {
 
 // CODE COMMON TO ALL ENVIRONMENTS -----------------------------------------
 
-void _PM_timerInit(Protomatter_core *core) {
+void _PM_timerInit(Protomatter_core* core) {
   static const struct {
-    NRF_TIMER_Type *tc; // -> Timer peripheral base address
+    NRF_TIMER_Type* tc; // -> Timer peripheral base address
     IRQn_Type IRQn;     // Interrupt number
   } timer[] = {
 #if defined(NRF_TIMER0)
@@ -162,13 +162,13 @@ void _PM_timerInit(Protomatter_core *core) {
   // Determine IRQn from timer address
   uint8_t timerNum = 0;
   while ((timerNum < NUM_TIMERS) &&
-         (timer[timerNum].tc != (NRF_TIMER_Type *)core->timer)) {
+         (timer[timerNum].tc != (NRF_TIMER_Type*)core->timer)) {
     timerNum++;
   }
   if (timerNum >= NUM_TIMERS)
     return;
 
-  NRF_TIMER_Type *tc = timer[timerNum].tc;
+  NRF_TIMER_Type* tc = timer[timerNum].tc;
 
   tc->TASKS_STOP = 1;               // Stop timer
   tc->MODE = TIMER_MODE_MODE_Timer; // Timer (not counter) mode
@@ -184,22 +184,22 @@ void _PM_timerInit(Protomatter_core *core) {
   NVIC_EnableIRQ(timer[timerNum].IRQn);
 }
 
-inline void _PM_timerStart(Protomatter_core *core, uint32_t period) {
-  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
+inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
+  volatile NRF_TIMER_Type* tc = (volatile NRF_TIMER_Type*)core->timer;
   tc->TASKS_STOP = 1;  // Stop timer
   tc->TASKS_CLEAR = 1; // Reset to 0
   tc->CC[0] = period;
   tc->TASKS_START = 1; // Start timer
 }
 
-inline uint32_t _PM_timerGetCount(Protomatter_core *core) {
-  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
+inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
+  volatile NRF_TIMER_Type* tc = (volatile NRF_TIMER_Type*)core->timer;
   tc->TASKS_CAPTURE[1] = 1; // Capture timer to CC[1] register
   return tc->CC[1];         // (don't clobber value in CC[0])
 }
 
-uint32_t _PM_timerStop(Protomatter_core *core) {
-  volatile NRF_TIMER_Type *tc = (volatile NRF_TIMER_Type *)core->timer;
+uint32_t _PM_timerStop(Protomatter_core* core) {
+  volatile NRF_TIMER_Type* tc = (volatile NRF_TIMER_Type*)core->timer;
   tc->TASKS_STOP = 1; // Stop timer
   __attribute__((unused)) uint32_t count = _PM_timerGetCount(core);
   return count;
