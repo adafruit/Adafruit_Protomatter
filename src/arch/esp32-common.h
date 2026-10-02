@@ -140,6 +140,18 @@ void _PM_esp32commonTimerInit(Protomatter_core* core) {
 // This is "private" for now. We link to it anyway because there isn't a more
 // public method yet.
 extern bool spi_flash_cache_enabled(void);
+
+// Use one-shot alarms: an auto-reloading alarm can fire again while the
+// previous callback is still preparing the next bitplane.
+static IRAM_ATTR void _PM_esp32timerArm(gptimer_handle_t timer,
+                                        uint32_t period) {
+  gptimer_alarm_config_t alarm_config = {
+      .alarm_count = period ? period : 1,
+      .flags.auto_reload_on_alarm = false,
+  };
+  gptimer_set_raw_count(timer, 0);
+  gptimer_set_alarm_action(timer, &alarm_config);
+}
 static IRAM_ATTR bool _PM_esp32timerCallback(
     gptimer_handle_t timer, const gptimer_alarm_event_data_t* event,
     void* unused) {
@@ -155,6 +167,14 @@ static IRAM_ATTR bool _PM_esp32timerCallback(void* unused) {
   if (_PM_protoPtr) {
 #endif
     _PM_row_handler(_PM_protoPtr); // In core.c
+#if ESP_IDF_VERSION_MAJOR >= 5
+  } else if (_PM_protoPtr) {
+    // Keep retrying while flash/PSRAM is unavailable. A one-shot alarm
+    // otherwise stays disabled after a skipped scan callback.
+    gptimer_stop(timer);
+    _PM_esp32timerArm(timer, event->alarm_value);
+    gptimer_start(timer);
+#endif
   }
   return false;
 };
@@ -164,12 +184,7 @@ static IRAM_ATTR bool _PM_esp32timerCallback(void* unused) {
 IRAM_ATTR void _PM_timerStart(Protomatter_core* core, uint32_t period) {
   gptimer_handle_t timer = (gptimer_handle_t)core->timer;
 
-  gptimer_alarm_config_t alarm_config = {
-      .reload_count = 0,     // counter will reload with 0 on alarm event
-      .alarm_count = period, // period in ms
-      .flags.auto_reload_on_alarm = true, // enable auto-reload
-  };
-  gptimer_set_alarm_action(timer, &alarm_config);
+  _PM_esp32timerArm(timer, period);
   gptimer_start(timer);
 }
 #else
