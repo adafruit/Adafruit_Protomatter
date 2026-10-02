@@ -374,9 +374,11 @@ void loop() {
       }
     }
   } else if(GIFisOpen) {
-    if (GIF.playFrame(true, NULL) >= 0) { // Auto resets to start if needed
+    int frameResult = GIF.playFrame(true, NULL);
+    if (frameResult >= 0) { // Auto resets to start if needed
       matrix.show();
-      if ((millis() - GIFstartTime) >= (GIFminimumTime * 1000)) {
+      if ((millis() - GIFstartTime) >= (GIFminimumTime * 1000) &&
+          frameResult == 0) {
         GIFincrement = 1; // Minimum time has elapsed, proceed to next GIF
       }
     } else {
