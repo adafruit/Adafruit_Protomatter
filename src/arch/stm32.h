@@ -74,8 +74,9 @@ volatile uint16_t* _PM_portClearRegister(uint32_t pin) {
   return 1 + (uint16_t*)&pin_port(pin / 16)->BSRR;
 }
 
-// TODO: was this somehow specific to TIM6?
-#define _PM_timerFreq 42000000
+// Timer source depends on its APB bus and the configured clock dividers.
+#define _PM_timerFreq \
+  stm_peripherals_timer_get_source_freq((TIM_TypeDef*)core->timer)
 
 // Because it's tied to a specific timer right now, there can be only
 // one instance of the Protomatter_core struct. The Arduino library
