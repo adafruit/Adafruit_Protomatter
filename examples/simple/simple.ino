@@ -109,6 +109,14 @@ supported boards. Notes have been moved to the bottom of the code.
   uint8_t clockPin   = 23; // A9
   uint8_t latchPin   = 6;
   uint8_t oePin      = 9;
+#elif defined(ARDUINO_UNOR4_MINIMA)
+  // Adafruit RGB Matrix Shield. RGB in PORT1 low byte (P105-P102, P106,
+  // P107); clock on a different PORT is handled by the Renesas arch code.
+  uint8_t rgbPins[] = {2, 3, 4, 5, 6, 7};
+  uint8_t addrPins[] = {A0, A1, A2, A3};
+  uint8_t clockPin = 8;
+  uint8_t latchPin = 10;
+  uint8_t oePin = 9;
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_RP2040)
   // RP2040 support requires the Earle Philhower board support package;
   // will not compile with the Arduino Mbed OS board package.

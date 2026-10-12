@@ -200,6 +200,7 @@ _PM_CUSTOM_BLAST             If defined, instructs core code to not compile
 #include "samd51.h"
 #include "stm32.h"
 #include "teensy4.h"
+#include "renesas.h"
 // clang-format on
 
 // DEFAULTS IF NOT DEFINED ABOVE -------------------------------------------
