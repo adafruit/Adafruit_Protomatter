@@ -61,7 +61,8 @@ static void __not_in_flash_func(_PM_timerISR)(void);
 
 // Inline SRAM delay using the 1 MHz hardware timer register (avoids calling
 // Flash-resident delayMicroseconds() or busy_wait_us_32() inside the ISR).
-static inline void __attribute__((always_inline)) _PM_delay_us_ram(uint32_t us) {
+static inline void __attribute__((always_inline)) _PM_delay_us_ram(
+    uint32_t us) {
   uint32_t start = timer_hw->timerawl;
   while ((uint32_t)(timer_hw->timerawl - start) < us) {
     asm volatile("");
