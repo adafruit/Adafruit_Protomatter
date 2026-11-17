@@ -45,12 +45,30 @@
 #endif
 
 #if _PM_CLOCK_PWM // Use PWM for timing
-static void _PM_PWM_ISR(void);
+static void __not_in_flash_func(_PM_PWM_ISR)(void);
 #else // Use timer alarm for timing
-static void _PM_timerISR(void);
+static void __not_in_flash_func(_PM_timerISR)(void);
 #endif
 
 #if defined(ARDUINO) // COMPILING FOR ARDUINO ------------------------------
+
+#include <Arduino.h>
+
+// Place _PM_row_handler() and blast_*() in SRAM to avoid XIP flash cache
+// stalls during interrupts when F_CPU > 128 MHz on RP2040/RP2350.
+#undef IRAM_ATTR
+#define IRAM_ATTR __attribute__((section(".time_critical.protomatter")))
+
+// Inline SRAM delay using the 1 MHz hardware timer register (avoids calling
+// Flash-resident delayMicroseconds() or busy_wait_us_32() inside the ISR).
+static inline void __attribute__((always_inline)) _PM_delay_us_ram(
+    uint32_t us) {
+  uint32_t start = timer_hw->timerawl;
+  while ((uint32_t)(timer_hw->timerawl - start) < us) {
+    asm volatile("");
+  }
+}
+#define _PM_delayMicroseconds(n) _PM_delay_us_ram(n)
 
 // THIS CURRENTLY ONLY WORKS WITH THE PHILHOWER RP2040 CORE.
 // mbed Arduino RP2040 core won't compile due to missing stdio.h.
@@ -87,15 +105,18 @@ static void _PM_timerISR(void);
 void _PM_timerInit(Protomatter_core* core) {
 #if _PM_CLOCK_PWM
   // Enable PWM wrap interrupt
+  pwm_set_enabled(_PM_PWM_SLICE, false);
   pwm_clear_irq(_PM_PWM_SLICE);
+  irq_clear(PWM_IRQ_WRAP);
   pwm_set_irq_enabled(_PM_PWM_SLICE, true);
   irq_set_exclusive_handler(PWM_IRQ_WRAP, _PM_PWM_ISR);
+  irq_set_priority(PWM_IRQ_WRAP, 0);
   irq_set_enabled(PWM_IRQ_WRAP, true);
 
   // Config but do not start PWM
   pwm_config config = pwm_get_default_config();
   pwm_config_set_clkdiv_int(&config, _PM_PWM_DIV);
-  pwm_init(_PM_PWM_SLICE, &config, true);
+  pwm_init(_PM_PWM_SLICE, &config, false);
 #else
   timer_hw->alarm[_PM_ALARM_NUM] = timer_hw->timerawl; // Clear any timer
   hw_set_bits(&timer_hw->inte, 1u << _PM_ALARM_NUM);
@@ -197,22 +218,31 @@ static volatile uint32_t _PM_timerSave;
 void* _PM_protoPtr = NULL;
 
 #if _PM_CLOCK_PWM // Use PWM for timing
-static void _PM_PWM_ISR(void) {
+static void __not_in_flash_func(_PM_PWM_ISR)(void) {
   pwm_clear_irq(_PM_PWM_SLICE);  // Reset PWM wrap interrupt
   _PM_row_handler(_PM_protoPtr); // In core.c
 }
 #else // Use timer alarm for timing
-static void _PM_timerISR(void) {
+static void __not_in_flash_func(_PM_timerISR)(void) {
   hw_clear_bits(&timer_hw->intr, 1u << _PM_ALARM_NUM); // Clear alarm flag
   _PM_row_handler(_PM_protoPtr);                       // In core.c
 }
 #endif
 
 // Set timer period and enable timer.
-inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
+void __not_in_flash_func(_PM_timerStart)(Protomatter_core* core,
+                                         uint32_t period) {
 #if _PM_CLOCK_PWM
+  if (period > 65535u) {
+    period = 65535u;
+  } else if (period < 16u) {
+    period = 16u;
+  }
+  pwm_set_enabled(_PM_PWM_SLICE, false);
   pwm_set_counter(_PM_PWM_SLICE, 0);
-  pwm_set_wrap(_PM_PWM_SLICE, period);
+  pwm_set_wrap(_PM_PWM_SLICE, (uint16_t)period);
+  pwm_clear_irq(_PM_PWM_SLICE);
+  irq_clear(PWM_IRQ_WRAP);
   pwm_set_enabled(_PM_PWM_SLICE, true);
 #else
   irq_set_enabled(_PM_IRQ_HANDLER, true);                  // Enable alarm IRQ
@@ -223,7 +253,7 @@ inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
 
 // Return current count value (timer enabled or not).
 // Timer must be previously initialized.
-inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
+uint32_t __not_in_flash_func(_PM_timerGetCount)(Protomatter_core* core) {
 #if _PM_CLOCK_PWM
   return pwm_get_counter(_PM_PWM_SLICE);
 #else
@@ -233,26 +263,33 @@ inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
 
 // Disable timer and return current count value.
 // Timer must be previously initialized.
-uint32_t _PM_timerStop(Protomatter_core* core) {
+uint32_t __not_in_flash_func(_PM_timerStop)(Protomatter_core* core) {
 #if _PM_CLOCK_PWM
   pwm_set_enabled(_PM_PWM_SLICE, false);
+  uint32_t count = pwm_get_counter(_PM_PWM_SLICE);
+  pwm_clear_irq(_PM_PWM_SLICE);
+  irq_clear(PWM_IRQ_WRAP);
+  return count;
 #else
   irq_set_enabled(_PM_IRQ_HANDLER, false); // Disable alarm IRQ
-#endif
   return _PM_timerGetCount(core);
+#endif
 }
 
-#if (F_CPU >= 250000000)
-#define _PM_clockHoldLow asm("nop; nop; nop;");
-#define _PM_clockHoldHigh asm("nop; nop; nop;");
+#if (F_CPU >= 225000000)
+#define _PM_clockHoldLow asm volatile("nop; nop; nop; nop; nop;");
+#define _PM_clockHoldHigh asm volatile("nop; nop; nop; nop;");
 #elif (F_CPU >= 175000000)
-#define _PM_clockHoldLow asm("nop; nop; nop;");
-#define _PM_clockHoldHigh asm("nop;");
+#define _PM_clockHoldLow asm volatile("nop; nop; nop; nop;");
+#define _PM_clockHoldHigh asm volatile("nop; nop; nop;");
+#elif (F_CPU >= 150000000)
+#define _PM_clockHoldLow asm volatile("nop; nop; nop;");
+#define _PM_clockHoldHigh asm volatile("nop; nop;");
 #elif (F_CPU >= 125000000)
-#define _PM_clockHoldLow asm("nop; nop; nop;");
-#define _PM_clockHoldHigh asm("nop;");
+#define _PM_clockHoldLow asm volatile("nop; nop; nop;");
+#define _PM_clockHoldHigh asm volatile("nop;");
 #elif (F_CPU >= 100000000)
-#define _PM_clockHoldLow asm("nop;");
+#define _PM_clockHoldLow asm volatile("nop;");
 #endif // No NOPs needed at lower speeds
 
 #define _PM_chunkSize 8

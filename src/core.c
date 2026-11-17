@@ -51,7 +51,9 @@
 // refresh slower than this, and in many cases will...just need to set an
 // upper limit to avoid excessive CPU load). An incredibly long comment block
 // for a single constant, thank you for coming to my TED talk!
+#ifndef _PM_MAX_REFRESH_HZ
 #define _PM_MAX_REFRESH_HZ 250 ///< Max matrix refresh rate
+#endif
 
 // Time (in microseconds) to pause following any change in address lines
 // (individually or collectively). Some matrices respond slowly there...
@@ -71,9 +73,9 @@
 // exposed and NOT interfering with other peripherals on a board is highly
 // improbable. But I could see four happening, maybe on a Grand Central or
 // other kitchen-sink board.
-static void blast_byte(Protomatter_core* core, uint8_t* data);
-static void blast_word(Protomatter_core* core, uint16_t* data);
-static void blast_long(Protomatter_core* core, uint32_t* data);
+IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data);
+IRAM_ATTR static void blast_word(Protomatter_core* core, uint16_t* data);
+IRAM_ATTR static void blast_long(Protomatter_core* core, uint32_t* data);
 
 // Needed only for panels with FM6126A chipset
 static void _PM_resetFM6126A(Protomatter_core* core);
@@ -686,7 +688,7 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core* core) {
     // Determine number of timer cycles taken to issue the data.
     // It can vary slightly if heavy interrupts happen, things like that.
     // Timer is still running and counting up at this point.
-    uint32_t elapsed = _PM_timerGetCount(core);
+    uint32_t elapsed = _PM_timerGetCount(core) + 64u;
     // Nudge the plane-zero time up or down (filtering to avoid jitter)
     core->bitZeroPeriod = ((core->bitZeroPeriod * 7) + elapsed + 4) / 8;
     // But don't allow it to drop below the minimum period calculated during
