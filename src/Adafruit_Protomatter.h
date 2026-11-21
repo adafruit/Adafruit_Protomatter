@@ -110,6 +110,17 @@ class Adafruit_Protomatter : public GFXcanvas16 {
     _PM_setDuty(d);
   };
 
+  /*!
+    @brief  Hardware brightness: shortens the LED on time of every bitplane,
+            keeping the refresh rate and every colour step (unlike scaling
+            the colours down). ESP32-S3 (Arduino core 3 / ESP-IDF 5+) only;
+            does nothing on other architectures.
+    @param  b  0 (dimmest) to 255 (full brightness, the default).
+  */
+  void setBrightness(uint8_t b) {
+    _PM_setBrightness(b);
+  }
+
  private:
   Protomatter_core core;             // Underlying C struct
   void convert_byte(uint8_t* dest);  // GFXcanvas16-to-matrix

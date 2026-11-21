@@ -278,6 +278,15 @@ extern void _PM_swapbuffer_maybe(Protomatter_core* core);
 */
 extern void _PM_setDuty(uint8_t d);
 
+/*!
+  @brief  Hardware brightness: shortens every bitplane's LED on time (OE),
+          keeping the refresh rate and all colour steps. Only on architectures
+          with the short-bitplane handler (ESP32-S3 with ESP-IDF 5+);
+          elsewhere it does nothing.
+  @param  b  0 (dimmest) to 255 (full brightness, the default).
+*/
+extern void _PM_setBrightness(uint8_t b);
+
 #if defined(ARDUINO) || defined(CIRCUITPY)
 
 /*!

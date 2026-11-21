@@ -51,13 +51,6 @@
 #define _PM_byteOffset(pin) 0
 #define _PM_wordOffset(pin) 0
 
-// On ESP32-S3, use the LCD_CAM peripheral for fast parallel output.
-// Thanks to ESP's pin MUXing, matrix data in RAM can ALWAYS be stored in
-// byte format regardless how RGB+clock bits are distributed among pins.
-#define _PM_bytesPerElement 1
-#define _PM_byteOffset(pin) 0
-#define _PM_wordOffset(pin) 0
-
 // On most architectures, _PM_timerGetCount() is used to measure bitbang
 // speed for one scanline, which is then used for bitplane 0 time, and each
 // subsequent plane doubles that. Since ESP32-S3 uses DMA and we don't have
@@ -82,8 +75,29 @@ IRAM_ATTR inline uint32_t _PM_timerGetCount(Protomatter_core* core) {
 // slightly different length of time, but duty cycle scales with this so it's
 // perceptually consistent; don't see bright or dark rows.
 
-#define _PM_minMinPeriod \
-  (200 + (uint32_t)core->chainBits * 40 * LCD_CLK_PRESCALE / 160)
+// Approximate time (in timer ticks) to set up and issue one bitplane
+#define _PM_S3_LOAD_ESTIMATE(core) \
+  (200 + (uint32_t)(core)->chainBits * 40 * LCD_CLK_PRESCALE / 160)
+
+// Arduino (ESP-IDF 5+) uses the short-bitplane row handler in core.c:
+// bitplanes shorter than one data transfer are shown while the next plane
+// loads and are timed with the CPU cycle counter. Without it, the shortest
+// bitplane can't be shorter than a transfer, and each extra bit of depth
+// halves the refresh rate (e.g. ~63 Hz for three chained 64x32 panels at
+// 6 bits, which flickers). Define PROTOMATTER_NO_SHORT_PLANES (e.g. as a
+// build flag) to get the previous behavior.
+#if defined(ARDUINO) && (ESP_IDF_VERSION_MAJOR >= 5) && \
+    !defined(PROTOMATTER_NO_SHORT_PLANES)
+#define _PM_SHORT_PLANES
+#endif
+
+#if defined(_PM_SHORT_PLANES)
+// Bitplane 0 no longer has to cover a data transfer. 1 us lower limit
+// keeps the shortest OE pulse well within what HUB75 drivers handle.
+#define _PM_minMinPeriod 40
+#else
+#define _PM_minMinPeriod _PM_S3_LOAD_ESTIMATE(core)
+#endif
 
 #if (ESP_IDF_VERSION_MAJOR >= 5)
 #include <esp_private/periph_ctrl.h>
@@ -124,8 +138,10 @@ static gdma_channel_handle_t dma_chan;
 
 // If using custom "blast" function(s), all three must be declared.
 // Unused ones can be empty, that's fine, just need to exist.
-IRAM_ATTR static void blast_word(Protomatter_core* core, uint16_t* data) {}
-IRAM_ATTR static void blast_long(Protomatter_core* core, uint32_t* data) {}
+__attribute__((unused)) IRAM_ATTR static void blast_word(Protomatter_core* core,
+                                                         uint16_t* data) {}
+__attribute__((unused)) IRAM_ATTR static void blast_long(Protomatter_core* core,
+                                                         uint32_t* data) {}
 
 static void pinmux(int8_t pin, uint8_t signal) {
   esp_rom_gpio_connect_out_signal(pin, signal, false, false);
@@ -136,7 +152,10 @@ static void pinmux(int8_t pin, uint8_t signal) {
 // LCD_CAM requires a complete replacement of the "blast" functions in order
 // to use the DMA-based peripheral.
 #define _PM_CUSTOM_BLAST // Disable blast_*() functions in core.c
-IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
+
+// Begin the DMA transfer of one bitplane (returns while it's in progress)
+IRAM_ATTR static inline void _PM_blastStart(Protomatter_core* core,
+                                            uint8_t* data) {
   // Reset LCD DOUT parameters each time (required).
   // IN PRINCIPLE, cyclelen should be chainBits-1 (resulting in chainBits
   // cycles). But due to the required dummy phases at start of transfer,
@@ -157,6 +176,20 @@ IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
   esp_rom_delay_us(1); // Necessary before starting xfer
 
   LCD_CAM.lcd_user.lcd_start = 1; // Begin LCD DMA xfer
+}
+
+// Wait for the transfer started by _PM_blastStart() to finish clocking out,
+// so nothing can latch or stop the panel mid-transfer.
+IRAM_ATTR static inline void _PM_blastWait(Protomatter_core* core) {
+  (void)core;
+  while (LCD_CAM.lcd_user.lcd_start) {
+  }
+  esp_rom_delay_us(1);
+}
+
+__attribute__((unused)) IRAM_ATTR static void blast_byte(Protomatter_core* core,
+                                                         uint8_t* data) {
+  _PM_blastStart(core, data);
 
   // Timer was cleared to 0 before calling blast_byte(), so this
   // is the state of the timer immediately after DMA started:
@@ -165,9 +198,7 @@ IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
   // Finish clocking before another callback can latch or stop the panel.
   // Keep this outside dmaSetupTime: the estimate already includes transfer
   // time.
-  while (LCD_CAM.lcd_user.lcd_start) {
-  }
-  esp_rom_delay_us(1);
+  _PM_blastWait(core);
 #elif defined(CIRCUITPY)
   uint64_t value;
 #if (ESP_IDF_VERSION_MAJOR >= 5)
@@ -181,6 +212,46 @@ IRAM_ATTR static void blast_byte(Protomatter_core* core, uint8_t* data) {
 #endif
   // See notes near top of this file for what's done with this info.
 }
+
+#if defined(_PM_SHORT_PLANES)
+#include <esp_cpu.h>
+#include <esp_rom_sys.h>
+
+#define _PM_cycleCount() ((uint32_t)esp_cpu_get_cycle_count())
+// CPU cycles per timer tick (40 MHz); set in _PM_timerInit()
+static uint32_t _PM_cyclesPerTick = 6;
+// Filtered time (timer ticks) to load one bitplane; set in _PM_timerInit()
+static uint32_t _PM_loadTicks = 1000;
+// Extra ticks a timer-ended bitplane needs beyond the load itself: timer
+// restart, interrupt exit and the next interrupt's entry. A bitplane shorter
+// than _PM_loadTicks + this margin is timed by cycle count instead.
+#define _PM_SHORT_PLANE_MARGIN 160 // 4 us
+// Timer-ended bitplanes: the timer fires this many ticks early, and the
+// row handler waits for the exact end (_PM_oeOffCycle) so that interrupt
+// entry latency up to this long doesn't lengthen the plane. Must be less
+// than _PM_SHORT_PLANE_MARGIN (timer-ended planes are at least that long).
+#define _PM_SHORT_PLANE_LEAD 120               // 3 us
+static volatile uint32_t _PM_oeOffCycle;       // Cycle count to end plane at
+static volatile bool _PM_oeOffPending = false; // _PM_oeOffCycle is valid
+
+// Measured on timer-ended bitplanes only. Fast attack (a slow transfer must
+// never make a timer-ended bitplane run late), slow decay.
+IRAM_ATTR static inline void _PM_updateLoadTicks(uint32_t cycles) {
+  uint32_t ticks = cycles / _PM_cyclesPerTick + 1;
+  if (ticks > _PM_loadTicks) {
+    _PM_loadTicks = ticks;
+  } else {
+    _PM_loadTicks = (_PM_loadTicks * 15 + ticks) / 16;
+  }
+}
+
+// Hold latch high for ~250 ns
+IRAM_ATTR static inline void _PM_latchHold(void) {
+  uint32_t start = _PM_cycleCount();
+  while ((uint32_t)(_PM_cycleCount() - start) < 10 * _PM_cyclesPerTick)
+    ;
+}
+#endif // _PM_SHORT_PLANES
 
 static void _PM_timerInit(Protomatter_core* core) {
   // On S3, initialize the LCD_CAM peripheral and DMA.
@@ -289,6 +360,16 @@ static void _PM_timerInit(Protomatter_core* core) {
   // an interrupt service routine, but DO need to enable the TRANS_DONE
   // flag to make the LCD DMA transfer work.
   LCD_CAM.lc_dma_int_ena.val |= LCD_LL_EVENT_TRANS_DONE & 0x03;
+
+#if defined(_PM_SHORT_PLANES)
+  _PM_cyclesPerTick =
+      esp_rom_get_cpu_ticks_per_us() / (_PM_timerFreq / 1000000);
+  if (_PM_cyclesPerTick < 1) {
+    _PM_cyclesPerTick = 1;
+  }
+  _PM_loadTicks = _PM_S3_LOAD_ESTIMATE(core);
+  _PM_oeOffPending = false;
+#endif
 
   _PM_esp32commonTimerInit(core); // In esp32-common.h
 }
