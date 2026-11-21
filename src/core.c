@@ -560,6 +560,218 @@ void _PM_deallocate(Protomatter_core* core) {
   }
 }
 
+// Select the row whose bitplane 0 was just latched (called with OE off).
+IRAM_ATTR static inline void _PM_selectRow(Protomatter_core* core) {
+  if (core->rowAddressMode == PROTOMATTER_ROW_ADDRESS_ABC) {
+    if (core->row != core->prevRow) {
+      _PM_shiftRow(core, core->row == 0);
+    }
+  } else {
+#if defined(_PM_portToggleRegister)
+    // If all address lines are on a single PORT (and bit toggle is
+    // available), do address line change all at once. Even doing all
+    // this math takes MUCH less time than the delays required when
+    // doing line-by-line changes.
+    if (core->singleAddrPort) {
+      // Make bitmasks of prior and new row bits
+      uint32_t priorBits = 0, newBits = 0;
+      for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
+           line++, bit <<= 1) {
+        if (core->row & bit) {
+          newBits |= core->addr[line].bit;
+        }
+        if (core->prevRow & bit) {
+          priorBits |= core->addr[line].bit;
+        }
+      }
+      *(volatile _PM_PORT_TYPE*)core->addrPortToggle = newBits ^ priorBits;
+      _PM_delayMicroseconds(_PM_ROW_DELAY);
+    } else {
+#endif
+      // Configure row address lines individually, making changes
+      // (with delays) only where necessary.
+      for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
+           line++, bit <<= 1) {
+        if ((core->row & bit) != (core->prevRow & bit)) {
+          if (core->row & bit) { // Set addr line high
+            _PM_setReg(core->addr[line]);
+          } else { // Set addr line low
+            _PM_clearReg(core->addr[line]);
+          }
+          _PM_delayMicroseconds(_PM_ROW_DELAY);
+        }
+      }
+#if defined(_PM_portToggleRegister)
+    }
+#endif
+  }
+  core->prevRow = core->row;
+}
+
+// Advance bitplane index and/or row as necessary
+IRAM_ATTR static inline void _PM_nextPlane(Protomatter_core* core) {
+  if (++core->plane >= core->numPlanes) {   // Next data bitplane, or
+    core->plane = 0;                        // roll over bitplane to start
+    if (++core->row >= core->numRowPairs) { // Next row, or
+      core->row = 0;                        // roll over row to start
+      // Switch matrix buffers if due (only if double-buffered)
+      if (core->swapBuffers) {
+        core->activeBuffer = 1 - core->activeBuffer;
+        core->swapBuffers = 0; // Swapped!
+      }
+      core->frameCount++;
+    }
+  }
+}
+
+// Address of the data for bitplane core->plane of row core->row
+IRAM_ATTR static inline uint8_t* _PM_planeData(Protomatter_core* core) {
+  uint32_t elementsPerLine =
+      _PM_chunkSize * ((core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize);
+  uint32_t srcOffset = elementsPerLine *
+                       (core->numPlanes * core->row + core->plane) *
+                       core->bytesPerElement;
+  if (core->doubleBuffer) {
+    srcOffset += core->bufferSize * core->activeBuffer;
+  }
+  return core->screenData + srcOffset;
+}
+
+#if defined(_PM_SHORT_PLANES)
+
+// Row handler for architectures whose data transfer runs in the background
+// (DMA) and that provide a CPU cycle counter (see arch.h, _PM_SHORT_PLANES).
+// The default handler below can't show a bitplane for less time than it
+// takes to load the next one, so every extra bit of depth doubles the time
+// per row; on long chains that drops refresh well below 100 Hz (visible
+// flicker). Here, bitplanes shorter than the load time are shown while the
+// next plane loads, OE is switched off after exactly the plane's time
+// (timed with the cycle counter, so interrupt latency doesn't change it),
+// and the next plane is latched within the same interrupt. Planes that are
+// long enough return and let the timer call back, but the timer is set to
+// fire _PM_SHORT_PLANE_LEAD early and this handler then waits for the exact
+// end time, so all planes are timed the same way.
+// Hardware brightness (short-plane handler only): every bitplane's LED on
+// time is scaled by _PM_dim / 256, the time taken off is added once per row
+// as a dark pause after the last plane, so the refresh rate stays the same
+// and no colour steps are lost. 256 = full brightness (no dark pause, the
+// handler then runs exactly as without dimming).
+static volatile uint16_t _PM_dim = 256;
+static volatile bool _PM_darkPending = false; // next interrupt: dark pause
+static volatile uint32_t _PM_darkTicks = 0;   // length of that pause
+static volatile uint32_t _PM_rowStartCycle = 0;
+
+void _PM_setBrightness(uint8_t b) {
+  // 0..255 -> 1..256 (0 keeps a sliver of light: an OE pulse of 0 is a
+  // spike of a few cycles anyway)
+  _PM_dim = (uint16_t)b + 1;
+}
+
+// Dark pause after the last plane: what the row would have taken at full
+// brightness minus what it took (planes that are bound by the load time don't
+// get shorter when dimmed). `endCycle` is when the last plane's light ends.
+IRAM_ATTR static inline uint32_t _PM_rowDarkTicks(Protomatter_core* core,
+                                                  uint32_t endCycle) {
+  uint32_t target =
+      (core->bitZeroPeriod * ((1u << core->numPlanes) - 1)) * _PM_cyclesPerTick;
+  uint32_t used = endCycle - _PM_rowStartCycle;
+  if (used >= target) {
+    return 0;
+  }
+  return (target - used) / _PM_cyclesPerTick;
+}
+
+IRAM_ATTR void _PM_row_handler(Protomatter_core* core) {
+  if (_PM_oeOffPending) { // Wait for exact end of the plane being shown
+    _PM_oeOffPending = false;
+    while ((int32_t)(_PM_cycleCount() - _PM_oeOffCycle) < 0)
+      ;
+  }
+  _PM_setReg(core->oe);  // Disable LED output
+  if (_PM_darkPending) { // Dimmed: stay dark, the loaded plane waits
+    _PM_darkPending = false;
+    (void)_PM_timerStop(core);
+    _PM_timerStart(core, _PM_darkTicks);
+    return;
+  }
+  // See notes in the default handler below re: this clear/set/clear order.
+  _PM_clearReg(core->latch);
+  _PM_setReg(core->latch);
+  (void)_PM_timerStop(core);
+  uint8_t prevPlane = core->plane; // Plane now latched, shown next
+  _PM_clearReg(core->latch);
+
+  if (prevPlane == 0) { // Plane 0 just finished loading
+    _PM_selectRow(core);
+    _PM_rowStartCycle = _PM_cycleCount();
+  }
+
+  const uint32_t dim = _PM_dim;
+  for (;;) {
+    _PM_nextPlane(core); // core->plane is now the plane to LOAD
+    uint8_t* data = _PM_planeData(core);
+    const bool last = (prevPlane == core->numPlanes - 1);
+    uint32_t period = core->bitZeroPeriod << prevPlane;
+    uint32_t loadTicks = _PM_loadTicks + _PM_SHORT_PLANE_MARGIN;
+    uint32_t cycles = period * _PM_cyclesPerTick; // LED on time
+    if (dim < 256) {
+      cycles = (uint32_t)(((uint64_t)cycles * dim) >> 8);
+      period = cycles / _PM_cyclesPerTick;
+    }
+
+    if ((period >= loadTicks) || (last && dim >= 256)) {
+      // Long enough to load the next plane during this one: let the timer
+      // end it, as in the default handler. (The last plane always ends
+      // here at full brightness, so the interrupt returns at least once
+      // per row.)
+      if (period < loadTicks) {
+        period = loadTicks;
+        cycles = period * _PM_cyclesPerTick;
+      }
+      _PM_timerStart(core, period - _PM_SHORT_PLANE_LEAD);
+      _PM_clearReg(core->oe); // Enable LED output
+      uint32_t t0 = _PM_cycleCount();
+      _PM_oeOffCycle = t0 + cycles;
+      _PM_oeOffPending = true;
+      _PM_blastStart(core, data);
+      _PM_blastWait(core);
+      _PM_updateLoadTicks(_PM_cycleCount() - t0);
+      if (last && dim < 256) {
+        uint32_t dark = _PM_rowDarkTicks(core, t0 + cycles);
+        if (dark >= _PM_SHORT_PLANE_MARGIN) {
+          _PM_darkTicks = dark;
+          _PM_darkPending = true;
+        }
+      }
+      return;
+    }
+
+    // Short plane: load the next one meanwhile, end this one by cycle count
+    _PM_blastStart(core, data);
+    _PM_clearReg(core->oe); // Enable LED output
+    uint32_t on = _PM_cycleCount();
+    while ((uint32_t)(_PM_cycleCount() - on) < cycles)
+      ;
+    _PM_setReg(core->oe); // Disable LED output
+    _PM_blastWait(core);  // (Not timed: may include the wait above)
+
+    if (last) { // Dimmed last plane: the dark pause ends the row (unlatched)
+      uint32_t dark = _PM_rowDarkTicks(core, _PM_cycleCount());
+      _PM_timerStart(core, dark > 40 ? dark : 40);
+      return;
+    }
+
+    // Latch the plane just loaded; it's shown on the next loop pass
+    _PM_clearReg(core->latch);
+    _PM_setReg(core->latch);
+    _PM_latchHold();
+    _PM_clearReg(core->latch);
+    prevPlane = core->plane;
+  }
+}
+
+#else // Default row handler
+
 // ISR function (in arch.h) calls this function which it extern'd.
 // Profuse apologies for the ESP32-specific IRAM_ATTR here -- the goal was
 // for all architecture-specific detauls to be in arch.h -- but the need
@@ -589,65 +801,10 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core* core) {
   _PM_clearReg(core->latch);       // (split to add a few cycles)
 
   if (prevPlane == 0) { // Plane 0 just finished loading
-    if (core->rowAddressMode == PROTOMATTER_ROW_ADDRESS_ABC) {
-      if (core->row != core->prevRow) {
-        _PM_shiftRow(core, core->row == 0);
-      }
-    } else {
-#if defined(_PM_portToggleRegister)
-      // If all address lines are on a single PORT (and bit toggle is
-      // available), do address line change all at once. Even doing all
-      // this math takes MUCH less time than the delays required when
-      // doing line-by-line changes.
-      if (core->singleAddrPort) {
-        // Make bitmasks of prior and new row bits
-        uint32_t priorBits = 0, newBits = 0;
-        for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
-             line++, bit <<= 1) {
-          if (core->row & bit) {
-            newBits |= core->addr[line].bit;
-          }
-          if (core->prevRow & bit) {
-            priorBits |= core->addr[line].bit;
-          }
-        }
-        *(volatile _PM_PORT_TYPE*)core->addrPortToggle = newBits ^ priorBits;
-        _PM_delayMicroseconds(_PM_ROW_DELAY);
-      } else {
-#endif
-        // Configure row address lines individually, making changes
-        // (with delays) only where necessary.
-        for (uint8_t line = 0, bit = 1; line < core->numAddressLines;
-             line++, bit <<= 1) {
-          if ((core->row & bit) != (core->prevRow & bit)) {
-            if (core->row & bit) { // Set addr line high
-              _PM_setReg(core->addr[line]);
-            } else { // Set addr line low
-              _PM_clearReg(core->addr[line]);
-            }
-            _PM_delayMicroseconds(_PM_ROW_DELAY);
-          }
-        }
-#if defined(_PM_portToggleRegister)
-      }
-#endif
-    }
-    core->prevRow = core->row;
+    _PM_selectRow(core);
   }
 
-  // Advance bitplane index and/or row as necessary
-  if (++core->plane >= core->numPlanes) {   // Next data bitplane, or
-    core->plane = 0;                        // roll over bitplane to start
-    if (++core->row >= core->numRowPairs) { // Next row, or
-      core->row = 0;                        // roll over row to start
-      // Switch matrix buffers if due (only if double-buffered)
-      if (core->swapBuffers) {
-        core->activeBuffer = 1 - core->activeBuffer;
-        core->swapBuffers = 0; // Swapped!
-      }
-      core->frameCount++;
-    }
-  }
+  _PM_nextPlane(core);
 
   // core->plane now is index of data to issue, NOT data to display.
   // 'prevPlane' is the previously-loaded data, which gets displayed
@@ -658,21 +815,14 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core* core) {
   _PM_delayMicroseconds(1); // Appease Teensy4
   _PM_clearReg(core->oe);   // Enable LED output
 
-  uint32_t elementsPerLine =
-      _PM_chunkSize * ((core->chainBits + (_PM_chunkSize - 1)) / _PM_chunkSize);
-  uint32_t srcOffset = elementsPerLine *
-                       (core->numPlanes * core->row + core->plane) *
-                       core->bytesPerElement;
-  if (core->doubleBuffer) {
-    srcOffset += core->bufferSize * core->activeBuffer;
-  }
+  uint8_t* data = _PM_planeData(core);
 
   if (core->bytesPerElement == 1) {
-    blast_byte(core, (uint8_t*)(core->screenData + srcOffset));
+    blast_byte(core, data);
   } else if (core->bytesPerElement == 2) {
-    blast_word(core, (uint16_t*)(core->screenData + srcOffset));
+    blast_word(core, (uint16_t*)data);
   } else {
-    blast_long(core, (uint32_t*)(core->screenData + srcOffset));
+    blast_long(core, (uint32_t*)data);
   }
 
   // core->plane data is now loaded, will be shown on NEXT pass
@@ -696,6 +846,8 @@ IRAM_ATTR void _PM_row_handler(Protomatter_core* core) {
     }
   }
 }
+
+#endif // _PM_SHORT_PLANES
 
 #if !defined _PM_CUSTOM_BLAST
 
@@ -1001,6 +1153,12 @@ static void _PM_resetFM6126A(Protomatter_core* core) {
 }
 
 uint8_t _PM_duty = _PM_defaultDuty; ///< RGB clock duty setting
+
+#if !defined(_PM_SHORT_PLANES)
+void _PM_setBrightness(uint8_t b) {
+  (void)b;
+} // Not supported here
+#endif
 
 void _PM_setDuty(uint8_t d) {
   _PM_duty = (d > _PM_maxDuty) ? _PM_maxDuty : d;

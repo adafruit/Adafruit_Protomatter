@@ -80,7 +80,12 @@ IRAM_ATTR inline void _PM_timerStart(Protomatter_core* core, uint32_t period) {
   timerStart(timer);
 #else
   timerWrite(timer, 0);
-  timerAlarm(timer, period ? period : 1, true, 0);
+  // One-shot: an auto-reloading alarm can fire again while the row handler is
+  // still running (e.g. when WiFi start-up delays the interrupt), leaving a
+  // stale interrupt that enters the handler far too early. With short planes
+  // the handler then spins until the plane's end inside the interrupt, and
+  // repeated early entries starve the CPU (interrupt watchdog reset).
+  timerAlarm(timer, period ? period : 1, false, 0);
   timerStart(timer);
 #endif
   _PM_esp32timerRunning = true;
